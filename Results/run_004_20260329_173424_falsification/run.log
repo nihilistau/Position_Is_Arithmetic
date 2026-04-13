@@ -1,0 +1,10 @@
+17:34:24 | INFO | Run dir: C:\Files\Models\CosySim\apps\TestSuite\results\run_004_20260329_173424_falsification
+17:34:24 | INFO | Device: cuda | {'device': 'NVIDIA GeForce RTX 2060', 'vram_gb': 12.9, 'vram_used': 0.0}
+17:34:24 | INFO | 
+17:34:24 | INFO | THE QUESTION: Is it prime arithmetic structure specifically,
+17:34:24 | INFO | or just having diverse non-geometric frequencies?
+17:34:24 | INFO | Variants: ['prime_tiered', 'alibi', 'scrambled_prime', 'random_freq', 'composite_only']
+17:34:24 | INFO |   SpectralALiBi (prime tiered + learnabl 17598816 params
+17:34:24 | INFO |   ALiBi (standard, baseline)             17598720 params
+17:34:24 | INFO |   Scrambled primes (same set, random tie 17598816 params
+17:34:24 | INFO |   Random frequencies (same ranges, no pr 17598816 params

@@ -1,0 +1,41 @@
+{
+  "config": {
+    "n_zeros": 1000,
+    "seq_len": 50,
+    "epochs_run": 10000,
+    "lr": 0.001,
+    "batch_size": 32,
+    "d_model": 64,
+    "n_heads": 4,
+    "n_layers": 3,
+    "n_primes": 32
+  },
+  "gap_mean": 1.4066944122314453,
+  "gap_std": 0.6569188833236694,
+  "summary": {
+    "geometric_rope": {
+      "final_val_mse": 0.439131,
+      "best_val_mse": 0.161895,
+      "best_epoch": 217,
+      "vs_geometric": 0.0
+    },
+    "spectral_alibi": {
+      "final_val_mse": 0.175218,
+      "best_val_mse": 0.070235,
+      "best_epoch": 112,
+      "vs_geometric": -60.1
+    },
+    "harmonic_string": {
+      "final_val_mse": 0.238261,
+      "best_val_mse": 0.109385,
+      "best_epoch": 161,
+      "vs_geometric": -45.74
+    }
+  },
+  "history_len": {
+    "geometric_rope": 10000,
+    "spectral_alibi": 10000,
+    "harmonic_string": 10000
+  },
+  "elapsed_seconds": 8063.0
+}

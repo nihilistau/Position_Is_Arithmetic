@@ -1,0 +1,13 @@
+{
+  "experiment": "falsification_long",
+  "gpu": {
+    "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "vram_gb": 101.973950464,
+    "profile": "a100_80",
+    "grad_accum": 32,
+    "batch": 1,
+    "workers": 4,
+    "parallel": true
+  },
+  "description": "Falsification suite \u2014 10K steps, 4K context (THE key experiment)"
+}

@@ -1,0 +1,172 @@
+{
+  "config": {
+    "d_model": 256,
+    "n_heads": 8,
+    "n_layers": 6,
+    "ffn_dim": 1024,
+    "dropout": 0.1,
+    "vocab_size": 50257,
+    "train_seq_len": 1024,
+    "max_steps": 1000,
+    "batch_size": 1,
+    "grad_accum": 16,
+    "lr": 0.0003,
+    "warmup_steps": 300,
+    "eval_every": 250,
+    "eval_batches": 40,
+    "eval_ctx_lens": [
+      512,
+      1024,
+      2048
+    ],
+    "n_seeds": 3
+  },
+  "bit_widths": [
+    2,
+    3,
+    4,
+    8
+  ],
+  "results": {
+    "prime_tiered": {
+      "variant": "prime_tiered",
+      "params": 17598816,
+      "quant_results": {
+        "2": {
+          "n_bits": 2,
+          "polar_mse": 5.29860163,
+          "polar_cos_sim": 0.801043,
+          "polar_angular_error_deg": 36.7702,
+          "residual_mse": 5.29860163,
+          "residual_l1": 1.81632888,
+          "ip_mse": 239336.453125,
+          "ip_relative_mse": 141.12806504
+        },
+        "3": {
+          "n_bits": 3,
+          "polar_mse": 0.64901716,
+          "polar_cos_sim": 0.801046,
+          "polar_angular_error_deg": 36.7699,
+          "residual_mse": 0.64901716,
+          "residual_l1": 0.6344983,
+          "ip_mse": 18978.94335938,
+          "ip_relative_mse": 10.74167689
+        },
+        "4": {
+          "n_bits": 4,
+          "polar_mse": 0.09854605,
+          "polar_cos_sim": 0.853387,
+          "polar_angular_error_deg": 31.418,
+          "residual_mse": 0.09854605,
+          "residual_l1": 0.24722473,
+          "ip_mse": 1196.38171387,
+          "ip_relative_mse": 0.68990483
+        },
+        "8": {
+          "n_bits": 8,
+          "polar_mse": 0.00033289,
+          "polar_cos_sim": 0.999347,
+          "polar_angular_error_deg": 2.0707,
+          "residual_mse": 0.00033289,
+          "residual_l1": 0.01436638,
+          "ip_mse": 0.08929878,
+          "ip_relative_mse": 5.058e-05
+        }
+      }
+    },
+    "composite_tiered": {
+      "variant": "composite_tiered",
+      "params": 17598816,
+      "quant_results": {
+        "2": {
+          "n_bits": 2,
+          "polar_mse": 5.30848742,
+          "polar_cos_sim": 0.800941,
+          "polar_angular_error_deg": 36.78,
+          "residual_mse": 5.30848742,
+          "residual_l1": 1.81812727,
+          "ip_mse": 240672.9375,
+          "ip_relative_mse": 140.66692637
+        },
+        "3": {
+          "n_bits": 3,
+          "polar_mse": 0.65031618,
+          "polar_cos_sim": 0.800944,
+          "polar_angular_error_deg": 36.7797,
+          "residual_mse": 0.65031618,
+          "residual_l1": 0.63515246,
+          "ip_mse": 19057.7578125,
+          "ip_relative_mse": 10.70686618
+        },
+        "4": {
+          "n_bits": 4,
+          "polar_mse": 0.09872796,
+          "polar_cos_sim": 0.853416,
+          "polar_angular_error_deg": 31.4148,
+          "residual_mse": 0.09872796,
+          "residual_l1": 0.24743746,
+          "ip_mse": 1198.62915039,
+          "ip_relative_mse": 0.68477217
+        },
+        "8": {
+          "n_bits": 8,
+          "polar_mse": 0.0003334,
+          "polar_cos_sim": 0.999347,
+          "polar_angular_error_deg": 2.0706,
+          "residual_mse": 0.0003334,
+          "residual_l1": 0.01437628,
+          "ip_mse": 0.09104391,
+          "ip_relative_mse": 5.114e-05
+        }
+      }
+    },
+    "geometric_rope": {
+      "variant": "geometric_rope",
+      "params": 17598768,
+      "quant_results": {
+        "2": {
+          "n_bits": 2,
+          "polar_mse": 5.28059578,
+          "polar_cos_sim": 0.80076,
+          "polar_angular_error_deg": 36.7973,
+          "residual_mse": 5.28059578,
+          "residual_l1": 1.81287503,
+          "ip_mse": 233642.09375,
+          "ip_relative_mse": 140.66838139
+        },
+        "3": {
+          "n_bits": 3,
+          "polar_mse": 0.64722037,
+          "polar_cos_sim": 0.800762,
+          "polar_angular_error_deg": 36.7971,
+          "residual_mse": 0.64722037,
+          "residual_l1": 0.63388717,
+          "ip_mse": 18627.09960938,
+          "ip_relative_mse": 10.71240003
+        },
+        "4": {
+          "n_bits": 4,
+          "polar_mse": 0.09845951,
+          "polar_cos_sim": 0.852789,
+          "polar_angular_error_deg": 31.4836,
+          "residual_mse": 0.09845951,
+          "residual_l1": 0.2469883,
+          "ip_mse": 1165.96032715,
+          "ip_relative_mse": 0.68458643
+        },
+        "8": {
+          "n_bits": 8,
+          "polar_mse": 0.00033184,
+          "polar_cos_sim": 0.999347,
+          "polar_angular_error_deg": 2.0712,
+          "residual_mse": 0.00033184,
+          "residual_l1": 0.01434286,
+          "ip_mse": 0.08823993,
+          "ip_relative_mse": 5.074e-05
+        }
+      }
+    }
+  },
+  "verdict": "NOT SUPPORTED",
+  "detail": "Lattice-aware PE only wins at 0/4 bit-widths. The pre-factoring hypothesis is not confirmed."
+}

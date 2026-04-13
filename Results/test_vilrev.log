@@ -1,0 +1,13 @@
+ggml_cuda_init: found 1 CUDA devices (Total VRAM: 12287 MiB):
+  Device 0: NVIDIA GeForce RTX 2060, compute capability 7.5, VMM: yes, VRAM: 12287 MiB
+
+=== SHADOW KV CACHE MEASUREMENT ===
+  Strategy: Walsh | Energy: 95% | Primes: 4 | Bits: 8 | Pad: zero
+
+  [shadow] #1: Walsh=0.9762  Vilenkin=0.9845  (+0.0082)  VilRev=0.9845  (+0.0082)
+  [shadow] #2: Walsh=0.9761  Vilenkin=0.9845  (+0.0084)  VilRev=0.9845  (+0.0084)
+  [shadow] #3: Walsh=0.9761  Vilenkin=0.9845  (+0.0084)  VilRev=0.9845  (+0.0084)
+  [shadow] #4: Walsh=0.9761  Vilenkin=0.9845  (+0.0084)  VilRev=0.9845  (+0.0084)
+  [shadow] #5: Walsh=0.9760  Vilenkin=0.9845  (+0.0084)  VilRev=0.9845  (+0.0084)
+  [shadow] #6: Walsh=0.9760  Vilenkin=0.9844  (+0.0084)  VilRev=0.9844  (+0.0084)
+  [shadow] #7: Walsh=0.9760  Vilenkin=0.9845  (+0.0084)  VilRev=0.9845  (+0.0084)

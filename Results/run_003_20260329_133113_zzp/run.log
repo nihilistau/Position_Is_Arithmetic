@@ -1,0 +1,20 @@
+13:31:13 | INFO | Run directory: C:\Files\Models\CosySim\apps\TestSuite\results\run_003_20260329_133113_zzp
+13:31:13 | INFO | Device: cuda | VRAM: {'device': 'NVIDIA GeForce RTX 2060', 'vram_gb': 12.9, 'vram_used': 0.0}
+13:31:13 | INFO | Variants: ['geometric_rope', 'spectral_alibi', 'harmonic_string'] | Epochs: 10000 | LR: 1e-03
+13:31:14 | INFO | Gap distribution plot saved.
+13:31:14 | INFO |   geometric_rope             150145 params
+13:31:14 | INFO |   spectral_alibi             149513 params
+13:31:14 | INFO |   harmonic_string            149517 params
+15:45:37 | INFO | Training complete in 8063 seconds
+15:45:37 | INFO | Saved: C:\Files\Models\CosySim\apps\TestSuite\results\run_003_20260329_133113_zzp\zzp\model_geometric_rope.pt
+15:45:37 | INFO | Saved: C:\Files\Models\CosySim\apps\TestSuite\results\run_003_20260329_133113_zzp\zzp\model_spectral_alibi.pt
+15:45:37 | INFO | Saved: C:\Files\Models\CosySim\apps\TestSuite\results\run_003_20260329_133113_zzp\zzp\model_harmonic_string.pt
+15:45:38 | INFO | Convergence plot saved.
+15:45:38 | INFO | Predictions plot saved.
+15:45:38 | INFO | All results saved to: C:\Files\Models\CosySim\apps\TestSuite\results\run_003_20260329_133113_zzp\zzp
+15:45:38 | INFO | Key files:
+15:45:38 | INFO |   results.json       — summary statistics
+15:45:38 | INFO |   history.json       — full per-epoch train/val MSE
+15:45:38 | INFO |   convergence.png    — training curves
+15:45:38 | INFO |   predictions.png    — actual vs predicted gaps
+15:45:38 | INFO |   gap_distribution.png — zeta zero gap histogram

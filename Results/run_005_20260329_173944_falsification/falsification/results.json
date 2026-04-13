@@ -1,0 +1,93 @@
+{
+  "config": {
+    "d_model": 256,
+    "n_heads": 8,
+    "n_layers": 6,
+    "ffn_dim": 1024,
+    "dropout": 0.1,
+    "vocab_size": 50257,
+    "train_seq_len": 1024,
+    "max_steps": 1000,
+    "batch_size": 1,
+    "grad_accum": 16,
+    "lr": 0.0003,
+    "warmup_steps": 300,
+    "eval_every": 250,
+    "eval_batches": 40,
+    "eval_ctx_lens": [
+      512,
+      1024,
+      2048
+    ]
+  },
+  "variants": {
+    "prime_tiered": "SpectralALiBi (prime tiered + learnable scale) \u2190 OURS",
+    "alibi": "ALiBi (standard, baseline)",
+    "scrambled_prime": "Scrambled primes (same set, random tier assignment)",
+    "random_freq": "Random frequencies (same ranges, no prime structure)",
+    "composite_only": "Composites only (anti-prime: highly divisible numbers)"
+  },
+  "history": {
+    "prime_tiered": {
+      "final_ppl": 294.00411093116844,
+      "n_steps": 4
+    },
+    "alibi": {
+      "final_ppl": 300.62371757856516,
+      "n_steps": 4
+    },
+    "scrambled_prime": {
+      "final_ppl": 292.57204308790733,
+      "n_steps": 4
+    },
+    "random_freq": {
+      "final_ppl": 296.4257824610226,
+      "n_steps": 4
+    },
+    "composite_only": {
+      "final_ppl": 292.11525622825,
+      "n_steps": 4
+    }
+  },
+  "ppl_results": {
+    "prime_tiered": {
+      "512": 220.87,
+      "1024": 237.49,
+      "2048": 286.33
+    },
+    "alibi": {
+      "512": 226.97,
+      "1024": 243.48,
+      "2048": 294.61
+    },
+    "scrambled_prime": {
+      "512": 221.26,
+      "1024": 238.63,
+      "2048": 288.2
+    },
+    "random_freq": {
+      "512": 221.23,
+      "1024": 238.44,
+      "2048": 289.02
+    },
+    "composite_only": {
+      "512": 220.8,
+      "1024": 237.16,
+      "2048": 286.52
+    }
+  },
+  "interpretation": [
+    "prime_tiered final PPL: 294.0",
+    "",
+    "FALSIFICATION RESULTS:",
+    "  NEUTRAL   Tier ordering matters (not just prime set)",
+    "           scrambled_prime: -1.4 PPL (-0.5%)",
+    "  SUPPORTS  Prime numbers specifically matter",
+    "           random_freq: +2.4 PPL (+0.8%)",
+    "  NEUTRAL   Multiplicative structure matters",
+    "           composite_only: -1.9 PPL (-0.6%)",
+    "  SUPPORTS  vs ALiBi baseline",
+    "           alibi: +6.6 PPL (+2.3%)"
+  ],
+  "elapsed_seconds": 3506.9
+}

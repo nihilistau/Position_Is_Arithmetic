@@ -1,0 +1,99 @@
+20:15:12 | INFO | Experiment: Falsification suite — 10K steps, 4K context (THE key experiment)
+20:15:12 | INFO | GPU: NVIDIA RTX PRO 6000 Blackwell Server Edition (102 GB)
+20:15:12 | INFO | Run dir: /workspace/results/run_002_20260329_201512_falsification_long
+20:15:12 | INFO | Checkpoints: /workspace/checkpoints
+20:15:12 | INFO | Cost estimate: ~3-4 hrs, ~$5-8
+20:15:12 | INFO |   SpectralALiBi (prime tiered + learnabl 63536832 params
+20:15:13 | INFO |   ALiBi (standard, baseline)             63536640 params
+20:15:13 | INFO |   Scrambled primes (same set, random tie 63536832 params
+20:15:13 | INFO |   Random frequencies (same ranges, no pr 63536832 params
+20:15:14 | INFO |   Composites only (anti-prime: highly di 63536832 params
+20:15:42 | INFO | Loading data...
+20:15:42 | INFO | Train: 1952  Val: 118
+20:46:23 | INFO | Step   250/3000 | 1840s | lr=7.50e-05
+20:46:25 | INFO |   prime_tiered                     ppl=  827.1
+20:46:26 | INFO |   alibi                            ppl=  828.4
+20:46:27 | INFO |   scrambled_prime                  ppl=  840.2
+20:46:29 | INFO |   random_freq                      ppl=  824.9
+20:46:30 | INFO |   composite_only                   ppl=  833.9
+21:17:11 | INFO | Step   500/3000 | 3688s | lr=1.50e-04
+21:17:12 | INFO |   prime_tiered                     ppl=  314.9
+21:17:13 | INFO |   alibi                            ppl=  315.1
+21:17:15 | INFO |   scrambled_prime                  ppl=  314.8
+21:17:16 | INFO |   random_freq                      ppl=  313.0
+21:17:17 | INFO |   composite_only                   ppl=  316.3
+21:47:58 | INFO | Step   750/3000 | 5535s | lr=2.25e-04
+21:47:59 | INFO |   prime_tiered                     ppl=  186.5
+21:48:00 | INFO |   alibi                            ppl=  187.0
+21:48:02 | INFO |   scrambled_prime                  ppl=  186.7
+21:48:03 | INFO |   random_freq                      ppl=  184.9
+21:48:05 | INFO |   composite_only                   ppl=  184.9
+22:18:45 | INFO | Step  1000/3000 | 7382s | lr=3.00e-04
+22:18:47 | INFO |   prime_tiered                     ppl=  132.5
+22:18:48 | INFO |   alibi                            ppl=  133.7
+22:18:49 | INFO |   scrambled_prime                  ppl=  133.7
+22:18:51 | INFO |   random_freq                      ppl=  132.8
+22:18:52 | INFO |   composite_only                   ppl=  131.7
+22:18:56 | INFO | Checkpoints saved @ step 1000
+22:49:36 | INFO | Step  1250/3000 | 9233s | lr=2.89e-04
+22:49:38 | INFO |   prime_tiered                     ppl=  108.1
+22:49:39 | INFO |   alibi                            ppl=  111.1
+22:49:40 | INFO |   scrambled_prime                  ppl=  109.6
+22:49:42 | INFO |   random_freq                      ppl=  108.8
+22:49:43 | INFO |   composite_only                   ppl=  107.0
+23:20:25 | INFO | Step  1500/3000 | 11082s | lr=2.56e-04
+23:20:26 | INFO |   prime_tiered                     ppl=  100.1
+23:20:27 | INFO |   alibi                            ppl=  104.5
+23:20:29 | INFO |   scrambled_prime                  ppl=  102.4
+23:20:30 | INFO |   random_freq                      ppl=  102.9
+23:20:31 | INFO |   composite_only                   ppl=   99.5
+23:51:11 | INFO | Step  1750/3000 | 12928s | lr=2.07e-04
+23:51:13 | INFO |   prime_tiered                     ppl=  101.4
+23:51:14 | INFO |   alibi                            ppl=  106.5
+23:51:16 | INFO |   scrambled_prime                  ppl=  104.0
+23:51:17 | INFO |   random_freq                      ppl=  104.6
+23:51:18 | INFO |   composite_only                   ppl=  101.3
+00:21:58 | INFO | Step  2000/3000 | 14775s | lr=1.50e-04
+00:22:00 | INFO |   prime_tiered                     ppl=  108.8
+00:22:01 | INFO |   alibi                            ppl=  114.3
+00:22:02 | INFO |   scrambled_prime                  ppl=  111.7
+00:22:04 | INFO |   random_freq                      ppl=  112.5
+00:22:05 | INFO |   composite_only                   ppl=  107.7
+00:22:10 | INFO | Checkpoints saved @ step 2000
+00:52:50 | INFO | Step  2250/3000 | 16627s | lr=9.26e-05
+00:52:51 | INFO |   prime_tiered                     ppl=  116.9
+00:52:52 | INFO |   alibi                            ppl=  123.7
+00:52:54 | INFO |   scrambled_prime                  ppl=  122.2
+00:52:55 | INFO |   random_freq                      ppl=  120.9
+00:52:57 | INFO |   composite_only                   ppl=  117.0
+01:23:37 | INFO | Step  2500/3000 | 18474s | lr=4.39e-05
+01:23:48 | INFO |   prime_tiered                     ppl=  123.9
+01:24:14 | INFO |   alibi                            ppl=  131.3
+01:24:15 | INFO |   scrambled_prime                  ppl=  130.0
+01:24:17 | INFO |   random_freq                      ppl=  129.0
+01:24:18 | INFO |   composite_only                   ppl=  124.5
+01:54:58 | INFO | Step  2750/3000 | 20355s | lr=1.14e-05
+01:54:59 | INFO |   prime_tiered                     ppl=  128.6
+01:55:01 | INFO |   alibi                            ppl=  135.9
+01:55:02 | INFO |   scrambled_prime                  ppl=  134.6
+01:55:04 | INFO |   random_freq                      ppl=  133.3
+01:55:05 | INFO |   composite_only                   ppl=  128.7
+02:25:45 | INFO | Step  3000/3000 | 22202s | lr=0.00e+00
+02:25:56 | INFO |   prime_tiered                     ppl=  129.2
+02:26:41 | INFO |   alibi                            ppl=  136.5
+02:26:43 | INFO |   scrambled_prime                  ppl=  135.4
+02:26:44 | INFO |   random_freq                      ppl=  134.2
+02:26:45 | INFO |   composite_only                   ppl=  129.4
+02:28:21 | INFO | Checkpoints saved @ step 3000 (FINAL)
+02:30:41 | INFO | 
+=== FALSIFICATION RESULTS ===
+02:30:41 | INFO | prime_tiered final PPL: 129.2
+02:30:41 | INFO |   NEUTRAL  prime_tiered                         129.2 PPL (+0.0)
+02:30:41 | INFO |   NEUTRAL  composite_only                       129.4 PPL (+0.3)
+02:30:41 | INFO |   SUPPORTS  random_freq                          134.2 PPL (+5.0)
+02:30:41 | INFO |   SUPPORTS  scrambled_prime                      135.4 PPL (+6.3)
+02:30:41 | INFO |   SUPPORTS  alibi                                136.5 PPL (+7.3)
+02:30:41 | INFO | 
+Total runtime: 22529 seconds (6.3 hours)
+02:30:41 | INFO | Results: /workspace/results/run_002_20260329_201512_falsification_long
+02:30:41 | INFO | Checkpoints: /workspace/checkpoints/run_002_20260329_201512_falsification_long

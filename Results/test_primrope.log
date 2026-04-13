@@ -1,0 +1,8 @@
+ggml_cuda_init: found 1 CUDA devices (Total VRAM: 12287 MiB):
+  Device 0: NVIDIA GeForce RTX 2060, compute capability 7.5, VMM: yes, VRAM: 12287 MiB
+prime_rope: strategy=composite_tiered alpha=0.10 n_dims=64 n_freqs=32 freq_base=500000.0
+prime_rope: geo range: [0.00000301, 1.00000000]
+prime_rope: tiers local=10 mid=10 long=12
+prime_rope: first 8 numbers: 4 10 18 24 30 35 42 48 
+prime_rope: first 8 factors: 1.000000 1.072713 1.089271 1.090806 1.090110 1.086773 1.084194 1.078875 
+prime_rope: factor range: [1.000000, 1.098191]
