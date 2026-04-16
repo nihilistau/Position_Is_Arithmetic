@@ -14,7 +14,7 @@ Shannon-Prime is a **clean-room** implementation of Vilenkin-Hartley Transform, 
 
 This repository contains **only** Shannon-Prime-authored code. There is no upstream framework code in-tree. The library attaches to any transformer-inference runtime that exposes a KV-cache abstraction
 
-https://github.com/nihilistau/shannon-prime and https://github.com/nihilistau/shannon-prime-comfyui
+https://github.com/nihilistau/shannon-prime and https://github.com/nihilistau/shannon-prime-comfyui and https://github.com/nihilistau/shannon-prime-llama
 
 
 
