@@ -17,6 +17,8 @@ This repository contains **only** Shannon-Prime-authored code. There is no upstr
 ---
 https://github.com/nihilistau/shannon-prime
 
+https://github.com/nihilistau/shannon-prime-engine
+
 https://github.com/nihilistau/shannon-prime-comfyui
 
 https://github.com/nihilistau/shannon-prime-llama
