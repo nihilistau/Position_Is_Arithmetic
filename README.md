@@ -22,14 +22,15 @@ https://github.com/nihilistau/shannon-prime-engine
 https://github.com/nihilistau/shannon-prime-comfyui
 
 https://github.com/nihilistau/shannon-prime-llama
----
 
 ---
+
 https://github.com/nihilistau/voxtral-tts.c
 
 https://github.com/nihilistau/voxtral-mini-realtime-rs
 
 https://github.com/nihilistau/ComfyUI-FL-VoxtralTTS
+
 ---
 
 
