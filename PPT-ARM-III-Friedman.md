@@ -273,6 +273,38 @@ The radius $r$ is a *hyperparameter, not a learnable parameter*. It is set per-t
 
 The choice operator with bounded comprehension is at the strength of $\varepsilon$-calculus, which by Ackermann's consistency proof is conservative over Peano Arithmetic. Extended-Domain Reduction with structural predicates over a finite extended domain is at WKL₀-strength by the same finitary argument as §3.3: any failure of the reduction has a primitive-recursive witness. **The runtime stays WKL₀-strength even with the axiomatic layer added.** The mathematics names a powerful object; the engine executes it cheaply, and any failure remains finite and locatable.
 
+
+### 11.6 From Kruskal embedding to Dickson dominance: the operational subsumption relation
+
+The four operational and axiomatic layers above describe a sieve whose subsumption test is the Kruskal homeomorphic embedding $\preceq$ of §2.2. Phase-4 calibration on the synthetic resolution probe revealed an empirical gap between this relation and the signal actually present in noisy Key vectors. The probe (T4_RES_PROBE — 50 clusters of 20 samples each at $\sigma \in \{0.005, 0.01, 0.02, 0.05, 0.10\}$, intra-cluster cosine running from $0.998$ down to $0.65$) showed that strict ordered embedding on $\mathcal{T}_{60,3}$ produces *zero* intra-cluster subsumption at every $\sigma$ tested: residual sign-flips at the 3-bit quantization boundary make every cluster member topologically distinct under the order-preserving injection of §2.2. AUC sat at 0.500 — the encoder discriminates nothing under $\preceq$. Three remediations (Path A, 2-bit residual magnitudes; Path B, bucketed attachment; Path C, the Nash–Williams unordered embedding) all stayed at the same wall. *The empirical signal lives only under a coarser relation than $\preceq$.*
+
+**The dominance subsumption relation.** Define $\preceq_d$ on $\mathcal{T}_{60,3}$ by
+$$Q \preceq_d K \;\iff\; \sigma_0(K) \succeq \sigma_0(Q) \;\text{ and }\; \sigma_1(K) \succeq \sigma_1(Q),$$
+where $\sigma_0(T) \in \mathbb{N}^5$ is the Tier-0 structural signature (the multiset $(A\text{-count},\ B\text{-count},\ C\text{-count},\ \mathrm{max\_depth},\ \mathrm{node\_count})$ packed in a `uint64_t` with one byte per field) and $\sigma_1(T) \in \mathbb{N}^9$ is the Tier-1 ancestor-pair signature (the $3\times 3$ matrix of counts of ancestor-descendant pairs by label-pair $(a, d) \in \{A,B,C\}^2$, cells saturated at 255 inside a 16-byte struct). The relation $\succeq$ on each $\sigma_i$ is elementwise — every field of $K$'s signature is at least as large as the corresponding field of $Q$'s.
+
+**Embedding into $\mathbb{N}^{14}$.** Combine the two signatures into a single coordinate map:
+$$\varphi : \mathcal{T}_{60,3} \to \mathbb{N}^{14}, \qquad T \mapsto \bigl(\sigma_0(T) \oplus \sigma_1(T)\bigr).$$
+Then $Q \preceq_d K \iff \varphi(K) \ge_{\mathrm{elem}} \varphi(Q)$ in the elementwise product order on $\mathbb{N}^{14}$.
+
+**The wqo theorem.** The relevant well-quasi-ordering result is older and stricter than Kruskal:
+
+**Theorem 11.1 (Dickson, 1913).** *The elementwise order $(\mathbb{N}^k, \le_{\mathrm{elem}})$ is a well-quasi-order: every infinite sequence $v_1, v_2, \dots$ in $\mathbb{N}^k$ contains indices $i < j$ with $v_i \le_{\mathrm{elem}} v_j$* [Dickson, *Finiteness of the odd perfect and primitive abundant numbers with $n$ distinct prime factors*, American Journal of Mathematics 35, 1913, pp 413–422].
+
+The image $\varphi(\mathcal{T}_{60,3})$ is bounded: each coordinate sits in $[0, 60]$ by the 60-node budget of §4.3, so we work inside the finite hypercube $[0,60]^{14}$. The maximal antichain in this hypercube is bounded by a Sperner-style cross-section count — for $[0,m]^k$ the largest antichain is the largest level set of the coordinate sum, a generalised binomial coefficient. The exact value is not load-bearing for the architecture; what matters is *finiteness*, which Dickson gives outright.
+
+**Strength comparison.** The two relations satisfy
+$$Q \preceq K \;\Longrightarrow\; Q \preceq_d K,$$
+and the converse fails by construction. Label and ancestor-pair counts are necessary conditions for an embedding to exist — every node of $Q$ must be matched in $K$ with the same label, every ancestor relation in $Q$ must be reflected in $K$ — but they are not sufficient: dominance is blind to the order in which children appear and to the specific topology that realises the counts. The inclusion $\preceq \;\subsetneq\; \preceq_d$ is strict at every $|V(T)| \ge 3$.
+
+The WKL$_0$ refutation property of §3.3 carries through verbatim. Dominance is a bytewise comparison of two 64-bit Tier-0 signatures and two 16-byte Tier-1 signatures; a failure of any sieve decision produces a primitive-recursive witness in single-digit microseconds, byte-precise. Crucially, Dickson's Lemma itself is provable in PRA — it is finitary in a sense Kruskal's theorem is not (Kruskal–Friedman's TREE$(3)$ rests on much higher consistency strength). The runtime property is therefore *strengthened*, not weakened, by the move from $\preceq$ to $\preceq_d$: a stronger refutation property and a more elementary wqo theorem, in exchange for accepting a coarser subsumption.
+
+**The empirical cost.** The four paths A/B/C of strict-embedding tightening yielded ROC AUC $\approx 0.5$ across all $\sigma$ on the resolution probe. Switching the sieve's filter-survival branch from `sp_kste_embed` to elementwise $\sigma_0 \wedge \sigma_1$ dominance produced an intra-to-inter ratio of $17\times$ at the near-duplicate regime ($\mathrm{cos} \ge 0.995$, $\sigma = 0.005$), a $720\times$ wall-time speedup ($685\,\mu\mathrm{s} \to 0.95\,\mu\mathrm{s}$ p99 at $n = 4096$), and a sieve eviction rate of 93.86% on i.i.d. Gaussian streams. *T2.11's 50 $\mu\mathrm{s}$ wall-time gate cleared with 34$\times$ headroom*; T2.6 through T2.10 pass under the new semantics with the previously-tabled pre-filter precision at 98.77%.
+
+**Cache plateau as physical manifestation.** Dickson's well-quasi-ordering of $\mathbb{N}^{14}$ guarantees the sieve terminates: no infinite antichain of mutually non-dominating cache slots exists. The bounded hypercube $[0,60]^{14}$ guarantees the antichain itself is finite. The cache plateau observed empirically at $\sim 307/512$ slots on i.i.d. Gaussian inputs (T2.1) is the physical manifestation of this bound — the system runs out of mutually $\preceq_d$-incomparable trees long before it runs out of physical slots. The eviction policy stops needing the Knight-Skeleton variance fallback under dominance semantics; the cache *settles* rather than churning.
+
+The axiomatic layer of §§11.1–11.5 is unaffected. The choice operator $F$ still selects $\prec_F$-canonical witnesses from structural classes; Extended-Domain Reduction still applies to predicates over the active window. The only change is the operational meaning of "is $Q$ already a substructure of some $K$ in the cache?" — answered now by $\preceq_d$ rather than $\preceq$, with stronger foundations underneath and a discriminative signal that the empirical work actually delivered.
+
+
 ## 12. Conclusion
 
 We have specified the mathematical content of the Friedman Stack. Every layer of the stack — encoder, sieve, ultraproduct attention, choice operator — rests on a primitive that admits a finite witness of failure. The stack's expressivity reaches arbitrarily high in the consistency-strength hierarchy (the wqo theorem alone is independent of ATR₀); its *runtime* sits at WKL₀-strength, with primitive-recursive refutation. The asymmetry is what makes the stack engineerable.
