@@ -19,15 +19,28 @@ https://github.com/nihilistau/shannon-prime
 
 https://github.com/nihilistau/shannon-prime-engine
 
+https://github.com/nihilistau/shannon-prime-llama
+
+---
+
 https://github.com/nihilistau/shannon-prime-bernhard
 
 https://github.com/nihilistau/shannon-prime-burnhard
 
+---
+
+https://github.com/nihilistau/shannon-prime-lattice
+
+https://github.com/nihilistau/shannon-prime-system
+
+https://github.com/nihilistau/shannon-prime-system-engine
+
+---
+
+
 https://github.com/nihilistau/shannon-prime-lmstudio-server
 
 https://github.com/nihilistau/shannon-prime-comfyui
-
-https://github.com/nihilistau/shannon-prime-llama
 
 ---
 
