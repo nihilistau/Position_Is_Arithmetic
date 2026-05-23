@@ -163,7 +163,7 @@ with an explicit, unique reconstruction map. We use this in three places:
 
 2. **Output-projection decomposition.** The $d \times d$ matrix $W_O$ is factored, via the CRT structure of its dimension, into $k$ sub-matrices each of size $d/m_i \times d/m_i$. Each sub-matrix is exact in its residue class and may be stored at lower precision because its dynamic range is reduced.
 
-3. **Dual-prime NTT (Section 7).** Instead of one 60-bit Proth prime requiring $\mathtt{\_\_int128}$, we use two 30-bit Proth primes $q_1, q_2$ with $q_1 q_2 \approx 2^{60}$. Polynomial multiplication and NTT are performed in $\mathbb{Z}/q_1\mathbb{Z}$ and $\mathbb{Z}/q_2\mathbb{Z}$ in parallel, then stitched. **No 128-bit arithmetic is required**, which is what makes the kernel portable to ARM, RISC-V, Hexagon HVX, and GPU shaders.
+3. **Dual-prime NTT (Section 7).** Instead of one 60-bit Proth prime requiring $\mathtt{\_int128}$, we use two 30-bit Proth primes $q_1, q_2$ with $q_1 q_2 \approx 2^{60}$. Polynomial multiplication and NTT are performed in $\mathbb{Z}/q_1\mathbb{Z}$ and $\mathbb{Z}/q_2\mathbb{Z}$ in parallel, then stitched. **No 128-bit arithmetic is required**, which is what makes the kernel portable to ARM, RISC-V, Hexagon HVX, and GPU shaders.
 
 ## 6. Three Prime Families for Architecture
 
@@ -278,7 +278,7 @@ The companion test suite (Part II §10) mechanically verifies the following at t
 
 - **T1 — Endomorphism realization.** The hidden state trajectory through $L$ layers embeds in $E^L$ exactly.
 - **T2 — Möbius UFD compression.** Reconstruction over $\mathcal{O}_K$ at square-free basis is exact.
-- **T3 — Hasse–Weil = Shannon limit.** $|\#E_p(\mathbb{F}_p) - (p+1)| \le 2\sqrt p$.
+- **T3 — Hasse–Weil = Shannon limit.** $|\E_p(\mathbb{F}_p) - (p+1)| \le 2\sqrt p$.
 - **T4 — Frobenius cancellation.** §3.2 above; validated bit-identical at six significant figures on Gemma3-1B.
 - **T5 — Deuring / CM Sato–Tate.** Asymmetric distribution of $a_p$ between split and inert primes.
 - **T6 — CRT exact sharding.** Two-prime kernel bit-identical to 60-bit reference; portable.
