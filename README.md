@@ -11,7 +11,7 @@ Attributed to Transformers and 250 years of Mathematicians.
 Shannon-Prime has transformed from an implementation of Vilenkin-Hartley Transform, KV cache compression packaged as a portable library. It targets long-context inference on memory-constrained GPUs (consumer desktop CUDA, mobile Adreno/Vulkan) into a complete overhaul of the transformer architecture. Here you will find research tools and a (messy) document history. You want to head to shannon-prime to get started!
 
 ---
-The useful parts of the Project has Migrated to Shannon-Prime-Lattice - You can find the link below. The discord is here: [Shannon-Prime-Lattice-Discord](https://discord.gg/rre9XZmvV)
+The useful parts of the Project has Migrated to [Shannon-Prime-Lattice](https://github.com/nihilistau/shannon-prime-lattice) - You can find the link below. The discord is here: [Shannon-Prime-Lattice-Discord](https://discord.gg/rre9XZmvV)
 ---
 ---
 
