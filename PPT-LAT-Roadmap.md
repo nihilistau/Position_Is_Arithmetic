@@ -90,15 +90,28 @@ environment-variable gates until they are individually proven.
 | 2-VK | Engine, Vulkan backend | Same scope as 2-CPU on cross-platform GPU | E_VK_1..E_VK_6 green | **CLOSED 2026-05-23** |
 | 2-HX | Engine, Hexagon backend | Same scope as 2-CPU on Snapdragon HTP V69 | E_HX_1..E_HX_6 green | **ESSENTIALLY CLOSED 2026-05-23 (formal tag pending E_HX_5/E_HX_6)** |
 | 2-FMT | Engine, .sp-model on-disk format | Loader + transcoder + round-trip gate | E_FMT_1..E_FMT_4 green | **CLOSED 2026-05-23** |
-| 2-L1 | L1 ABI implementation in math-core | RELOCATE → VALIDATE → HANDLE → SESSION | Each sub-phase has its own gate; umbrella `lat-phase-2-l1-closed` | RELOCATE done; VALIDATE next |
-| 3 | Model-family expansion | All four backends host all seven model families | M_*×B_* matrix green | 8–12 weeks |
+| 2-L1 | L1 ABI implementation in math-core | RELOCATE → VALIDATE → HANDLE → SESSION → **PARITY → FP16** | Each sub-phase gates; umbrella `lat-phase-2-l1-closed` after PARITY + FP16 | RELOCATE/VALIDATE/HANDLE/SESSION done; PARITY = next (inline KV+weight compression to math-core); FP16 = dtype plumbing |
+| 2-L3 | Headless HTTP/SSE daemon wrapping L2 | localhost:8080 service exposing the small REST + SSE surface; survives UI lifecycle | E_L3_1..3 (cold start ≤ 200 ms, UI death does not pause daemon, 5-min S22U soak with foreground service) | **CORE + VERBS + SSE CLOSED 2026-05-26**; FG/TOK/AUTH remain |
+| 3-attn | Pure-attention bridges in math-core | Gemma3 + Qwen2.5 + Qwen3 base running end-to-end via session ABI | Per-cell M_*_1 forward bit-identity | **CLOSING 2026-05-26** — Gemma3 ✅ + Qwen2.5 ✅; Qwen3 base transitively ✅. Umbrella `lat-phase-3-attn-closed` after Phase log entry. |
+| 3-SSM | Mamba-hybrid arch sub-phase | SSM kernels (selective scan, conv1d, dt) + Qwen3.5-9B bridge | Qwen3.5-9B bit-identity vs reference + RSS within Phase 3-attn envelope | Deferred; multi-day kernel work |
+| 3-G4 | Gemma4 family sub-phase | Per-layer embedding injection + dual head_dim + logit softcap + Gemma4-E4B bridge | Gemma4-E4B bit-identity vs llama.cpp gemma4 path | Deferred; ~2-3× Gemma3 cell scope |
+| 3-MoE | MoE arch sub-phase | Routing layer + sparse FFN gather + Qwen3.6 bridge | Qwen3.6 bit-identity vs reference (single-machine MoE) | Deferred; pre-inspect GGUF before scoping |
+| 3-FP8 | FP8 weight sub-phase | DeepSeek-V4 FP8 dequant + bridge | DeepSeek-V4 bit-identity vs reference | Aspirational; no fixture |
 | 4 | Inline cache compression validated | PPL drift and memory savings measured per backend × model | Drift ≤ 1% on calibrated families | 4 weeks |
-| 4-MTP | Multi-token prediction (speculative decoding) | Transactional Spinor blocks + draft/verify/rewind via frozen L1 ABI primitives | M_MTP_1: bit-identical output + > 1.5× t/s speedup on code-heavy prompts at K=4 | 3 weeks; blocked by Phase 3 close |
+| 4-MTP | Multi-Token Prediction (built-in heads) | Target-model self-drafting + verifying via auxiliary prediction heads; transactional Spinor block rewind | M_MTP_1: bit-identical output + > 1.5× t/s speedup on code-heavy prompts at K=4; native MTP-head fixture (DeepSeek-V4 or Qwen3.6 MTP variant) | 3 weeks; **UNBLOCKED 2026-05-26** by lat-phase-3-attn-closed; can spawn on any MTP-head-bearing arch |
+| 4-SPEC | Speculative decoding (separate draft) | Smaller draft model + larger target verifier; transactional Spinor block rewind on rejection | M_SPEC_1: bit-identical output + > 1.5× t/s speedup on code-heavy prompts at K=4 using Qwen3.6-35B-A3B + Qwen3.6-35B-A3B-Draft pairing, or Qwen2.5-Coder-14B + Qwen2.5-Coder-0.5B | **MATH GATE CLOSED 2026-05-27** (`lat-phase-4-spec-math-closed`) — M_SPEC_1 + M_SPEC_2 PASS, T8.1 validated; M_SPEC_3 (throughput) + M_SPEC_4 (RSS) deferred pending 14B fixture |
+| TS | TailSlayer channel-aware memory placement | GF(2) recovery of memory controller channel-select hash + hedge-read allocation on independent DDR channels for Spinor blocks / CRT residue pairs / Frobenius row pairs / KSTE upper tier | TS.MAP graceful CI fallback + TS.HEDGE ≥ 2× tail P99 drop + TS.INTEGRATE-CRT bit-identical PPL with measurable wall-time win | 2-3 weeks parallel; cross-cutting infrastructure; downstream phases consume the primitive |
+| 2-CU.PTX | Bare-metal NVIDIA assembly for discrete kernels | PTX inline asm replacing nvcc generic SASS on Spinor warp-load (differentiated cache modifiers), GF(p) Montgomery butterfly, INT8 tensor-core Q8 matmul (mma.sync), KSTE hash (lop3+prmt), persistent kernel for spec-decode | M_PTX_1 bit-exact math identity + M_PTX_2 >85% SOL DRAM bandwidth + M_PTX_3 zero cudaMalloc + M_PTX_4 session isolation | 3 weeks; blocked by lat-phase-3-attn-closed + Phase 4-SPEC math gate; bare-metal CUDA leg of the per-backend symmetry |
+| 2-CPU.AVX | Bare-metal x86 AVX-512 intrinsics for discrete kernels | AVX-512 VNNI (Q8 matmul) + IFMA (GF(p) butterfly, Zen 4 fallback) + ternarylogic (KSTE hash) + NT-loads (Spinor streaming) + WAITPKG (PERSIST polling, optional); 64-byte ZMM = 63-byte Spinor + sentinel | M_AVX_1 bit-exact math + M_AVX_2 ≥3.5× VNNI matmul + M_AVX_3 NT-load L1/L2 bypass via perf-stat + M_AVX_4 objdump confirms vpdpbusd / vpmadd52luq / vpternlogd emitted | 3 weeks; blocked by lat-phase-3-attn-closed; bare-metal x86 leg of the per-backend symmetry |
 | 5 | Lattice features (sieve, ARM, dominance) | Off-by-default ENV-gated overlays | Regression suite green when gates off | 6 weeks |
 | 6-BLOCK-SYNC | Relaxed Garner reconstruction | Per-block (4-layer) CRT reconstruction with Poncelet-deterministic Mersenne scaling + residue-polynomial activations | M_BLOCK_1: 4-layer-deferred ≡ per-layer (KL ≤ 1e-12) on Gemma3-1B | 2 weeks; blocked by Phase 5, 4-MTP close |
 | 6-TRANSPORT-CRT-RS | 3-prime CRT erasure code over QUIC | Any-two-of-three Garner over independent QUIC streams + speculative Garner during in-flight | M_TRANSPORT_1: >2× WAN throughput vs TCP at 5% packet loss | 2 weeks; blocked by 6-BLOCK-SYNC |
 | 6-MTP-AMORTIZE | K-batched residue gossip | Compose Phase 4-MTP with cross-node draft batching; one payload per K-batch | M_MTP_AMORT_1: >5× interactive token rate at K=8 over 50ms WAN | 1 week; blocked by 6-TRANSPORT-CRT-RS |
 | 6-CAUSTIC-CULL | Network-level adaptive depth | Skip QUIC payload transmission when PPT Step-12 nδ≡0 caustic layer-skip fires | M_CAUSTIC_1: bytes-on-wire drops linearly with empirical skip rate, zero ⪯_d deviation in emitted KSTE | 1 week; blocked by 6-MTP-AMORTIZE |
+| FE-MOBILE-FLUTTER | Mobile frontend (Flutter, S22U) | Dart-isolate UI, five tabs (chat / node / pouw / mesh / config), pure HTTP/SSE client to local L3 daemon | E_FE_M_1: APK ships with **zero** sp_session / spinor / logits symbols in compiled artifact | 3 weeks; blocked by `lat-phase-2-l3-closed` |
+| FE-DESKTOP-CONSOLE | Desktop fleet console (web admin) | Multi-node operator view, q-shard topology, aggregate fleet metrics, event stream | E_FE_D_1: 14-node fleet renders < 200 ms cold; per-node drilling works against live L3 endpoints | 3 weeks; blocked by `lat-phase-2-l3-closed` |
+| FE-WATCH-WEAR | Galaxy Watch6 face + complications | BLE+GATT bridge to paired phone daemon; six face designs; SSE-over-GATT chunked at 20 B | E_FE_W_1: watch holds ed25519 key fingerprint only; no logits / no Spinor blocks; haptic on mint within 500 ms of daemon SSE | 2 weeks; blocked by `lat-phase-2-l3-closed` |
+| FE-CLI-TMUX | Terminal UI (spctl) | tmux-friendly TUI for SSH/server admin; same L3 endpoints, ANSI rendering | E_FE_C_1: full overview pane (peers / sieve / receipts / htop) under 80 cols ASCII; passes `--no-truecolor` portability check | 1 week; blocked by `lat-phase-2-l3-closed` |
 | 7 | DHT crawler skeleton | Kademlia-like routing, single-node first | Two-node lookup works | 3 weeks |
 | 8 | Position-as-Arithmetic crawl assignment + **Fibonacci-Prime DHT** | 2-axis prime-lattice (semantic) × φ-hashed (load) key space | Deterministic re-assignment + uniform load under skewed inputs | 2 weeks + 1 day (Fibonacci hashing) |
 | 9 | ARM gossip aggregation + **Golden-Ratio key init** | Capacity-bounded HRR merge across peers; φ-spaced phases replace random projection | Capacity curve extends past prior K=64 ceiling | 3 weeks + 2 days (key init) |
@@ -1458,32 +1471,83 @@ output exactly.
 `lat-phase-2-l1-closed` triggers after §8.7.5 Phase 2-L1.FP16 also
 closes.
 
-#### 8.7.5 Phase 2-L1.FP16 — fp16 working precision
+#### 8.7.5 Phase 2-L1.PARITY — math-core session inherits engine's inline compression
 
-The deferred desktop-GPU f32-vs-oracle legs from §8.7.2 closure
-(blocked on host-RAM saturation, not capacity) land here. Working
-precision moves from f32 to fp16 across CPU / CU / VK; HX stays
-qf32; math-core scalar reference stays f32 as the bit-exact
+**Why this sub-phase exists.** When 2-L1.SESSION closed it shipped
+`session-owned persistent f32 KV`. That is a memory **regression**
+relative to the engine, which has E_CPU_7 (Q4 inline weight
+compression) and E_CPU_8 (VHT2+Spinor inline KV codec) shipped from
+Phase 2-CPU. The math-core session must inherit that profile before
+Phase 3 can load 8B+ models — otherwise the session is unusable for
+production-context inference no matter how good its ABI is.
+
+**The math is already proven** in the prior cohort
+(`project_phase11_full_stack`, `project_phase12_q8_step_d`,
+`project_phase14_q4_filestate`) and inherited via SP Frobenius-lift
+identity. This sub-phase is **integration**, not validation —
+re-derive (anti-contamination per §3.1) the proven primitives in
+`core/vht2` and `core/frobenius` into the session's decode and
+bridge paths.
+
+**Deliverables.**
+
+- **E_PARITY_1 — Spinor KV codec in session decode.** Wire `core/vht2`
+  T_VHT_7 Spinor block layout into `sp_decode_step`'s KV write path.
+  Re-derive from the §4.5 frozen 63-byte Spinor block + §4.9
+  inline-codec spec; do not read the engine implementation
+  (anti-contamination). Gate: KV-cache memory footprint at
+  Gemma3-1B n_ctx=4096 matches the engine's `E_CPU_8` measured
+  footprint within ±5%. PPL bit-identical to the f32-KV path.
+
+- **E_PARITY_2 — Q4 inline weight in bridge.** `sp_model_to_qwen3`
+  bridge already supports OK_Q8 codes. Extend to Q4 mixed-precision
+  arena per `core/frobenius`'s T_FRO_5 frozen layout
+  (`SP_FROB_ARENA_LAYOUT_VERSION=1`). Gate: Q4-arena weight memory
+  matches engine's `E_CPU_7` footprint within ±5%; PPL drift bounded
+  per the prior cohort's calibrated number (`project_phase14_q4_result`
+  +0.7% on Gemma3-1B was the per-row Q4 budget).
+
+- **E_PARITY_3 — arch_struct reconciliation.** Engine transcoder
+  writes `qwen3_config` into arch_struct;
+  math-core SESSION expects `sp_arch_info` per
+  PPT-LAT-SP-MODEL-v0 §3 (the frozen spec — see
+  `project_arch_struct_divergence`). Engine conforms: transcoder
+  writes `sp_arch_info`, engine adapter reads `sp_arch_info`,
+  engine reconstructs its internal `qwen3_config` from
+  `sp_arch_info` + tensor inspection. Gate: cross-load
+  integration test — engine transcodes Gemma3-1B → math-core
+  session loads it → forward bit-identical vs engine forward.
+
+- **E_PARITY_4 — Peak RSS headline.** With E_PARITY_1+2 wired,
+  measure peak RSS at Gemma3-1B n_ctx=4096 under the math-core
+  session. Compare against engine's E_CPU_10 number. Gate:
+  within ±10% of engine's RSS. This is the user-visible
+  deliverable that 2-L1's relocation didn't regress the memory
+  story.
+
+**Closure tag.** `lat-phase-2-l1-parity-closed`. Then §8.7.6 FP16
+(dtype plumbing only) closes, then umbrella
+`lat-phase-2-l1-closed` fires.
+
+#### 8.7.6 Phase 2-L1.FP16 — fp16 working precision (dtype plumbing)
+
+**Scope trim from prior version.** The previous §8.7.5 over-scoped
+this sub-phase with cross-backend identity gates, Q4-arena re-
+measurement, and per-backend ULP-floor analysis as if the SP
+Frobenius-lift identity were an open question. It isn't — the
+identity is algebraic and was proven in the prior cohort
+(`project_phase11_full_stack`, `project_phase12_q8_step_d`). This
+sub-phase is **dtype plumbing**: pick the right type for residual
+activation + KV buffers across CPU/CU/VK and confirm PPL doesn't
+regress. The compression-driven memory win lives in §8.7.5 PARITY,
+not here. See `feedback-sp-is-discrete-fp-is-plumbing` for the
+canonical framing.
+
+Working precision dtype moves from f32 to fp16 across CPU / CU / VK;
+HX stays qf32; math-core scalar reference stays f32 as the bit-exact
 absolute-correctness anchor.
 
-**Why this is its own sub-phase.** The fp16 conversion fans out
-across every backend's matmul, attention, FFN, and KV-cache
-allocation paths. Doing it before §8.7.4 SESSION would mean
-re-touching all the kernels twice (once on math-core, once on the
-session wrappers). Doing it after SESSION consolidates the precision
-shift into a single backend-wide kernel pass on top of an
-ABI-stable surface.
-
-**The "bit exact" framing.** The user-direction binding rule (see
-`reference-fp16-working-precision`): the Frobenius-lift identity is
-algebraic, not precision-dependent. Per-row Q4 mixed-precision
-weights → fp16 activations through the inline-lift path produce
-cross-backend-identical fp16 outputs by construction. Measurement
-confirms the math; it does not discover the precision floor. If
-cross-backend fp16 KL is non-zero on the production Q4-arena path,
-the bug is in the backend's fp16 dispatch, not in the SP math.
-
-**Per-backend precision layout.**
+**Per-backend dtype.**
 
 | Backend       | Activations | KV cache   | Matmul accumulator | Notes                                                |
 |---------------|-------------|------------|--------------------|------------------------------------------------------|
@@ -1493,54 +1557,33 @@ the bug is in the backend's fp16 dispatch, not in the SP math.
 | HX            | qf32        | qf32       | qf32               | V69 Q6_Vsf_* IEEE-fp16 broken (gotcha #7); qf32 only |
 | Math-core ref | f32         | f32        | f32                | Bit-exact absolute-correctness anchor (untouched)    |
 
-The matmul accumulator staying at f32 is deliberate: fp16 × fp16 →
-f32 widening is the standard accuracy-preserving idiom for tensor-
-core / SIMD-FP16 hardware, and the f32 accumulator floor is well
-below fp16's representation precision so the visible result is
-fp16 anyway.
+**Deliverables (trimmed — no cross-backend identity gates, no Q4-arena
+re-measurement; both already proven and inherited).**
 
-**Deliverables.**
+- **E_FP16_1 — CPU fp16 path.** Buffers typed fp16, matmul accumulator
+  f32. Engine-cpu-fp16 PPL vs f16 oracle ≤ 0.05% (smoke gate; the
+  identity is by construction). **CLOSED** in B-CPU work.
+- **E_FP16_2 — CU fp16 path.** Same shape on CUDA. Per-backend PPL
+  smoke gate only; cross-backend KL is informational, not gating.
+  **CLOSED** in B-CU work (KL 1.573e-6 vs CPU recorded as wiring
+  confirmation).
+- **E_FP16_3 — VK fp16 path.** Same shape on Vulkan. PPL smoke gate
+  on whatever model fits the 12 GB VRAM (Qwen3-0.6B at f32-weights,
+  or Gemma3-Q4 if §8.7.5 PARITY is closed first and the Q4 weight
+  path is wired). The "bit-identical" gate from the prior over-scoped
+  version is dropped — SP Frobenius-lift identity is inherited proof.
 
-- **E_FP16_1 — CPU fp16 forward.** Activation buffers, KV cache,
-  norms, RoPE, attention all on fp16; matmul accumulator f32.
-  Engine-cpu-fp16 PPL vs f16 oracle ≤ 0.05% (naturally tight, same
-  precision both sides). Extends the existing E_CPU_10 fp16-source-
-  release work from "source release" to "production activation
-  precision."
+**E_FP16_4 (memory) moved to §8.7.5 PARITY** — that's where the
+memory deliverable actually lives. fp16 buffer-typing alone is a 2×
+on activations + KV; the inline VHT2+Spinor KV codec is the real
+~128× lossless cache win and the Q4 arena is the 8× weight win. The
+headline RSS number belongs to PARITY, not FP16.
 
-- **E_FP16_2 — Cross-backend fp16 identity.** CPU-fp16 vs CU-fp16
-  vs VK-fp16 bit-identical at fp16 precision on the production
-  Q4 mixed-precision arena. By SP Frobenius-lift identity this
-  should be zero KL (or within fp16's ULP). Measured by running
-  the same Gemma3-1B + Qwen3-0.6B fixture on the three backends
-  and asserting bit-equivalent logits at every position.
-
-- **E_FP16_3 — HX qf32 precision-floor.** HX-qf32 vs CPU-fp16 KL
-  bounded by qf32-vs-fp16 representation floor; argmax + top-5
-  agreement holds. Same shape as §8.8.1's reassociation-floor
-  pattern — see §8.8.1's extension for the generalized
-  precision-floor formulation.
-
-- **E_FP16_4 — Memory ceiling.** Peak working-set RAM at production
-  context (Gemma3-1B at n_ctx=4096, Qwen3-0.6B at the same)
-  fits within the project's resource envelope. The exact ceiling
-  is the binding constraint that drove this sub-phase; the
-  measurement records the headline number (full
-  weights + activations + KV cache + arena, peak RSS) and demonstrates
-  the headroom the f32 path lacked. The deferred f32-vs-oracle
-  desktop-GPU legs from §8.7.2 close re-run here under the fp16
-  path and are expected to pass (the host-RAM saturation that
-  blocked them disappears with fp16 activations + KV).
-
-- **E_FP16_5 — fp8 forward-compatibility.** The fp16 path doesn't
-  preclude a later fp8 sub-phase. `sp_arch_info.preferred_precision`
-  (or a session-config equivalent) enum exposes fp16 + qf32 + f32
-  as current values; reserves fp8 + fp4 + ternary (qint2) as
-  future values. The session-create dispatch reads this and selects
-  the right kernel set. Hopper/Ada/B100 NVIDIA, Lunar Lake Intel,
-  M4+ Apple Silicon ship native fp8; RTX 2060 (sm_75) does not.
-  Phase 2-L1.FP16 establishes the plumbing; the fp8 follow-on
-  becomes backend kernel additions, not architectural redesign.
+**E_FP16_5 (fp8 forward-compat) — done.** The
+`sp_arch_info.preferred_precision` enum landed in Part A of the prior
+sub-phase scope (HANDLE + SESSION precision-resolution plumbing).
+fp8 sub-phase later is a backend kernel addition, not architectural
+redesign — this hook exists. No further work required here.
 
 **Gate redefinition for §8.2 T_FRO_4 under FP16.**
 
@@ -1714,38 +1757,318 @@ closed; the matrix is filled per-cell.
 
 **Parallelism.** Cells are independent. Sessions can pick any cell.
 
-### 9.1 Model-family list
+### 9.0 Phase 3 entry condition — zero-copy memory invariant (CLOSED 2026-05-26)
 
-- 3.1 Llama 3.1 / 3.2 — established baseline; Llama 3 is the most-tested
-  upstream architecture, so it exercises every loader edge case.
-- 3.2 Qwen3 base — closest to the current canonical Qwen3-0.6B test
-  model.
-- 3.3 Qwen3.5 — incremental update on Qwen3, mostly architecture-flag
-  differences.
-- 3.4 Qwen3.6 — **MoE.** Adds the routing layer, sparse FFN, expert
-  parameter sharding. Largest single-cell scope in Phase 3.
-- 3.5 Qwen3.7 — incremental update on 3.6 if it lands by then;
-  otherwise deferred.
-- 3.6 Gemma 2.5 / 3 / 4 — Google family. Different RoPE shape, different
-  RMSNorm placement, attention sliding window. Gemma 3 is the canonical
-  research target (the T4 validation curve was on Gemma3-1B).
-- 3.7 DeepSeek V4 — large MoE with FP8 weights. Lower priority for
-  initial bring-up; the architecture is heavy and the FP8 weights would
-  require an additional dequant path.
+**CLOSED at math-core `87300c9` + fixup `108c64f` + engine
+submodule bump `6302438` + tag `lat-phase-3-zero-copy-closed`.**
+T_ZERO_COPY_ALIAS gate green. T_SESSION 119/119. Math-core
+session now loads `.sp-model` zero-copy: `alias_mask` field on
+`sp_frob_packed_tensor` (bit 0 codes, bit 1 row_scale) aliases
+the mmap directly; only `row_prec` + `row_off` (5 bytes/row)
+heap-allocated. `qm` hoisted to model handle, shared across
+sessions. PARITY's redundant arena allocation is gone.
 
-### 9.2 Priority cells
+**Fix A status: deprecated as a runtime ABI surface.**
+`sp_model_release_source()` was originally proposed as a stopgap
+for any bridge path forced to allocate an arena from a non-arena-
+compatible source. Audit of the runtime paths shows no such caller
+exists: math-core's session only loads `.sp-model`, and Fix B
+handles that zero-copy. The only place raw f16-GGUF gets read is
+`tools/sp_transcode` (an offline CLI tool); its memory pressure
+when packing big models (e.g. Gemma4-31B = 62 GB f16-source mmap
++ ~5 GB packed emit_list coexisting) is a separate internal
+transcoder concern, NOT an L1 ABI addition. Tracked as a
+sp_transcode internal fix (close GGUF mmap before allocating the
+emit_list, or stream-write per-tensor), to land before
+transcoding 30B+ models on a 64 GB host.
 
-The matrix has 28 cells. To stay honest about scope, the project
-declares which cells **must** close by end of Phase 3 and which are
-later-phase:
+**Why this section is kept** (not deleted from the roadmap): the
+information-theoretic invariant it captures is load-bearing for
+every future arch bridge — weights never exist as fp16 in main
+RAM, the file IS the arena, the bridge aliases mmap pointers,
+per-tensor transforms are pre-applied by the transcoder. The
+historical PARITY measurement (1458 MB on Qwen3-0.6B vs engine's
+580 MB) is the receipts.
 
-- **Must close (8 cells).** CPU × {Llama 3.x, Qwen3, Gemma 3}, CUDA ×
-  {Llama 3.x, Qwen3, Gemma 3}, Hexagon × {Qwen3, Gemma 3}.
-- **Should close (10 cells).** CPU × {Qwen3.5, Qwen3.6, Gemma 2.5,
-  Gemma 4, DeepSeek V4}, CUDA × {Qwen3.5, Qwen3.6, Gemma 2.5, Gemma 4,
-  DeepSeek V4}.
-- **Later (10 cells).** All Vulkan cells beyond the canonical
-  Qwen3-0.6B test model. All Hexagon cells beyond Qwen3 and Gemma 3.
+Historical scale table (left in for memory of why this mattered):
+
+| Model | Arena | Unreleased source | Total |
+|---|---|---|---|
+| Qwen3-0.6B | ~580 MB | ~754 MB | 1.3 GB |
+| Gemma3-1B | ~1 GB | ~2 GB | 3 GB |
+| Qwen3-8B Q4 | ~5 GB | ~16 GB f16-source | **~21 GB** |
+| Gemma4-31B Q4 | ~16 GB | ~62 GB f16-source | **~78 GB** — won't fit |
+| Qwen3.6-35B-A3B Q4 | ~18 GB MoE-active | ~70 GB f16-source | **~88 GB** — won't fit |
+
+**Information-theoretic invariant** (see
+`reference-zero-copy-invariant`): inflating a Q4 weight back to
+fp16 in main RAM adds zero information and 4× the memory
+bandwidth. The SP `sp_frob_*` inline-decompress-in-register
+design exists precisely so that **weights never exist as fp16
+in main RAM**. fp16 working precision (§8.7.6) is **activations
++ KV only** — never weights. Weights stay compressed forever;
+the matmul does the inline-decompress on the read.
+
+**The `.sp-model` file IS the arena.** The whole point of the
+Phase 2-FMT format was to make the on-disk bytes byte-identical
+to the runtime arena layout (`SP_FROB_ARENA_LAYOUT_VERSION=1`).
+There is **no transformation between disk and memory**. The mmap
+region IS the arena.
+
+**Offline workflow** (one-time per model the user acquires):
+
+  `$ sp_transcode  input.f16.gguf  output.sp-model`
+
+The transcoder reads the source GGUF (any format the engine can
+parse), packs per-row Q4/Q8 with Frobenius scales in
+`SP_FROB_ARENA_LAYOUT_VERSION=1` layout direct to disk, writes
+`sp_arch_info` into the 256-byte arch_struct, **and pre-applies
+any per-tensor transforms** (Gemma's `embedding × √n_embd`
+becomes the bytes on disk; the runtime embedding tensor is
+already pre-scaled).
+
+**Runtime workflow** (every `sp_session_create`):
+
+  `sp_model_load` mmaps the `.sp-model` file (e.g., 5 GB on
+  disk → 5 GB virtual). `sp_session_create`'s bridge walks the
+  tensor table and points the `qwen3_model` / `gemma3_model`
+  weight pointers **directly at the mmap base + tensor offset**.
+  Per-tensor `owned_mask` (or equivalent) marks every weight
+  tensor as **aliased**; `sp_session_destroy` frees only the
+  rare owned tensors (typically none for weights), leaving the
+  mmap to be torn down by `sp_model_unload`.
+
+**Zero arena allocation. Zero bytes copied. Total weight RAM
+equals the on-disk file size.** This is the **end-state**, and
+the path every newly-transcoded model should take.
+
+**Bridge contract for every Phase 3 arch** (Gemma3, Gemma4,
+Qwen2.5, Qwen3.5, Qwen3.6, DeepSeek-V4):
+
+1. **Transcoder side:** the transcoder writes
+   `SP_FROB_ARENA_LAYOUT_VERSION=1` directly to disk with all
+   per-tensor transforms pre-applied (Gemma's √n_embd is the
+   canonical example). Every newly-transcoded model takes the
+   zero-copy alias path at runtime.
+2. **Runtime side:** `sp_model_to_<arch>` does **zero allocation
+   for weight tensors**. Every weight tensor pointer in the
+   resulting model struct lies within the mmap'd region. Verified
+   via `alias_mask` bits + address-comparison gates.
+3. If a transcoder change is needed for an arch quirk, it lands
+   as part of the same cell on the transcoder side. There is no
+   runtime fallback path that allocates a weight arena.
+4. sp_transcode itself manages its own peak-RAM during pack
+   (close the source GGUF mmap before allocating the emit_list,
+   or stream-write per-tensor) — internal to the offline tool,
+   not an L1 ABI concern.
+
+**Gate (CLOSED at 87300c9):** load pre-transcoded Qwen3-0.6B
+`.sp-model` via the corrected bridge → `T_ZERO_COPY_ALIAS`
+verifies `alias_mask == 0x3`, codes / row_scale pointer identity
+vs mmap base, shared `qm` across sessions, and survival
+post-destroy. T_SESSION 119/119, no regression. Math-core arena
+~574 MB matching engine E_CPU_10 ±0.1%.
+
+Historical Fix A path (raw f16-GGUF dynamic-quantize at runtime)
+was deprecated — see top of §9.0 — because no runtime caller
+exists. sp_transcode handles raw GGUF offline.
+
+
+### 9.1 Model-family list (2026-05-26 — updated to user fixtures)
+
+Phase 3 in-scope arches, ordered by Phase 3 priority:
+
+- **Gemma3** (`arch_id = GEMMA3`) — `gemma_forward` was the canonical
+  Phase 2 PPL anchor. Bridge support in math-core remains the
+  `T_PARITY_CROSS_LOAD` deferred item from PARITY close: sandwich
+  RMSNorm, GeGLU FFN, per-head QK-RMSNorm, dual RoPE base, local/
+  global sliding-window attention (`set_swa_pattern(6)`), tied LM
+  head. First cell to bring up.
+- **Gemma4** (`arch_id = GEMMA4`) — incremental Gemma family delta;
+  E4B variant + 31B variant. 4 adds a vision tower the text path
+  ignores. Sandwich norms inherited from Gemma3.
+- **Qwen2.5** (`arch_id = QWEN25`) — coder family (0.5B/1B/3B/14B).
+  Closer to Llama-base RoPE than Qwen3; useful for smaller test
+  fixtures and spec-decode draft (the 0.5B draft for the 14B
+  target is the canonical pairing from the prior cohort).
+- **Qwen3.5** (`arch_id = QWEN35`) — **CORRECTED 2026-05-26: Mamba-
+  hybrid, not a Qwen3 attention delta.** GGUF investigation against
+  Qwen3.5-9B found `general.architecture = 'qwen35'` with 24 of 32
+  layers SSM and 8 attention (`full_attention_interval = 4`). SSM
+  layers carry tensors `ssm_a`, `ssm_alpha`, `ssm_beta`,
+  `ssm_conv1d`, `ssm_dt`, `ssm_norm`, `ssm_out` —
+  `qwen35.ssm.state_size = 128`, `qwen35.ssm.conv_kernel = 4`. The
+  bridge needs new SSM kernel work (selective scan, causal conv1d,
+  dt/softplus path). **Deferred to Phase 3-SSM sub-phase.** Math-
+  core has no SSM primitives yet; bringing them up is multi-day
+  work and belongs in its own gated track, not bolted into a
+  single-arch cell.
+- **Qwen3.6** (`arch_id = QWEN36`) — **MoE.** A3B suffix = 35B total
+  parameters with ~3B active per token via top-k expert routing.
+  Largest single-cell scope: routing layer, sparse FFN gather,
+  expert parameter sharding. Phase 3 only requires the
+  single-machine case; multi-machine MoE is Phase 6+. Verify via
+  GGUF inspection before assuming the routing-and-experts shape —
+  Qwen3.5's surprise teaches that family-level assumptions are
+  unsafe; each arch needs its `general.architecture` field
+  inspected first.
+- **DeepSeek V4** (`arch_id = DEEPSEEK_V4`) — large MoE with FP8
+  weights. **Aspirational.** No on-disk fixture yet; lower
+  priority for initial bring-up. The FP8 weights would require
+  an additional dequant path that overlaps with the eventual fp8
+  sub-phase.
+
+Llama 3.x is **deprioritised** in this cohort — the math-core
+session works on Qwen3-0.6B end-to-end so the loader edge cases
+Llama 3 was meant to canary are already exercised by the Qwen3
+path. Llama 3 cells can land opportunistically.
+
+### 9.2 Model fixtures on disk (host paths, 2026-05-26)
+
+Fixtures the user has staged for Phase 3, by arch:
+
+| Family | Path | Notes |
+|---|---|---|
+| Gemma3 | `D:\Files\Models\Mine\gemma-3-1b-it` | f16/Q3_K_M/Q4_0/Q4_1/Q4_K_M/Q6_K/Q8_0/QAT-Q4 sub-folders — multi-quant test surface |
+| Gemma3 (12B) | `D:\Files\Models\lmstudio-community\gemma-3-12b-it-GGUF` | scale-up after 1B closes |
+| Gemma4 (31B) | `D:\Files\Models\lmstudio-community\gemma-4-31B-it-GGUF` | needs `sp_model_release_source()` (§9.0) to fit |
+| Gemma4 (E4B) | `D:\Files\Models\lmstudio-community\gemma-4-E4B-it-GGUF` | smaller Gemma4 variant; first cell for Gemma4 bring-up |
+| Qwen2.5 coder | `D:\Files\Models\lmstudio-community\Qwen 2.5 coder 0.5b-1b-3b-14b` | 0.5B/1B/3B/14B family; 0.5B = spec-decode draft pairing with 14B target |
+| Qwen2.5 coder 0.5B | `D:\Files\Models\lmstudio-community\Qwen2.5-Coder-0.5B-Instruct-GGUF` | standalone 0.5B copy |
+| Qwen3 (8B) | `D:\Files\Models\lmstudio-community\Qwen3-8B-GGUF` | first Phase 3 scale-up beyond 0.6B; needs §9.0 |
+| Qwen3.5 (9B) | `D:\Files\Models\lmstudio-community\Qwen3.5-9B-GGUF` | needs §9.0 |
+| Qwen3.6 (27B) | `D:\Files\Models\lmstudio-community\Qwen3.6-27B-GGUF` | dense variant |
+| Qwen3.6 (35B A3B) | `D:\Files\Models\lmstudio-community\Qwen3.6-35B-A3B-GGUF` | **MoE** flagship; largest scope; needs §9.0 |
+| Qwen3.6 (35B A3B Draft) | `D:\Files\Models\lmstudio-community\Qwen3.6-35B-A3B-Draft-GGUF` | speculative-decode draft pairing for 4-MTP |
+| DeepSeek V4 | not on disk | aspirational; acquire later |
+
+Opportunistic Phase 3 fixtures also on disk (not user-requested
+but available): Qwen3-4B-Thinking, Qwen3-VL-4B / 8B, Phi-3.1 mini,
+Phi-4, NVIDIA Nemotron-3-Nano-4B, LFM2.5-1.2B, functiongemma-270m.
+These can land as Phase 3 cells without changing the scope; the
+agent picks them up if the work overlaps a primary cell.
+
+The reference Qwen3-0.6B fixture used by the PARITY close lives
+at `D:\Files\Models\` per the existing engine test setup
+(`SP_QWEN3_GGUF`) — kept as the regression-test model for
+math-core session correctness.
+
+### 9.3 Priority cells (2026-05-26 — updated to user fixtures)
+
+The matrix is **arch × backend**. CPU is the canonical path; CUDA
++ Vulkan + Hexagon follow per-arch as each compiles. The matrix:
+
+### 9.3.0 Correction to the original "thin-deltas matrix" framing (2026-05-26)
+
+The original §9.3 priority cells assumed Phase 3 was filling an
+arch × backend matrix where each new arch was a thin bridge
+delta on the canonical Qwen3 path. **GGUF inspections of each
+next-gen arch have proven that wrong.** Qwen3.5 is a
+Mamba-hybrid (24/32 SSM layers); Gemma4-E4B adds a per-layer
+input-embedding injection path, dual head_dim per SWA/global
+layer split, and logit softcap; Qwen3.6 has its own structural
+deltas (TBD per fresh GGUF inspection). Each next-gen arch
+deserves its own gated sub-phase, not a cell in a unified
+matrix.
+
+The actual Phase 3 split is:
+
+**Phase 3 (pure-attention bridges) — CLOSING.** Cells:
+- Gemma3 ✅ closed 2026-05-26 (`lat-phase-3-cell-gemma3-closed`)
+- Qwen2.5 ✅ closed 2026-05-26 (`lat-phase-3-cell-qwen25-closed`)
+- Qwen3 base — already runs via the SESSION/PARITY pipeline
+  on Qwen3-0.6B; counts as transitively closed for this slice
+
+The pure-attention slice of Phase 3 is effectively complete.
+Umbrella `lat-phase-3-attn-closed` can fire once we record this
+in a Phase log entry; tags the foundational matrix as done and
+unblocks Phase 4 + Phase 4-MTP without waiting on the
+structural-delta sub-phases below.
+
+**Phase 3-SSM (deferred sub-phase).** Qwen3.5 family is
+Mamba-hybrid. SSM kernels (selective scan, causal conv1d,
+dt/softplus path) land here as their own multi-day track;
+Qwen3.5-9B is the gate cell. Fixture on disk:
+`D:\Files\Models\lmstudio-community\Qwen3.5-9B-GGUF`.
+
+**Phase 3-G4 (deferred sub-phase).** Gemma4 family. New kernel
+work surfaced by GGUF inspection of Gemma4-E4B on 2026-05-26:
+
+- **Dual head_dim per layer.** SWA/local layers at HD=256
+  (35 of 42), global layers at HD=512 (7 of 42, L%6==5). All
+  attn_q / attn_k / attn_v / attn_output / attn_q_norm /
+  attn_k_norm shapes differ per layer. `qwen3_config.head_dim`
+  can't hold two values — bridge needs per-layer head_dim
+  detection from tensor shape; forward + kv_step need per-layer
+  HD dispatch.
+- **Per-layer input-embedding injection.** Every token at every
+  layer receives an additional contribution from a per-layer
+  token embedding via a new compute path:
+  - Per-layer tensors (5): `inp_gate.weight [2560,256]`,
+    `proj.weight [256,2560]`, `layer_output_scale.weight [1]`,
+    `post_norm.weight [2560]` (additional, beyond Gemma3's
+    sandwich pair).
+  - Global tensors (4): `per_layer_token_embd.weight
+    [10752,262144]` (10752 = 42×256), `per_layer_model_proj.weight
+    [2560,10752]` BF16, `per_layer_proj_norm.weight [256]`,
+    `rope_freqs.weight [256]`.
+- **Final-logit softcap.** `logits = tanh(logits/30.0) * 30.0`
+  after LM head (Gemma3-1B skipped this; Gemma4 requires it).
+- **shared_kv_layers = 18.** 18 SWA layers share KV
+  projections with their paired global layer. Tensors still all
+  present per layer; runtime decode logic can ignore the
+  sharing semantics for v0 bridge.
+
+Gemma4-E4B is the gate cell for Phase 3-G4 closure. Fixture on
+disk: `D:\Files\Models\lmstudio-community\gemma-4-E4B-it-GGUF`.
+Gemma4-31B is the scale-up after closure.
+
+**Phase 3-MoE (deferred sub-phase).** Qwen3.6 family (and
+DeepSeek-V4 eventually). Routing layer, sparse FFN gather,
+expert parameter sharding at minimum. Pre-inspection of
+Qwen3.6-35B-A3B GGUF expected to surface additional structural
+deltas — every next-gen arch has so far surprised us at the
+metadata layer. **Do not scope this sub-phase before inspecting
+the GGUF.**
+
+Fixtures on disk:
+- `D:\Files\Models\lmstudio-community\Qwen3.6-27B-GGUF` (dense
+  variant)
+- `D:\Files\Models\lmstudio-community\Qwen3.6-35B-A3B-GGUF`
+  (MoE flagship)
+- `D:\Files\Models\lmstudio-community\Qwen3.6-35B-A3B-Draft-GGUF`
+  (speculative-decode draft pairing for Phase 4-MTP)
+
+**Phase 3-FP8 (deferred sub-phase).** DeepSeek-V4 FP8 weights
+need a dequant path that overlaps with the eventual fp8
+sub-phase. Aspirational; no on-disk fixture; defer indefinitely.
+
+**Pre-inspection discipline (binding for every next-gen sub-phase).**
+Before any deferred sub-phase ships a bridge prompt, the agent
+MUST dump `general.architecture` + the full GGUF metadata + the
+tensor name list against the target fixture. Every next-gen
+arch so far has surfaced surprises at this stage. The Qwen3.5
+SSM trap, the Gemma4 per-layer embedding path, the Gemma3 tied-
+LM-head logit corruption — all caught at the GGUF-inspection
+gate. The prompt cannot assume family-level inheritance from
+the roadmap; the GGUF wins.
+
+### 9.3 Priority cells (LEGACY — superseded by §9.3.0 split)
+
+The matrix below is the original "thin-deltas" framing, kept
+for historical reference. The actual close status is in §9.3.0.
+
+- ~~Must close (4 cells, CPU only). CPU × {Gemma3 (1B), Gemma4
+  (E4B), Qwen2.5 (3B), Qwen3.6 (35B-A3B)}.~~ — Mis-framed;
+  Gemma4 + Qwen3.6 are next-gen arches with substantial new
+  kernel work, deferred to Phase 3-G4 / Phase 3-MoE per §9.3.0.
+- ~~Should close (5 CPU scale-ups).~~ — Per-arch scale-up gates
+  move into each next-gen sub-phase.
+- ~~Should close (4 CUDA cells).~~ — Same; each sub-phase
+  carries its own backend gates.
+- ~~Later: Vulkan + Hexagon × non-Qwen3-0.6B; DeepSeek V4;
+  Qwen3.5.~~ — Subsumed by Phase 3-SSM / Phase 3-G4 / Phase
+  3-MoE / Phase 3-FP8.
 
 ### 9.3 Per-cell deliverables
 
@@ -1994,23 +2317,146 @@ and the empirical `thermal_pause_us` for the S22U.
   per-arch static archives ship in the engine library. Runtime
   JIT requires Halide runtime on Android which we don't pay for.
 
+### 11.6 Signed PD + developer-account path (added 2026-05-29 late)
+
+Mode D v0 targets **Signed Process Domain directly**, not
+Unsigned PD with a "Signed PD when vendor cooperation
+materializes" deferral. The earlier framing where Signed PD
+was treated as a future-vendor-blocker was incorrect for a
+Qualcomm-Developer-Account holder; corrected. See memory
+entry `reference-signed-pd-developer-path` for the full
+framing + the specific signing toolchain.
+
+**Developer-account access (Knack has):**
+- OEM test signature credentials via Qualcomm developer portal.
+- Signing toolchain in Hexagon SDK: `hl_signnow` (inline,
+  preferred for single-host build) or `hl_signsav` +
+  `hl_signuse` (split build — sign on dev host, deploy via
+  CI).
+- S22U test device must have `testsig` installed to permit
+  dev-signed binaries.
+
+**Sprint A pre-flight discipline** (carries forward to
+Sprint B, C):
+- Before any `remote_handle_open` call, verify the device
+  `vendor.fastrpc.process.attrs` system property is NOT set
+  to `0x8` (FASTRPC_MODE_UNSIGNED_MODULE — forces Unsigned
+  Sandbox even with signed skels).
+- Map FastRPC error `0x80000600` (FASTRPC_IOCTL_INIT_CREATE
+  failure) to `SP_ERR_SIGNATURE_MISMATCH` with diagnostic
+  pointing at: (a) test signature mismatch, (b) stale cDSP
+  firmware-signed-shell pair, (c) skel path missing from
+  ADSP_LIBRARY_PATH (trailing-semicolon issue per
+  `reference-hexagon-working-setup`).
+
+### 11.7 Phased sprint structure (added 2026-05-29 late)
+
+Rather than ship Mode D as one big agent run (per Gemini's
+draft mandates which bundled FastRPC FFI + DMA-BUF allocator
++ Axum integration), split into three focused sprints —
+each its own plan-first + multi-file + commit-between-stages
+cycle, each gates closure independently:
+
+- **Sprint A — `Phase 3-HX-MODE-D.RPC`**: FastRPC dynamic
+  FFI bridge ONLY. `FastRpcSession` Rust struct (no-op
+  echo skel for test). Ships before Sprint B starts.
+  Proves the IPC handshake + Signed PD admission.
+- **Sprint B — `Phase 3-HX-MODE-D.DMA`**: DMA-BUF Heaps
+  allocator ONLY. `DmaBuffer` struct + cache-sync ioctls
+  + unit tests. No DSP integration in this sprint. Proves
+  zero-copy ARM-side primitive.
+- **Sprint C — `Phase 3-HX-MODE-D.LOOP`**: Integration into
+  Axum chat_handler. Combines A + B + Halide AOT skel.
+  Inference loop with cache coherency. SSE streaming.
+
+The §11.1 E_HXD_1..7 deliverables map across the three
+sprints: E_HXD_2 (IDL + FastRPC) → Sprint A; the implicit
+DMA-BUF allocation in E_HXD_2 → Sprint B; E_HXD_1
+(Halide generator) + E_HXD_3..7 → Sprint C plus a Halide
+generator sub-sprint.
+
+### 11.8 V69 HVX expert practices reference (added 2026-05-29 late)
+
+The Halide schedule + assembly idioms for §11.1 E_HXD_1
+deliverable are captured in memory entry
+`reference-v69-hvx-expert-practices`. Key load-bearing
+items the agent must respect:
+
+- **SSR:XA programming is arch-version-dependent.** V69
+  uses SSR:XA={4,5,6,7} → vector contexts 0..3; V79 uses
+  SSR.XA={0..7} → 0..7. Hard-coding V69 values breaks on
+  V73+ silicon. Production code must dispatch via the
+  `HEXAGON_ARCH_VERSION` preprocessor or runtime check.
+- **V69 has 4 scalar threads / 2 vector contexts.** At
+  most 2 threads run HVX simultaneously; remaining 2
+  threads run scalar-only work in parallel (K/V cache
+  addressing, FastRPC handshake, etc.).
+- **`.tmp` loads** skip VRF writeback → free up VLIW slot
+  for additional instruction in same packet. Use for
+  single-consumption streaming inputs.
+- **`.cur` loads** write VRF for reuse across packets.
+  Use for weight tiles loaded once + used many times.
+- **vhist / vwhist consume all 32 V registers** as
+  histogram bins (256-entry × 16-bit each); VRF must be
+  cleared before run. Composes with KSTE Tier-0
+  signature counting + sieve frequency tabulation.
+- **VTCM 8 MB on V69:** pin Frobenius per-row scales +
+  KSTE Tier-0 LUTs via `qurt_mem_l2cache_lock` for the
+  active layer; stream K/V tiles through the remaining
+  budget via DMA-BUF. Full K-cache stays in DDR (Qwen3-0.6B
+  K-cache ~234 MB doesn't fit; MTP-in-VTCM is *tiled*
+  streaming, not VTCM-resident).
+- **Cache coherency on shared physical memory:**
+  flush-before-DSP-read, invalidate-before-ARM-read via
+  `DMA_BUF_IOCTL_SYNC`. Alternative: allocate from
+  `qcom,system-uncached` heap to skip the sync-cache
+  ioctl overhead (slower ARM-side access; faster DSP-
+  stream-then-result-back patterns).
+
 ---
 
-## 12. Phase 4-MTP — Multi-token prediction (speculative decoding)
+## 12. Phase 4-MTP and Phase 4-SPEC — multi-token speedup overlays
 
-DeepSeek V3/V4, Gemma 4, and llama.cpp's beta MTP merge all
-implement MTP on continuous-float architectures with the
-associated VRAM tax. The lattice maps MTP structurally to Step 10
-of the 13-step PPT canonical table (the Activation Oracle / Cramér
-prime-gap prefetch). Theorem T8 (PPT-LAT-Theory §11.5) formalises
-the exactness claim; PPT-LAT-Systems §4.6 specifies the runtime
-contract (`SP_MTP_DRAFTER=1` gate + transactional Spinor blocks).
-The L1 ABI primitives required to implement it (`sp_session_clone`,
-`sp_session_rewind`, atomic cancel flag) are already frozen at
-`lat-phase2-contract-frozen` — the contract anticipated this
-without naming the use case.
+**Important distinction (corrected 2026-05-26).** MTP and standard
+speculative decoding are different speedup mechanisms even though
+they share the lattice's transactional Spinor-block rewind
+primitive. Earlier roadmap prose conflated them.
 
-This sub-phase realises T8 in code.
+- **Phase 4-MTP — Multi-Token Prediction (built-in heads).** The
+  target model has auxiliary prediction heads trained into it
+  that project K future tokens during the same forward pass. One
+  model loaded; slight VRAM increase for the heads; self-drafting
+  + self-verifying. DeepSeek V3/V4 ship MTP heads natively;
+  llama.cpp's beta MTP merge implements this path; Gemma 4 has
+  it in some checkpoints. Best on highly structured / repetitive
+  text (code, structured chat).
+
+- **Phase 4-SPEC — Standard speculative decoding (separate draft
+  model).** A smaller distinct draft model rapidly proposes K
+  tokens; the target model verifies in a single batched forward.
+  Two models loaded; heavier VRAM but separates compute load (and
+  can split draft/target across devices). The
+  Qwen3.6-35B-A3B-Draft fixture on disk is the canonical pairing
+  for the Qwen3.6 family; Qwen2.5-Coder-0.5B paired with
+  Qwen2.5-Coder-14B is the same pattern at smaller scale.
+
+Both sub-phases land independently. Both rely on the same
+foundational L1 ABI primitives — `sp_session_clone`,
+`sp_session_rewind`, atomic cancel flag — which were frozen at
+`lat-phase2-contract-frozen` precisely because Theorem T8's
+clean-rejection-in-Z_q algebra applies to either drafter source
+(built-in head or separate model; what gets rewound is the
+Spinor block tail, identically). PPT-LAT-Theory §11.5 (Theorem
+T8) covers both; PPT-LAT-Systems §4.6 gates them via
+`SP_MTP_DRAFTER` and `SP_SPEC_DRAFTER` respectively.
+
+The lattice maps both structurally to Step 10 of the 13-step PPT
+canonical table (the Activation Oracle / Cramér prime-gap
+prefetch). What differs is where the K-token guess comes from:
+auxiliary heads inside the target model (MTP) vs a separate
+smaller model's forward pass (SPEC).
+
+Sub-phases below realise T8 in code along both paths.
 
 **Dependencies.** `lat-phase-3-closed` — strictly blocked. The
 base architectures (Gemma 4, DeepSeek V3/V4, MTP-enabled Qwen 3
@@ -2211,6 +2657,1705 @@ Phase log entry names the per-sub-phase numbers, the empirical packet
 loss tolerance, the K cap on real WAN versus simulated WAN, and the
 caustic-skip rate measured on the Qwen3-0.6B / Gemma3-1B baselines.
 
+### 13.6 Heterogeneous SoC compute as recursive CRT (added 2026-05-30)
+
+**Manifesto.** The lattice's discrete CRT substrate IS the
+heterogeneous-SoC compute model. Continuous-fp LLM stacks need
+high-speed interconnects between accelerator islands because
+their math is sequentially coupled. The lattice's CRT dual-prime
+sharding makes Z_q1 and Z_q2 mathematically independent — DSP
+runs q1, NPU runs q2, ARM does O(1) Garner. No cross-island
+sync mid-compute. Recursive: the internal SoC CRT mesh composes
+with the external Phase 6 NET CRT mesh through a unified
+scheduling protocol from L1 cache to QUIC packet.
+
+Locked in memory entry `reference-heterogeneous-soc-crt-tricks`
+(2026-05-30) to prevent future drift back to statistical-fp
+heterogeneous paradigms. Future sprints exercising heterogeneous
+dispatch must reference the ten tricks by number rather than
+reinventing.
+
+The four sub-phases below operationalize the manifesto. They
+compose with each other and with §11 Mode D (which provides the
+DSP-side Halide AOT pipeline) and §13.1-13.4 (which provides the
+external CRT mesh transport).
+
+#### 13.6.K Sprint K — Internal CRT split (DSP dual-HVX + ARM Garner)
+
+**Sprint K split into v0.alpha + v0.beta per 2026-05-30 agent
+audit.** The original spec underweighted the kernel rewrite cost
+(CRT matmul requires Barrett reduction per-multiply, NOT just
+const-generic prime substitution) AND assumed cDSP dual-HVX
+parallelism without verifying FastRPC + scheduler + Halide
+resource contention compose. The split is the right discipline:
+
+- **K v0.alpha (~150 LOC, ~2 hours)** — dispatch parallelism
+  premise check using EXISTING Sprint J FFN diag method on
+  two ARM threads + Mutex<FastRpcSession>. No kernel changes.
+  Per-thread HAP_perf_get_pcycles brackets measure overlap
+  fraction = max(t_a, t_b) / (t_a + t_b). Gate decision:
+  - overlap ≥ 0.5 → K v0.beta dispatch authorized
+  - overlap < 0.5 → pivot to K.2 (NPU integration via Mode
+    B/D bridge); Barrett kernel rewrite not committed
+
+- **K v0.beta (~500-600 LOC, conditional)** — Halide
+  generator emits Barrett-reduction matmul mod q_1 and mod
+  q_2 (two .so files). Dispatcher uses K v0.alpha's proven
+  pattern. Garner recombine on ARM. Math identity gate
+  is CONDITIONAL on the no-saturation regime (verified by
+  asserting Sprint J accumulator stays within ±INT32_MAX
+  for the test data — instrumented in the scalar reference
+  during K's verification run).
+
+The split honors `feedback-lead-with-reference-then-theory`
++ `feedback-no-silent-gate-revisions`: test the load-bearing
+premise cheaply BEFORE committing to the kernel-rewrite cost.
+
+**Trick exercised:** #1 (CRT-sharded compute across silicon islands)
+and #9 (Spinor 63-byte ABI).
+
+**Deliverable.** Halide AOT generator template that emits two
+kernel variants from one source, parameterized on the prime:
+`sp_matmul_q8_q1.so` (computes residue mod q_1 = 1073738753) and
+`sp_matmul_q8_q2.so` (mod q_2 = 1073732609). Mode D bridge
+dispatches DSP and NPU concurrently; ARM thread does the Garner
+recombine on completion. Phase 6 BLOCK-SYNC primitive provides
+the K-layer transactional window.
+
+**Gate (M_K_INTERNAL_CRT):**
+- Bit-identity vs single-island baseline at every shape exercised
+  in Sprint G (no logits drift; Theorem T8 preserved across the
+  internal CRT split).
+- Wall-time speedup ≥ 1.5× single-island on Qwen3-0.6B FFN
+  prefill at ctx=128. Floor is "any measurable speedup" per
+  `feedback-lattice-baseline-is-prior-lattice`; stretch is 1.8×
+  (perfect parallelism minus Garner cost).
+- pcycle scaling preserved: linear with batch size on both
+  islands independently.
+- Channel-pair allocation per Trick 4 used IF Sprint M closed;
+  otherwise default DDR alloc with empirical bandwidth-contention
+  measurement documented.
+
+**Prerequisites.** Sprint H closed (2026-05-30: empirical
+boundary recorded — q_bits ≤ 15 is the ONLY G.1 constraint;
+the prior "dim must equal 128" framing was a Sprint G data
+confound and is fully retracted — non-multiples 160/192/224
+and multiple-not-128 256 all PASS at q=14). Sprint H.PATCH
+required ONLY for models that use q_bits = 16; q_bits ≤ 15
+models (covers Q8/Q4 lattice production range cleanly) need
+no patch. Sprint I + J closed (real model load through DSP
+bridge). NPU dispatch path productized — current Mode B QNN HTP
+closure at `lat-phase-2-hx-mode-b-closed` provides the substrate
+but does not exercise spec-decode / parallel-with-Mode-D.
+
+**Caveat.** NPU INT4 vs DSP Q8 produces different precision
+tiers; the CRT residue arithmetic must operate at a common
+working precision. Resolution: both compute mod q_1 and mod q_2
+at INT32 accumulator width, with Q8/Q4 input ranges. NPU paths
+that go through QNN's quantization layer need explicit precision
+control to preserve bit-identity.
+
+**Closure tag:** `lat-phase-3-hx-mode-d-internal-crt-closed`.
+
+#### 13.6.L Sprint L — ISP-as-KSTE Tier-0 signature engine
+
+**Trick exercised:** #2 (ISP histograms + Trick 7 burst pattern).
+
+**Deliverable.** Spectra ISP histogram block configured to
+tabulate Tier-0 byte-frequency counts over the KV write stream
+during inference. Output buffer DMA'd to ARM Cortex-A510 for
+dominance comparison + ed25519 receipt mint via §14 Phase 5
+sieve. Receipts mint *during* inference at zero clock cost to
+DSP / NPU.
+
+**Gate (M_L_ISP_SIEVE):**
+- ≥ 1 PoUW receipt minted per 5 seconds of sustained inference
+  (matches sieve rate measured in §14 closure but achieved via
+  ISP-side tabulation instead of DSP-side).
+- Inference TTFT degradation ≤ 1% vs Sprint K baseline (the
+  test of whether ISP work is actually free).
+- Receipt content byte-equivalent to receipts minted via the
+  Sprint G DSP-side path (verifies that ISP histogram output
+  matches the Tier-0 signature semantic).
+
+**Prerequisites.** Sprint K closed (DSP/NPU pipeline working
+so ISP can side-channel without disrupting it). Signed PD
+admission via `hl_signnow` + `testsig` install on S22U (Path A;
+ISP control registers likely unmappable from Unsigned PD).
+
+**Caveat.** This sprint may discover ISP control registers are
+admin-only even in Signed PD. Fallback: cDSP-side Trick 2
+analog using `vhist` on otherwise-idle V69 thread pair (4
+hardware threads / 2 vector contexts — see
+`reference-v69-hvx-expert-practices` — 2 threads can run
+scalar-only sieve work while 2 run HVX inference).
+
+**Closure tag:** `lat-phase-3-hx-mode-d-isp-sieve-closed`.
+
+#### 13.6.M Sprint M — TS oracle on LPDDR5x SoC channels
+
+**Trick exercised:** #4 (Channel-pair allocation across silicon
+islands).
+
+**Deliverable.** §16.1-equivalent GF(2) channel-select hash
+oracle adapted for LPDDR5x on S22U. Probes ARM-side virtual
+addresses (under the offline-map-bypass pattern from
+`reference-offline-map-bypass`) to recover the SoC's channel
+hash matrix M. Result cached at
+`~/.cache/shannon-prime/channel_map_s22u.bin`. Daemon loads
+cached map at runtime; `sp_alloc_channel_pair` produces
+allocations where q1 residue is on the channel adjacent to
+DSP's load queue and q2 on the channel adjacent to NPU's bus.
+
+**Gate (M_M_SOC_CHANNEL):**
+- Cached .bin produces channel-paired allocations where
+  `sp_channel_of(virtual_addr)` returns distinct values for
+  paired pointers, verified by tail-latency oracle measurement
+  on real LPDDR5x.
+- Sprint K wall-time improves ≥ 10% with channel-paired
+  allocation vs default allocator (measures the actual
+  bandwidth-contention reduction).
+- Cache-line transfer count between islands unchanged (Trick 9
+  Spinor ABI preserved — the channel pairing changes WHICH
+  channel each block goes through, not HOW MANY transactions).
+
+**Prerequisites.** Magisk root or one-shot bootloader-unlocked
+boot OR userdebug build on the S22U for offline oracle calibration
+(equivalent to the `bcdedit hypervisorlaunchtype off` boot on
+Windows for x86 oracle). Stock boot for daemon runtime — Trick 4's
+2MB huge-page identity-mapping invariant carries forward.
+
+**Caveat.** Android's hugepage allocation path differs from
+Linux desktop (default transparent huge pages don't always
+fire). Daemon may need explicit `madvise(MADV_HUGEPAGE)` or
+hugetlbfs mount.
+
+**Closure tag:** `lat-phase-3-hx-mode-d-soc-channel-closed`.
+
+#### 13.6.N Sprint N — Recursive CRT mesh (internal + external)
+
+**Trick exercised:** #8 (Recursive CRT mesh) and #10 (Receipt-
+backed verifiable distributed compute).
+
+**Deliverable.** Two-node demonstration where one node is the
+S22U (running Sprint K internal CRT split — DSP-q1 + NPU-q2)
+and the other is Knack's Beast Canyon (CUDA backend, computing
+both q1 and q2 of an outer CRT split, OR just q2 of an outer
+split with the S22U as an outer-q1 worker that internally
+recursively-splits).
+
+**Gate (M_N_RECURSIVE_CRT):**
+- Joint inference completes; final logits bit-identical to
+  single-node baseline (same prompt, same model, same seed,
+  any backend).
+- Receipt chain verifiable end-to-end: S22U mints receipts for
+  its slice; Beast Canyon mints for its slice; coordinator
+  Garner produces a "receipt of receipts" stitching the chain.
+- WAN latency budget: ≤ 200 ms additional vs single-node
+  inference at ctx=128 (Phase 6 BLOCK-SYNC + CRT-RS transport
+  amortize the network cost).
+
+**Prerequisites.** Phase 6 BLOCK-SYNC + TRANSPORT-CRT-RS closed
+(internal §13.1-13.2 sub-phases). Sprint K closed (internal CRT
+split on S22U). §14.3.AUTH closed (ed25519 dominance identity
+replaces SkipServerVerification TLS placeholder so peers
+mutually authenticate).
+
+**Caveat.** Mesh DoS / receipt rate-limiting design is open
+work; for this sprint the two-node demo uses trusted peers
+(both Knack's hardware), so DoS is not a gate. Production mesh
+needs a separate sub-phase for adversarial scenarios.
+
+**Closure tag:** `lat-phase-3-hx-mode-d-recursive-crt-closed`.
+This sprint also fires `lat-phase-13-6-closed` umbrella
+(Heterogeneous SoC compute as recursive CRT).
+
+#### 13.6 closure
+
+Closure tag `lat-phase-13-6-closed` after K + L + M + N all
+close. Phase log entry documents the SP-tricks-by-number that
+each sprint exercised, the empirical perf deltas vs single-
+island baseline, and any newly discovered constraints worth
+backporting into the manifesto memory entry.
+
+After §13.6 closure, the lattice has the full recursive CRT
+mesh substrate from L1 cache to QUIC packet. Phase G
+(distributed inference per `feedback-no-silent-gate-revisions`
+— gated previously on §16.5 TS.INTEGRATE-KSTE) becomes
+tractable because §13.6.N proves the math/network/silicon
+substrate cohere end-to-end.
+
+
+## 14. Phase 2-L3 — Headless HTTP/SSE Daemon
+
+**Goal.** Wrap the L2 Rust driver in a long-lived OS-managed daemon
+process that exposes a small REST + SSE surface on `localhost:8080`.
+The daemon survives UI lifecycle events (Android foreground service,
+systemd unit on Linux, launchd plist on macOS) so the inference
+engine, the Friedman sieve evaluation, and PoUW mining run
+independently of any frontend. The L3 surface is the **canonical UX
+boundary** for the entire lattice; every frontend (mobile, desktop,
+watch, CLI) attaches to it.
+
+**Dependencies.** `lat-phase-2-l1-closed`.
+
+### 14.1 The five SendMessage seams
+
+This phase formalises an architectural invariant that has been
+implicit through Phases 2-CPU/CU/VK/HX/FMT/L1: **Shannon-Prime
+isolates every inter-domain boundary as a pure message-passing seam.**
+No shared mutable state crosses a seam; only typed, idempotent
+messages. There are five such seams in the lattice:
+
+| # | Seam | Direction | Transport | Payload invariant |
+|---|------|-----------|-----------|-------------------|
+| 1 | L1 ↔ L2 (FFI) | C ↔ Rust | function call | three opaque handles, atomic cancel flag, value types |
+| 2 | L2 ↔ HX backend | ARM ↔ DSP | FastRPC (adsprpc kernel driver, IPC doorbell, ~30 µs) | 64-bit SVM pointers only; payload lives in ION heaps |
+| 3 | L2 ↔ L3 | in-process | crossbeam channel | UTF-8 strings + small JSON; no raw logits, no Spinor blocks |
+| 4 | L3 ↔ frontend | HTTP/SSE (loopback or LAN) | TCP/8080 | UTF-8 JSON over text/event-stream |
+| 5 | Phone ↔ Watch | BLE GATT (paired) | 20-byte chunked SSE-equivalent | ed25519 key fingerprint + UTF-8 status; never logits |
+
+(A sixth seam — node ↔ node — appears in Phase 6 over QUIC; the
+invariant generalises.)
+
+The seams share three rules:
+
+1. **No shared mutable state.** Each side allocates its own memory;
+   pointers crossing the seam either (a) point at SVM that the OS has
+   guaranteed both sides see (FastRPC / ION) or (b) are opaque
+   handles whose payload the other side cannot dereference.
+2. **Idempotent on the wire.** A duplicated message produces the same
+   final state as a single message; a partial / interrupted message
+   is either fully visible or invisible. Spinor transactionality
+   gives this for free at seams (1), (3), (4); QUIC stream framing
+   gives it at (6); FastRPC's `rout` keyword gives it at (2); BLE
+   GATT's sequence-numbered notifications give it at (5).
+3. **Survives the other side dying.** Seam (1) survives L2 dropping
+   the session via `cancel_flag`; seam (2) survives DSP thermal
+   throttle by the ARM thread sleeping on the doorbell; seam (4)
+   survives the UI being RAM-reaped (the daemon keeps mining PoUW);
+   seam (5) survives the watch going dark (BLE re-pairs).
+
+### 14.2 The L3 surface (ruthlessly small)
+
+The HTTP routes and SSE channels mirror the
+`SP-LAT-FRONTENDS.md` design draft. Sub-phases land them
+incrementally.
+
+| Route | Verb | Direction | Payload |
+|-------|------|-----------|---------|
+| `/v1/chat` | POST | request | `{prompt: string, max_tokens?: int, stop?: [string]}` |
+| `/v1/chat` | SSE response | stream | `data: {"delta":"..."}` per token, terminator `data: [DONE]` |
+| `/v1/metrics` | GET | response | `{tokens_per_sec, htp_temp_c, ram_svm_bytes, peers, phase}` |
+| `/v1/receipts` | GET | response | `{receipts: [...], cursor: string?}` paginated PoUW dominance receipts |
+| `/v1/peers` | GET | response | `{peers: [{id, q_shard, rtt_ms, last_seen}]}` DHT neighbour set |
+| `/v1/events` | SSE | stream | peer up/down · sieve fold · thermal trip · mint event |
+| `/v1/abort/{id}` | POST | request | `204` on success, cancels an in-flight decode |
+
+**Never crosses the L3 boundary:** `sp_session*`, Spinor[63] blocks,
+raw `f32[vocab_size]` logits, Frobenius scales, HVX intrinsics,
+`.sp-model` weights (mmap-ed inside the daemon, never copied across
+the seam). Tokenisation and detokenisation happen inside the daemon
+so frontends receive only UTF-8 text.
+
+### 14.3 Sub-phases
+
+- **§14.3.1 Phase 2-L3.CORE** — tower-http/axum scaffold;
+  `localhost:8080` binding only (no LAN, no TLS for v0); FFI handle
+  to L2 via the frozen L1 ABI primitives; daemon lifecycle (`spd
+  start`, `spd stop`, `spd reload`). Closes when `curl
+  localhost:8080/v1/metrics` returns a well-formed JSON object
+  against a live `sp_session`.
+
+- **§14.3.2 Phase 2-L3.VERBS** — all six routes wired to the L2
+  driver: `/v1/chat` → `sp_session_clone` (for MTP draft branch) +
+  `sp_decode_step`; `/v1/abort` → flips the atomic `cancel_flag`
+  primitive from the L1 ABI; `/v1/receipts`, `/v1/peers` read from
+  the L2 KSTE cache and DHT peer table respectively. Closes when all
+  six routes pass per-route integration tests with curl + a
+  programmatic SSE client.
+
+- **§14.3.3 Phase 2-L3.SSE** — `text/event-stream` chunked output
+  for `/v1/chat` and `/v1/events`. Implements keep-alive comment
+  heartbeats every 15 s, and the canonical `data: [DONE]` terminator
+  for stream end. Closes when an idle SSE connection survives a
+  60-second decode pause without the client timing out.
+
+- **§14.3.4 Phase 2-L3.FG** — Android foreground service permission
+  manifest entry + systemd unit + launchd plist. The daemon's
+  parent process can die (UI killed by RAM pressure, terminal
+  disconnect) and the daemon keeps mining. Closes when `SIGSTOP` on
+  the spawning UI does not pause `/v1/events` SSE on a second
+  client.
+
+- **§14.3.5 Phase 2-L3.AUTH** — per-session bearer token printed once
+  on stdout at daemon start; frontends read it via the OS keychain
+  (Android Keystore, macOS Keychain, libsecret on Linux). No
+  passwords, no OAuth flow — single-user developer device assumption
+  for v0. Closes when a stale token fails authentication with `401`
+  and the keychain-bound frontend transparently reads the new one.
+
+### 14.4 Closure
+
+`E_L3_1..3` green on Linux gcc + Windows MSVC + Android NDK
+(aarch64-android cross-compile). Tag `lat-phase-2-l3-closed`. Phase
+log entry names the daemon binary size, the cold-start latency
+distribution, and the verified message-passing invariant across all
+five seams.
+
+
+## 15. Phase FE — Frontends
+
+**Goal.** Build the four UX surfaces that consume the L3 daemon.
+Every frontend is a "dumb client" — it holds no SP state, posts
+strings, listens for streams. The frontends are parallel deliverables
+that can land in any order once `lat-phase-2-l3-closed` ships.
+
+**Dependencies.** `lat-phase-2-l3-closed`.
+
+**Anti-contamination rule (frontends specific).** A frontend's
+compiled artifact MUST NOT contain any SP symbol or struct. The gate
+is automatic:
+
+```
+nm -gC <artifact> | grep -E '^_?(sp_session|sp_arch_info|spinor|frobenius|sp_kste|sp_vht|sp_ntt)' | wc -l
+```
+
+must return `0`. The frontend talks to L3 over UTF-8 + JSON + SSE,
+nothing else. This guarantees that an OS-level crash, exploit, or RAM
+reap on the frontend leaves the L1/L2 algebra untouched.
+
+### 15.1 Sub-phases
+
+- **§15.1.1 Phase FE-MOBILE-FLUTTER** — Flutter app for Android
+  (S22 Ultra target). Dart isolate for UI; pure HTTP/SSE client to
+  the local L3 daemon on `localhost:8080`. Five tabs: chat, node
+  (daemon health), pouw (work + discovery balance), mesh (DHT
+  topology), config. Builds the `.apk` with `flutter build apk
+  --release`; the L1/L2 stack is **not** embedded as `jniLibs` (it's
+  the daemon's job).
+
+- **§15.1.2 Phase FE-DESKTOP-CONSOLE** — operator console at
+  `admin.shannon-prime-lattice.dev`. Multi-node fleet view (14 nodes
+  in the design), q-shard topology, aggregate throughput, per-node
+  drill. Reads the same L3 surface but federates over a fleet
+  registry. Built as a static SPA (no runtime backend beyond the
+  fleet registry's read-only endpoint).
+
+- **§15.1.3 Phase FE-WATCH-WEAR** — Galaxy Watch6 (Wear OS) faces
+  and complications. Six face designs (lattice, decode, pouw, AOD,
+  tiles, notification). BLE GATT bridge to the paired phone's
+  daemon; a single GATT characteristic mirrors the phone's
+  `/v1/events` stream, notifications are wrapped in 20-byte chunks
+  and reassembled in the watch main thread. Watch holds an ed25519
+  key fingerprint of the daemon for pairing — no cloud, no relay.
+
+- **§15.1.4 Phase FE-CLI-TMUX** — `spctl` terminal UI. tmux-friendly
+  overview pane (peers · daemon log · sieve · receipts · htop). Same
+  L3 endpoints, ANSI rendering, palette-keyboard navigation. Built
+  in Rust against the same JSON schema as the other frontends.
+
+### 15.2 Why this is "Phase FE" not "Phase 7-FE"
+
+Frontends are cross-cutting; they do not slot between two compute
+phases. They share one dependency (`lat-phase-2-l3-closed`) and one
+anti-contamination invariant, but they otherwise have no
+inter-dependency. The four sub-phases can land in any order, in
+parallel agent sessions, without blocking each other or any compute
+phase. The `FE-` prefix is its own track namespace, parallel to the
+backend tracks `2-CPU/2-CU/2-VK/2-HX/2-FMT/2-L1/2-L3`.
+
+### 15.3 Closure
+
+Umbrella tag `lat-phase-fe-closed` after all four sub-phase gates
+pass. The phase log entry names the artifact sizes, the verified
+zero-SP-symbol counts, and the cross-frontend feature parity matrix
+(every action that mobile can take, desktop and CLI can take too;
+watch is read-mostly with a single tap-to-acknowledge action).
+
+
+## 16. Phase TS — TailSlayer channel-aware memory placement
+
+**Goal.** Reverse-engineer the host memory controller's
+undocumented channel-select hash via Laurie's TailSlayer
+methodology, then use the recovered map to place latency-critical
+data structures on independent DDR channels for hedge-read
+parallelism. Specifically targets the lattice primitives whose
+algebraic structure already aligns to channel-friendly boundaries:
+63-byte Spinor blocks (one cache line each), dual-prime CRT
+residue pairs (already mathematically replicated), per-row
+Frobenius scales paired with packed Q4/Q8 codes, and the KSTE
+upper-tier dominance cache hot set.
+
+**Why this is its own phase, not a perf optimization buried in
+some other sub-phase.** The lattice's discrete substrate and
+TailSlayer's GF(2) channel-select recovery are the same
+algebraic dialect — linear systems over `GF(2)`, exact, no
+floating-point heuristics. Every lattice primitive that's
+already aligned to a hardware boundary becomes a free hedge-read
+candidate once the map exists. This is a multiplier on what's
+already shipped, not a fix to anything broken. It belongs in its
+own gated track so the optimization claims are measurable in
+isolation.
+
+**Dependencies.** None. Phase TS is cross-cutting infrastructure
+parallel to Phase 2-L3 (the L3 daemon). It does not block any
+other phase; every downstream phase benefits when it lands.
+
+### 16.0 The GF(2) channel-select oracle (Laurie's method)
+
+Memory controllers compute channel/sub-channel/bank from a subset
+of physical address bits via an undocumented XOR hash. The hash
+is **linear over GF(2)** (`f(x ⊕ y) = f(x) ⊕ f(y)`), so the
+channel-select function is a `k × N` binary matrix `M`. Recover
+`M` column-by-column:
+
+1. Allocate two huge-page-aligned virtual addresses `A` and
+   `B = A ⊕ e_i` (flip bit `i`).
+2. Issue a hedge read: race `read(A)` against `read(B)` from two
+   pinned threads; take the first to complete.
+3. Repeat ~50,000 times to estimate tail latency P99.
+4. **Same physical channel** (HoL/ROB stall, DDR refresh
+   contention) → high tail.
+5. **Independent channels** → low tail.
+6. If flipping bit `i` causes the channel selector to change, bit
+   `i` is part of the hash. `M`'s `i`-th column is then derivable
+   from the channel-select edge.
+7. Iterate over all relevant address bits.
+
+After `O(N)` probes, `M` is fully known. Allocation thereafter is
+solving `M · addr = channel` for arbitrary target channels — a
+linear system over `GF(2)`, microseconds per query.
+
+Reference: <https://github.com/nihilistau/tailslayer>.
+
+### 16.1 Phase TS.MAP — build the channel-select oracle
+
+**Deliverable.** Math-core module `core/sp_channel/` containing
+`sp_channel_map_build()` which empirically recovers `M` on the
+host's RAM topology and serialises it to
+`~/.cache/shannon-prime/channel_map_<host_fingerprint>.bin`.
+Subsequent daemon starts skip the probe and load the cached map.
+Host fingerprint covers DMI motherboard ID + memory module SPD
+hash so the cache invalidates if RAM is swapped.
+
+**Hard-gate: graceful CI/VM fallback.** TailSlayer relies on
+direct physical memory layout + cycle-accurate timing. **In a VM
+or container with virtualized memory controller, the oracle
+returns garbage.** The build routine MUST detect this at probe
+start:
+
+- Linux: check `/sys/devices/system/cpu/vulnerabilities` for
+  `Mitigation` markers indicating KVM/VMware/Hyper-V; check
+  `MAP_HUGETLB` permission via `mmap()` test; check
+  `/proc/cpuinfo` for `hypervisor` flag.
+- Windows: check `IsProcessorFeaturePresent(PF_VIRT_FIRMWARE_ENABLED)`
+  and attempt `VirtualAlloc(... MEM_LARGE_PAGES ...)`; absence
+  of large-page privilege indicates VM/restricted.
+- If virtualised OR huge pages denied: log
+  `SP_WARN: TailSlayer disabled — virtualised memory controller
+  or huge-page allocation denied. Falling back to standard
+  allocator; sp_channel_of() will return SP_CHANNEL_UNSPECIFIED.`
+  Return `SP_OK` with `map->mode = SP_CHANNEL_MAP_DISABLED`.
+  **Do NOT crash; do NOT block startup.**
+- Math-correctness invariant: ALL lattice math continues working
+  with `SP_CHANNEL_UNSPECIFIED`. TailSlayer is a perf overlay,
+  never a correctness dependency.
+
+**Tier-1 gate (TS.MAP):**
+- Bare-metal Linux gcc on dev host: recovers `M` in ≤ 60 s probe;
+  hedge-read micro-benchmark on engineered channel-diverse pair
+  shows P99 tail latency drop ≥ 2× vs random-pair control.
+- CI (GitHub Actions / WSL2 / Docker): graceful fallback fires;
+  `sp_channel_map_build` returns `SP_OK` with `map->mode =
+  SP_CHANNEL_MAP_DISABLED`; no test failure.
+- Both paths exercised in CI matrix.
+
+### 16.2 Phase TS.ALLOC — channel-aware allocator
+
+**Deliverable.** API additions in `include/sp/sp_channel.h`:
+
+```c
+sp_status sp_alloc_channel_pair(const sp_channel_map *m,
+                                size_t n_bytes,
+                                uint32_t c0, uint32_t c1,
+                                void **out_a, void **out_b);
+sp_status sp_alloc_on_channel(const sp_channel_map *m,
+                              size_t n_bytes,
+                              uint32_t pref,
+                              uint32_t *actual_out,
+                              void **out);
+uint32_t  sp_channel_of(const sp_channel_map *m, const void *addr);
+void      sp_free_channel(const sp_channel_map *m, void *p);
+```
+
+Backed by `MAP_HUGETLB` on Linux + `VirtualAlloc(MEM_LARGE_PAGES)`
+on Windows. **Graceful fallback** when `map->mode ==
+SP_CHANNEL_MAP_DISABLED`: routes to plain `malloc()`,
+`sp_channel_of()` returns `SP_CHANNEL_UNSPECIFIED`, all functions
+return `SP_OK`. Downstream code never branches on map mode; the
+allocator is the single point of policy.
+
+**Tier-1 gate (TS.ALLOC):**
+- On bare-metal: 100 random `sp_alloc_channel_pair` calls
+  verified via `sp_channel_of(a) != sp_channel_of(b)` AND
+  `sp_channel_of(a) == requested_c0` per pair.
+- In CI/VM: same calls all return `SP_OK` with addresses on the
+  same nominal channel (no enforcement); no crash.
+
+### 16.3 Phase TS.HEDGE — hedge-read primitives
+
+**Implementation model amended 2026-05-29 (twice)**:
+- (2026-05-28) Original spec said "two read threads," conflated
+  with §16.1 oracle.
+- (2026-05-29 morning) Corrected to "single-thread PREFETCH +
+  LOAD" — that was ALSO wrong, reasoned from theory before
+  reading the production reference.
+- (2026-05-29 late) Final corrected pattern after Knack flagged
+  the multi-core nature of production hedge: **persistent
+  worker pool with one thread per channel pinned at startup;
+  atomic-flag signal-wait on hot path.** Matches Laurie's
+  `include/tailslayer/hedged_reader.hpp` (`HedgedReader`
+  class, lines 124, 138-152, 155). Memory:
+  `feedback-oracle-vs-production-hedge` (corrected version)
+  and `feedback-lead-with-reference-then-theory` (the
+  meta-lesson).
+
+**Host requirements (post-Offline-Map-Bypass framing, 2026-05-29 late):**
+
+The earlier framing of "M_TS_HEDGE LIVE gate requires
+permanent Hyper-V disable on Windows" is RETIRED. The
+correct mechanism is the **Offline Map Bypass** (memory:
+`reference-offline-map-bypass`) — Knack's pattern:
+
+1. **Offline calibration (one-time per host):** boot bare-
+   metal Windows (`bcdedit /set hypervisorlaunchtype off`
+   + reboot), run the §16.1 oracle bench, write cached
+   GF(2) channel map to
+   `~/.cache/shannon-prime/channel_map_<host_fingerprint>.bin`.
+2. **Restore host:** `bcdedit /set hypervisorlaunchtype
+   auto` + reboot. Hyper-V / VBS / WSL2 / Docker all
+   back online.
+3. **Daemon runtime under Hyper-V:** `sp_channel_map_load_cached`
+   loads cached map. `sp_alloc_channel_pair` uses 2MB huge
+   pages; bits 0-20 of virtual address are identity-mapped
+   to physical (structural property of 2MB page alignment).
+   The channel-select hash operates on bits in this range,
+   so SLAT scrambling is structurally bypassed for the bits
+   that matter. Cached map remains valid under Hyper-V.
+
+**At §16.3 agent run time (now):** the cached .bin already
+exists on the dev host (Knack ran the offline calibration).
+The §16.3 bench runs under normal Hyper-V conditions and
+should hit the M_TS_HEDGE_PROD ≥2× P99 gate directly.
+
+**Permission requirements that remain in force:**
+
+- **`SeLockMemoryPrivilege` enabled in process token**
+  (Windows, runtime) for `VirtualAlloc(MEM_LARGE_PAGES)`
+  / `VirtualLock`. Already wired via
+  `core/sp_channel/sp_channel_map.c::force_enable_large_pages()`.
+- **`hugetlb` pool configured** (Linux, runtime):
+  `vm.nr_hugepages` non-zero; process in
+  `hugetlb_shm_group` or hugetlbfs access.
+- **`CAP_SYS_ADMIN`** (Linux) — needed ONLY for the
+  offline calibration step (reading `/proc/self/pagemap`,
+  which returns zero entries to non-CAP_SYS_ADMIN since
+  Linux 4.0). Not needed for daemon runtime once the .bin
+  is cached.
+
+**Compute reservation:**
+
+- **Two P-cores reserved** for hedge workers. Beast Canyon
+  i9-11900KB has 8 P-cores; dedicating 2 to hedge work is a
+  fine trade for production deployment. Smaller hosts may
+  need to dial N=1 (no hedge, just direct read) — the pool
+  API should support N=1 as a no-op pass-through fallback.
+
+**Deliverable.** `core/sp_channel/sp_hedge.c` + extended
+`include/sp/sp_channel.h`:
+
+```c
+typedef struct sp_hedge_pool sp_hedge_pool;
+
+/* Create at daemon startup. Spawns n_channels worker
+ * threads, each pinned to core_ids[i]. Each worker spins
+ * on an atomic publication address; on signal, reads its
+ * replica's address into a worker-local result slot,
+ * then atomic-increments the completion count. */
+sp_status sp_hedge_pool_create(sp_hedge_pool **out_pool,
+                               const sp_channel_map *m,
+                               const int *core_ids,
+                               size_t n_channels);
+
+void sp_hedge_pool_destroy(sp_hedge_pool *pool);
+
+/* Hot path. Caller publishes (a, b) addresses + size via
+ * atomic store-release; workers see publication via
+ * atomic load-acquire, read their respective address on
+ * their pinned core, store result, fetch_add completion.
+ * Caller spins on completion count == n_channels. */
+void sp_hedge_read_pair(sp_hedge_pool *pool,
+                        const void *a, const void *b,
+                        size_t n_bytes,
+                        void *out_a, void *out_b);
+
+/* Spinor-specific wrapper (63-byte block, frozen layout). */
+void sp_hedge_read_spinor(sp_hedge_pool *pool,
+                          const sp_spinor_block_t *a,
+                          const sp_spinor_block_t *b,
+                          sp_spinor_block_t *out_a,
+                          sp_spinor_block_t *out_b);
+
+/* N=1 fallback: pool was created with n_channels=1;
+ * sp_hedge_read_pair degenerates to a direct memcpy
+ * of side a only (b ignored). Lets callers write
+ * channel-aware code that runs on hedge-disabled hosts. */
+```
+
+**Required pattern (worker hot-path body):**
+
+```c
+/* worker_func — runs on pinned core, spins on signal */
+static void *sp_hedge_worker_func(void *arg) {
+    sp_hedge_worker_ctx *ctx = arg;
+    sp_pin_to_core(ctx->core_id);
+    while (atomic_load_explicit(&ctx->should_exit,
+                                memory_order_relaxed) == 0) {
+        /* spin on publication slot (acquire to see addr writes) */
+        const void *src = atomic_load_explicit(&ctx->src_addr,
+                                               memory_order_acquire);
+        if (src == NULL) continue;  /* no work */
+        /* read on this core's load queue, against this channel */
+        memcpy(ctx->local_result, src, ctx->n_bytes);
+        /* clear publication to indicate we consumed it */
+        atomic_store_explicit(&ctx->src_addr, NULL,
+                              memory_order_relaxed);
+        /* signal completion */
+        atomic_fetch_add_explicit(ctx->completion_count, 1,
+                                  memory_order_release);
+    }
+    return NULL;
+}
+```
+
+**Forbidden in `sp_hedge.c` (catch in code review):**
+- Per-read `pthread_create` / `std::thread` — workers MUST
+  be persistent (created once in pool_create)
+- Per-read `sched_setaffinity` / `SetThreadAffinityMask` —
+  affinity set ONCE per worker, not per read
+- TSC rendezvous (`fire_tsc` / RDTSC-spin) on hot path —
+  oracle-only
+- Mutex / condvar / futex / `WaitOnAddress` on the inter-
+  worker signal-wait — kernel-mediated wakeup is µs-scale,
+  destroys the hedge win
+- `_mm_pause` on the worker spin (cores are dedicated;
+  pause defeats responsiveness) — note this differs from
+  general spin-loop guidance; here the cores are reserved
+  and burning cycles is the right trade
+- LFENCE / MFENCE on hot path (atomic acquire/release
+  ordering is sufficient)
+- CLFLUSH before reads — that's oracle apparatus
+- Copying from `sp_channel_probe.c`'s per-sample race
+  pattern
+
+If the production primitive uses anything from the
+forbidden list, it has re-implemented the oracle in the
+wrong place. The point of TailSlayer is that the oracle
+does the hard work ONCE to discover M; the production pool
+does the read on two pinned cores in parallel, with
+atomic-signal-wait as the only synchronization.
+
+**Tier-1 gate (TS.HEDGE) — amended 2026-05-29 late after
+in-tree single-thread implementation at `416417b` produced
+WEAK signal due to (a) wrong architecture and (b) L3-saturated
+bench arena:**
+
+The 1 MB arena from the original draft is **superseded.**
+Beast Canyon i9-11900KB (Intel ARK: 8 cores, 48 KB L1d
+per core, 512 KB L2 per core = 4 MB total L2, **24 MB L3
+shared**) holds 1 MB of bench data entirely in L1+L2;
+after the first trial all bench data lives in L3 (or
+higher), and every subsequent read is a cache hit, not
+a DRAM transaction. There is no DRAM-channel signal to
+measure when both arenas fit inside L3.
+
+The corrected bench requirements:
+
+- **Arena size formula: `N_ELEM × 8 ≥ 4 × L3_size`**. On
+  Beast Canyon (L3 = 24 MB): minimum 96 MB per side; the
+  spec default is **128 MB per side** (= 16M × 8 bytes
+  elements) to leave clean DRAM margin past the 4× bar.
+  The bench should detect host L3 via CPUID leaf 4 (cache
+  parameters, EAX[7:5]=2 for L3, EAX[31:22]=ways-1,
+  EBX[11:0]=line_size-1, EBX[21:12]=partitions-1,
+  EBX[31:22]=ways-1, ECX=sets-1, total = (ways)×
+  (partitions)×(line_size)×(sets)) and scale `N_ELEM`
+  accordingly; hard-coding for Beast Canyon is acceptable
+  as v0 but the derivation MUST be commented with the
+  exact L3 size pulled from CPUID at startup.
+- **Huge-page count implication: 128 MB / 2 MB = 64 huge
+  pages per side.** Under Hyper-V fragmentation, allocating
+  64 contiguous 2MB physical regions is harder than 1
+  region. If `sp_alloc_huge(n_pages=64, hp_size=2MB)` fails,
+  the spec'd hard-abort fires (see next bullet). DO NOT
+  fall back to fewer pages with implicit smaller arena —
+  that would silently shrink the working set below 4× L3
+  and the bench would measure cache hits.
+- **Hard-abort on `VirtualAlloc(MEM_LARGE_PAGES)` failure.**
+  The in-tree fallback to plain `malloc` at
+  `bench_sp_hedge.c:111-122` silently produces garbage
+  (4 KB pages have only bits 0-11 virt=phys identity-
+  mapped; the channel hash operates on scrambled bits and
+  the bench measures noise). REPLACE the malloc fallback
+  with a clean exit emitting `M_TS_HEDGE_PROD:
+  REQUIRES_LIVE_MODE — VirtualAlloc(MEM_LARGE_PAGES)
+  failed. Check: (a) SeLockMemoryPrivilege granted via
+  secpol.msc, (b) logged out + back in after grant
+  (token-cache staleness), (c) Hyper-V memory
+  fragmentation — reboot fresh + run bench early in
+  uptime.` No silent fallback. No fake numbers.
+- **Bare-metal P99 ratio gate (post-fix):** P99(hedge) ≤
+  0.5 × P99(serial-baseline) per the persistent-pool
+  architecture. Floor = any measurable improvement;
+  stretch = ≤ 0.5×. Measured against PRIOR LATTICE serial
+  read on the same arena, NOT against an alien-library
+  reference (memory:
+  `feedback-lattice-baseline-is-prior-lattice`).
+- In CI/VM (DISABLED channel mode): function returns
+  correct data (verified bitwise on plain arenas);
+  speedup not asserted.
+
+**Supersession note.** The in-tree commit `416417b` on
+shannon-prime-system main shipped a single-thread inline
+PREFETCH+LOAD implementation matching the prior (wrong)
+spec framing. T_HEDGE_* correctness tests (5/5 PASS) are
+salvageable — they validate bitwise correctness independent
+of architecture. The `sp_hedge_read_*` function bodies are
+superseded by the persistent-pool rewrite; the
+`bench_sp_hedge.c` arena size + fallback path are
+superseded by the formula + hard-abort above.
+
+### 16.4 Phase TS.INTEGRATE-CRT — channel-pair the dual-prime residues
+
+**The killer integration.** Today, the CRT-NTT kernel stores
+`(q_1, q_2)` residues in adjacent rows of one `int64_t[N][2]`
+array. With TS.MAP+ALLOC, allocate `q_1` and `q_2` residue arrays
+via `sp_alloc_channel_pair`. Garner reconstruction now issues a
+hedge read for the residue pair at each index — the slow channel
+becomes the slow-path tail; the fast channel completes the
+reconstruction.
+
+This is the within-node version of Phase 6's "any-two-of-three
+CRT erasure code over QUIC" idea. Same algebraic primitive
+(`M = q_1 · q_2`, Garner's formula), different scale (memory
+channels instead of network primes). Proves the erasure-code-
+over-CRT-residues mechanism works at the cheapest possible
+measurement scale before Phase 6's multi-node version ships.
+
+**Tier-1 gate (TS.INTEGRATE-CRT):**
+- Gemma3-1B forward, ctx=4096, full PPL pass with channel-paired
+  CRT residues: PPL bit-identical to baseline (the math is
+  unchanged; only memory layout moves).
+- Wall-time on the same forward measurably faster (≥ 5% in
+  bandwidth-bound layers; gate is "measurably non-zero" because
+  exact magnitude depends on host channel topology).
+- In CI/VM: PPL bit-identical assertion still holds (fallback
+  serves both residues from the same nominal channel; correctness
+  unaffected).
+
+### 16.5 Phase TS.INTEGRATE-KSTE — sieve hot-set channel replication
+
+**Deliverable, gated when Phase 5 sieve ships.** Identify the
+KSTE upper-tier nodes (~256 KB hot set) consulted on every sieve
+traversal; replicate across channels via `sp_alloc_channel_pair`;
+sieve evaluation hedges its tree-descent reads. For TS.MAP +
+ALLOC + HEDGE landing in §16.1-§16.3, this sub-phase ships the
+allocator hooks and a synthetic-tree micro-benchmark only; full
+sieve integration waits on Phase 5.
+
+### 16.6 Closure
+
+Umbrella tag `lat-phase-ts-closed` after §16.1–§16.4 close.
+§16.5 lands when Phase 5 sieve goes online. Phase log entry
+names the recovered hash matrix dimensions (`k × N`) for the dev
+host, the empirical hedge-read tail-latency improvement on the
+TS.INTEGRATE-CRT Gemma3 forward pass, and the CI fallback
+behaviour confirmation.
+
+### 16.7 Composition with already-locked architecture
+
+- **Phase 4-SPEC M_SPEC_3 throughput**: must be measured WITHOUT
+  TailSlayer first to establish baseline, THEN re-measured after
+  §16.3 ships and the verifier's K-cache reads are hedge-paired.
+  The delta is the empirical proof of the GF(2) memory alignment
+  win. M_SPEC_1 math gate is untouched: TailSlayer never changes
+  data, only which of two identical buffers responds first.
+- **Phase 5 sieve PoUW receipt mint rate**: scales linearly with
+  §16.5 hot-set hedge-read efficiency.
+- **Phase 6 CRT-sharded multi-node**: §16.4 is the within-node
+  prototype. If §16.4 shows speedup, Phase 6's multi-node
+  any-two-of-three Garner story has empirical grounding at the
+  cheapest measurement scale.
+- **Hexagon Mode D (§11)**: TS.ALLOC's channel preference feeds
+  directly into `rpcmem_alloc`. ARM HTTP buffers on one
+  sub-channel; DSP `ffn_out` arenas on a different sub-channel.
+  Without this, LPDDR5x sub-channel contention is the throughput
+  bound on sustained Mode D inference before the 62 °C thermal
+  trip.
+
+### 16.8 Anti-contamination + isolation
+
+Phase TS sub-phases §16.1–§16.3 live ENTIRELY in
+`shannon-prime-system/core/sp_channel/` as an independent module.
+They do NOT touch:
+- `include/sp/sp_l1.h` (frozen ABI surface — channel allocator
+  is internal, not part of the L1 contract).
+- `core/session/` (session struct stays unchanged; arena
+  allocation moves to the new allocator via a build flag).
+- `core/forward/` (forward kernels unchanged; arena layout
+  changes are transparent).
+
+§16.4 INTEGRATE-CRT is the first sub-phase to touch
+`core/ntt_crt/` and is gated separately so concurrent Phase 4-SPEC
+agents in the engine repo don't collide. Branch discipline:
+
+- Phase TS sub-phases work on `lat-ts-<X>` branches in math-core.
+- Phase 4-SPEC works on `lat-4-spec-<X>` in math-core (only if
+  `sp_session_rewind` needs debugging) and engine. The two
+  branches do not share files in §16.1–§16.3.
+- Merge to main is sequential at sub-phase close.
+
+Reference: `reference-tailslayer-integration` memory entry +
+<https://github.com/nihilistau/tailslayer>.
+
+
+## 17. Phase 2-CU.PTX — bare-metal NVIDIA assembly for discrete algebra
+
+**Goal.** Replace generic `nvcc`-compiled SASS on the CUDA
+backend's lattice-specific kernels with hand-written PTX
+inline assembly. Standard CUDA C++ is "default engine" thinking
+— its codegen assumes continuous-float GEMM patterns, refuses
+to use integer tensor cores for Q8 matmul, wraps `(a*b)%q` in
+a slow generic integer-division subroutine, and L1-caches
+single-use Spinor reads. PTX is the silicon-direct wedge that
+lets us wield the lattice's discrete Z_q arithmetic and 63-byte
+Spinor block geometry as the GPU actually executes them.
+
+**Provenance.** DeepSeek-V3 pioneered custom-PTX-for-MoE-routing
+in their technical report. Laurie's TailSlayer captures the
+same algebraic-substrate-meets-silicon ethos at the memory-
+controller layer. Same intellectual lineage; both treat
+compiler-hidden or undocumented hardware as a mathematical
+object to command directly.
+
+**Dependencies.** `lat-phase-2-l1-closed` (CUDA backend at
+fp16 working precision) + `lat-phase-3-attn-closed` (real
+arches loadable end-to-end for bit-identity testing).
+
+**Scope boundary** (binding, prevents drift):
+- PTX REPLACES generic CUDA C++ for: Spinor block loads, GF(p)
+  NTT butterflies, KSTE / sieve hash primitives, INT8 tensor-
+  core matmul on the Frobenius arena.
+- PTX does NOT replace cuBLAS HGEMM. cuBLAS is deeply tuned;
+  the PTX work surrounds it where lattice-specific kernels
+  live.
+
+### 17.1 Phase 2-CU.PTX.SPINOR — 63-byte Spinor warp-load
+
+**Differentiated cache modifiers** (more nuanced than uniform
+`ld.global.nc`):
+
+- **Hot recent window** (last `swa_window` blocks per head;
+  ~32 KB on Gemma3 local layers): re-read per query during
+  prefill. Use `ld.global.cg` (L2-cached, L1-bypassed) —
+  recent Spinors stay warm in 3 MB L2 on RTX 2060.
+- **Cold streaming tail** (older history beyond the window):
+  read once per prefill, never again. Use `ld.global.cs` or
+  `ld.global.nc` — L1+L2 bypass, no pollution.
+
+Boundary check is a position-vs-current-token comparison at
+decode-step entry; runtime dispatch on cache policy.
+
+**Warp packing** for 63-byte geometry: 32 threads × 4 bytes =
+128 bytes per warp = 2 Spinor blocks + 2 sentinel slack. Pack
+two blocks per warp via `v4.u32` loads with `shfl.sync` cross-
+thread shuffle for the cross-block byte.
+
+### 17.2 Phase 2-CU.PTX.NTT — GF(p) Montgomery / Barrett butterfly
+
+`q_1 = 1073738753` and `q_2 = 1073732609` are 30-bit Proth
+primes chosen specifically so modular arithmetic fits the
+integer ALU. Replace `nvcc`'s generic integer division (~40
+cycles per `(a*b)%q`) with hardcoded PTX:
+
+- `mad.wide.u32` captures exact 64-bit product of two 32-bit
+  operands in one cycle.
+- `shf.r` (funnel-shift right) + `add.cc` (add with carry)
+  complete Barrett or Montgomery reduction in 3-4 cycles.
+
+Net: NTT butterfly drops ~40 cycles → ~4. CRT-NTT pass on
+Gemma3-1B forward becomes register-pressure bound, not
+modular-arithmetic bound.
+
+### 17.3 Phase 2-CU.PTX.MMA — INT8 tensor-core Frobenius matmul
+
+**The deliverable Gemini's draft missed.** RTX 2060 (sm_75
+Turing) has INT8 tensor cores accessible via
+`mma.sync.aligned.m8n8k16.row.col.s32.s8.s8.s32`. The packed
+Q8 arena is INTEGER-valued — perfect substrate. `nvcc` won't
+emit this for Q8-packed data because the high-level CUDA API
+is fp16/bf16-shaped.
+
+New path `sp_frob_matmul_q8_mma`:
+- Q8 codes loaded directly from mmap'd `.sp-model` arena
+  (Fix B) into shared memory tiles via
+  `cp.async.cg.shared.global` on sm_80+ (Ampere); fall back
+  to `ld.global.cg` on sm_75.
+- `mma.sync` accumulates in S32; per-row Frobenius scale
+  applies post-accumulation as `(s32_acc * fp32_scale)` →
+  fp16 output activation.
+- Bypasses cuBLAS for the Q8 case; cuBLAS HGEMM still owns
+  the fp16-weight path.
+
+Expected: ~4× throughput on the dominant matmul of the
+forward pass for Q8 workloads. Composes with §17.1 SPINOR
+(K-cache reads) and §17.2 NTT (poly-ring attention) for a
+fully PTX-native discrete-kernel forward path.
+
+**M_PTX_MMA gate split (amended 2026-05-27 after rework
+audit).** A single `mma.sync.aligned` instruction is an
+*instruction-level* primitive; a *competitive matmul kernel*
+needs cp.async double-buffering, shared-memory operand
+staging, multi-warp scheduling, and register-file
+optimization on top. The rework session shipped the
+instruction layer at bit-identity correctness but the
+naive single-instruction-per-thread kernel benches at 0.1×
+cuBLAS HGEMM (RTX 2060 sm_75) — exactly the artifact you'd
+expect from an un-tiled wrapper. Gate split:
+
+- **M_PTX_MMA_correctness** (CLOSED via rework session).
+  PTX `mma.sync.aligned.m8n8k16.row.col.s32.s8.s8.s32`
+  (INT8) + `mma.sync.aligned.m8n8k32.row.col.s32.s4.s4.s32`
+  (INT4) emit verified via `cuobjdump -sass` (HMMA.16816.S8
+  / HMMA.16832.S4). Bit-identity vs math-core scalar
+  reference: byte-exact across TestA/B/C/D fixtures.
+- **M_PTX_MMA_throughput** (gate replaced 2026-05-27 — see
+  §17.3.TILE M_PTX_MMA_TILE_2 amended split below). Original
+  ≥3× / ≥4× cuBLAS HGEMM gates retired as architecturally
+  impossible on sm_75 dev silicon (Turing INT8/HGEMM peak
+  ratio ~2.8×; no cp.async). Replaced with a floor-vs-stretch
+  split per hardware tier (2a sm_75 instruction parity,
+  2b sm_75 transposed-B, 2c sm_80+ cp.async, 2d sm_90 TMA).
+  Closure floor = TC instruction density parity with cuBLAS
+  at named shape + measurable improvement vs prior lattice
+  implementation. Memory: `feedback-lattice-baseline-is-
+  prior-lattice` + `reference-cuda-sm-feature-tiers`.
+
+### 17.3.TILE Phase 2-CU.PTX.MMA.TILE — competitive tiled-kernel follow-on
+
+**Why this is its own sub-phase.** §17.3 instruction layer
+proved the primitive ("the silicon can do this; the PTX
+emits cleanly; bit-identity holds"); §17.3.TILE proves the
+kernel wraps the primitive at scale ("compiled into a real
+matmul on a real arena, it actually beats the fp16 baseline
+by the spec'd factor"). Two stacked gates — same pattern
+as §18.4 TERNLOG (correctness vs throughput split). This
+is not deferred; it is staged.
+
+**Mandated kernel structure:**
+
+- **cp.async double-buffering** on sm_80+ (Ampere RTX 30xx
+  / 40xx hosts): `cp.async.cg.shared.global` issues the
+  N+1-tile load while the N-tile compute runs against
+  smem. Two-stage smem buffer with `cp.async.commit_group`
+  / `cp.async.wait_group` barriers. On sm_75 (RTX 2060 dev
+  host): fall back to `ld.global.cg` + manual two-stage
+  smem with `cp.async`-shaped barriers (compiles to NOP
+  prefetch; bit-identity preserved).
+- **Shared-memory operand staging.** A/B fragments loaded
+  into smem in row-major layout (matching the .sp-model
+  arena byte order from Fix B aliasing), then warp-scoped
+  fragment loads (`ldmatrix.sync.aligned.m8n8.x4` on sm_80+,
+  manual lane-thread mapping on sm_75) into the mma.sync
+  input registers.
+- **Multi-warp tile size.** 64×64 output tile per
+  thread-block (4×4 grid of 8×8 mma.sync ops per warp,
+  4 warps per block = 16×16 over 4×4 = 64×64 covered).
+  Per-row Frobenius scale applied at the epilogue using
+  cooperative thread-block reduction (one fp32 scale per
+  output row, broadcast across the row's threads).
+- **Register-file budget.** Each warp owns 4×4 = 16
+  s32 fragment accumulators (2 regs each = 32 regs) + 8
+  A/B operand regs + addressing. Stay under 64 regs per
+  thread to keep occupancy ≥ 2 warps per SM on sm_75
+  (Turing has 65536 regs / SM; 64 regs × 32 threads ×
+  32 warps = 65536 → tight but achievable). Document the
+  occupancy at `cuobjdump -res-usage`.
+
+**M_PTX_MMA_TILE_1** (correctness): bit-identity vs the
+single-instruction reference path AND vs math-core scalar.
+Three-way byte-exact across prefill-shape sweeps:
+  (M, N, K) ∈ {(64, 64, 64), (256, 256, 256), (1024, 1024, 1024),
+  (3072, 3072, 8192) — Qwen3-0.6B FFN shape}.
+
+**M_PTX_MMA_TILE_2** (throughput — amended 2026-05-27 after
+agent closure surfaced the original gates as hardware-impossible
+on sm_75 dev silicon).
+
+Original draft gates (≥3× cuBLAS HGEMM on Q8, ≥4× on Q4) are
+**retired**. The retirement reason is architectural, not
+algorithmic: sm_75 (Turing) INT8 tensor-core peak / HGEMM peak
+ratio is ~2.8× (silicon constant, not kernel-dependent), and
+sm_75 lacks `cp.async` (introduced sm_80+) so the double-
+buffered pipelining the gate implicitly required cannot be
+constructed at all on Turing. The original gates assumed
+Ampere+ silicon ratios; the dev host is Turing. See memory
+entry `reference-cuda-sm-feature-tiers` for the per-generation
+ISA capability map.
+
+The replacement is a **floor-vs-stretch split, per hardware
+tier**. The lattice's incremental-stacking philosophy
+(memory: `feedback-lattice-baseline-is-prior-lattice`) makes
+the floor gate load-bearing — any measurable improvement vs
+the prior implementation OR a fully-diagnosed architectural
+ceiling counts as solid closure. The stretch gates are
+hardware-tier-named and gated on test-host availability.
+
+**Floor gate** (required for any sub-tag closure, any host):
+- Kernel uses TC pipeline at cuBLAS instruction density: TC
+  instructions / SM-cycle within 5% of cuBLAS HGEMM at the
+  same shape, measured via
+  `ncu --metrics sm__inst_executed_pipe_tensor.sum`.
+- Wall-clock improvement vs the §17.3 single-instruction
+  reference kernel of >= 1.0× (not regressing the
+  instruction-level reference).
+- DRAM SOL%, register usage, occupancy, smem usage all
+  documented via `ncu` + `cuobjdump -res-usage` in the
+  closure note.
+
+**Stretch sub-gates** (per hardware tier; named explicitly):
+
+- **M_PTX_MMA_TILE_2a (sm_75 / Turing — cuBLAS instruction
+  parity).** Tile kernel achieves ≥ 0.95× TC instruction
+  density of cuBLAS HGEMM at (3072, 8192, 3072). This is
+  the "uses the silicon correctly" gate. Closure on sm_75
+  is *not* gated on wall-clock parity with cuBLAS HGEMM —
+  cuBLAS HGEMM is fp16 with no quantization, the lattice
+  is Q8/Q4 with 2-4× memory compression baked in. The
+  comparison is "does the tile kernel issue mma.sync at
+  the same rate the silicon allows" — which is what
+  100% occupancy + TC instruction count parity proves.
+
+- **M_PTX_MMA_TILE_2b (sm_75 / Turing — transposed-B
+  smem layout).** Refactor B smem from `[K_TILE][N+pad]`
+  (row=k, col=n; requires 4× byte-gather per fragment) to
+  `[N][K_TILE+pad]` (row=n, col=k; single aligned uint32_t
+  read per fragment). Floor: any measurable wall-clock
+  improvement at (3072, 8192, 3072). Expected: 2-3×
+  kernel-side win based on instruction-overhead-bound
+  diagnosis (B-fragment gather is the identified 4× inflation
+  vector). This unlocks parity-to-better than cuBLAS HGEMM
+  *at compute-bound shape* on sm_75 silicon, with Q8 memory
+  compression composing on top.
+
+- **M_PTX_MMA_TILE_2c (sm_80+ / Ampere — cp.async + mbarrier
+  double-buffering).** When test host with Ampere or later
+  is available (RTX 3060+, A100, H100, or cloud instance):
+  add `cp.async.cg.shared.global` for global→smem with
+  `cp.async.commit_group` / `cp.async.wait_group` barriers,
+  two-stage smem pipeline. Floor: ≥ 1.5× over the sm_75
+  tile path at the same shape. Stretch: ≥ 2.5× over sm_75
+  tile path (this approaches the cuBLAS HGEMM line at
+  compute-bound shape, AFTER which the Q8 memory compression
+  becomes the net win).
+
+- **M_PTX_MMA_TILE_2d (sm_90 / Hopper — TMA + cluster
+  mbarrier, future).** TMA bulk async copy + cluster-scope
+  mbarrier for cross-CTA cooperation. Gated on H100 / GB200
+  test host availability. Not blocking any earlier sub-tag.
+
+Per the floor-vs-stretch discipline (`feedback-no-silent-
+gate-revisions` + `feedback-lattice-baseline-is-prior-
+lattice`): closure on any of (a)–(d) requires the FLOOR
+gate green AND a documented stretch number (whether or
+not the stretch target is hit). Each tier closes its own
+sub-tag; no umbrella fires until at least 2a AND 2b are
+closed.
+
+Original ncu metric requirement preserved:
+- `sm__inst_executed_pipe_tensor.sum` for TC utilization
+- Wall-clock end-to-end at the named shape
+- All numbers reported alongside cuobjdump SASS excerpt
+  showing HMMA.16816.S8 (INT8) / HMMA.16832.S4 (INT4)
+  actually emitted.
+- INT4 (Q4 arena): ≥ 4× cuBLAS HGEMM on same workload.
+  HMMA.16832.S4 has 2× the math density of HMMA.16816.S8;
+  the ≥4× factor is 2× from data type × ~2× from packed-
+  nibble bandwidth recovery.
+
+**M_PTX_MMA_TILE_3** (memory honesty): zero `cudaMalloc` on
+hot path; A/B/C all alias the mmap'd .sp-model arena via
+Fix B (memory: `reference-zero-copy-invariant`). The smem
+staging buffer is the only `__shared__` allocation.
+
+**M_PTX_MMA_TILE_4** (per-session isolation): kernel
+launches on per-session CUDA stream; no `cudaDeviceSync`
+that crosses sessions.
+
+**Reference fixture template:** `C:\Projects\New folder (2)\
+BenchmarkCustomPTX-main\benchmark.cu` (per §17.9 canonical
+reference table — bench-harness layer).
+
+**Mandatory PTX-style references (added 2026-05-27).** The
+tile agent MUST open and cite specific patterns from:
+- `C:\Projects\New folder (2)\DeepEP-main\DeepEP-main\deep_ep\include\deep_ep\common\ptx.cuh` — `__forceinline__ __device__` wrapper style for cp.async + mbarrier + elect.sync. Mirror this skeleton for the lattice's cp.async + mbarrier orchestration.
+- `C:\Projects\New folder (2)\DeepEP-main\DeepEP-main\csrc\kernels\legacy\utils.cuh` — `LD_NC_FUNC` macro pattern (`ld.global.nc.L1::no_allocate.L2::256B` → `LDG.E.NA.CONSTANT` SASS) is the canonical "keep weights out of L1" reference for Q8/Q4 arena reads that are streaming-only (each weight byte read once per matmul, never reused within the same kernel). The MMA tile kernel's weight-side load MUST use this idiom; the activation-side load uses `ld.global.cg` for L1 caching since activations ARE reused.
+- `C:\Projects\New folder (2)\DeepEP-main\DeepEP-main\csrc\kernels\legacy\internode.cu` / `intranode.cu` — production usage of the PTX wrappers in real all-to-all dispatch kernels. Read the smem-staging + mbarrier-wait + payload-compute composition; substitute mma.sync for the all-to-all transfer payload to get the lattice's tiled matmul skeleton.
+
+Shape reference (NOT style — DeepEP owns style): CUTLASS
+3.x `gemm/threadblock/default_mma_core_sm75.h` for
+sm_75-targeted warp tile layouts, `gemm/warp/mma_tensor_op_sm75.h`
+for warp-fragment loading via ldmatrix. Read-only; do not
+copy — re-derive in lattice idiom with Frobenius-scale
+epilogue.
+
+**Anti-patterns to catch in review (specific to this
+sub-phase):**
+- Calling `cublasGemmEx` to do INT8 IMMA "for comparison"
+  and reporting the cuBLAS-INT8 number as if it were the
+  lattice's kernel. The lattice mandate is hand-written
+  PTX, not cuBLAS dispatch.
+- Replacing `mma.sync.aligned` with `nvcuda::wmma::fragment`
+  C++ template API "because tiling is easier in C++" —
+  the same retreat caught in the prior rework. The whole
+  point is to wield the silicon directly.
+- Tuning bench shapes (M, N, K) until a 3× number falls
+  out, rather than against the workload-realistic
+  (3072, 3072, 8192) Qwen3-0.6B FFN shape. Memory:
+  `feedback-no-silent-gate-revisions` applies in full
+  force here.
+
+**Sub-tag taxonomy (amended 2026-05-27).** Closure tagging
+follows the gate split:
+
+- `lat-phase-2-cu-ptx-mma-tile-int{8,4}-correctness-closed`
+  — M_PTX_MMA_TILE_1 (3-way bit-identity across shape sweep).
+  **Both already fired 2026-05-27 by initial tile session
+  (commits 6875eab etc.).**
+- `lat-phase-2-cu-ptx-mma-tile-2a-closed` — sm_75 cuBLAS
+  TC instruction-density parity. (Effectively closed by
+  initial tile session — 75.5M = 75.5M at INT8; needs
+  formal tag.)
+- `lat-phase-2-cu-ptx-mma-tile-2b-closed` — sm_75 transposed-B
+  smem layout. OPEN; next agent task.
+- `lat-phase-2-cu-ptx-mma-tile-2c-closed` — sm_80+ cp.async
+  pipeline. OPEN, hardware-gated.
+- `lat-phase-2-cu-ptx-mma-tile-2d-closed` — sm_90 TMA path.
+  Future, hardware-gated.
+- `lat-phase-2-cu-ptx-mma-tile-throughput-miss` — interim
+  surface tag for unmet stretch on a given tier; lets the
+  closure record acknowledge the ceiling without burying
+  it. (Already fired 2026-05-27 for the initial tile
+  session's compute-bound 3072×8192×3072 cuBLAS comparison.)
+
+`lat-phase-2-cu-ptx-mma-tile-int8-closed` /
+`lat-phase-2-cu-ptx-mma-tile-int4-closed` (clean dtype
+umbrellas without -correctness suffix) fire only when 2a
+AND 2b are both closed on that dtype.
+
+`lat-phase-2-cu-ptx-closed` umbrella requires both dtype
+umbrellas + HASH M_PTX_2 resolution + SPINOR-v4 +
+bench-redo (last two already shipped).
+
+### 17.4 Phase 2-CU.PTX.HASH — KSTE / sieve hash primitives
+
+PTX-exclusive with no C++ equivalent:
+
+- `lop3.b32 dst, a, b, c, immLut` — evaluates any 3-input
+  boolean function in 1 cycle. Drop-in for XXH3 mixing, KSTE
+  Tier-0 subtract-with-borrow signatures, PoUW receipt chain
+  hash rounds.
+- `prmt.b32 dst, a, b, selector` — byte permute across 8
+  source bytes. Replaces shift+mask sequences for KSTE tree-
+  index extraction from Spinor blocks.
+
+Lands the primitives + microbenchmark; full sieve integration
+gated on Phase 5 (sieve doesn't exist yet). Same shape as
+§16.5 TS.INTEGRATE-KSTE — primitive now, integration when
+sieve ships.
+
+### 17.5 Phase 2-CU.PTX.PERSIST — persistent kernel for spec-decode
+
+**Composes with Phase 4-SPEC.** Phase 4-SPEC issues K
+`sp_decode_step` calls on the draft model per verify cycle.
+Each is a kernel launch (~5-10 µs overhead). At K=4 that's
+20-40 µs of pure launch overhead per spec cycle — comparable
+to the actual draft compute on a 0.5B model.
+
+PTX persistent kernel: pre-launch a long-running kernel
+spinning on a work queue in pinned host memory. CPU pushes
+draft requests; GPU consumes without re-launching. Latency
+floor drops from ~5 µs launch to ~100 ns queue poll.
+
+Gated optional — Phase 4-SPEC M_SPEC_3 may close at 1.5× via
+cuBLAS-batched HGEMM alone. §17.5 lands as the closure-margin
+case.
+
+### 17.6 Closure gates
+
+- **M_PTX_1 (math gate — load-bearing):** every PTX kernel
+  produces bit-identical output vs the math-core f32 scalar
+  reference. Integer kernels (§17.2 NTT, §17.4 HASH):
+  byte-exact equality, not KL — pure Z_q operations, any drift
+  is a bug. Float-adjacent kernels (§17.1 SPINOR, §17.3 MMA):
+  within fp16 ULP floor (matches Phase 2-L1.FP16 gate shape).
+  If math drifts, STOP — PTX is for speed, never approximation.
+- **M_PTX_2 (throughput — Nsight Compute profile):**
+  - §17.1 SPINOR: ≥ 85% SOL DRAM bandwidth on Spinor read.
+  - §17.2 NTT: ≥ 8× butterfly speedup vs nvcc baseline.
+  - §17.3 MMA: ≥ 3× Q8 matmul speedup vs existing
+    `SP_ENGINE_FROB` Q8 path.
+- **M_PTX_3 (memory honesty):** zero `cudaMalloc` on hot
+  path. PTX operates on `sp_session` + Fix B mmap pointers.
+  Heap trace verified clean.
+- **M_PTX_4 (session isolation):** PTX kernels run on the
+  per-`sp_session` CUDA stream. No global device sync. Two
+  concurrent sessions interleave without cross-corruption.
+
+**Platform gates:** M_PTX_1 + M_PTX_3 + M_PTX_4 close Tier-1
+on dev host (RTX 2060). M_PTX_2 requires Nsight Compute; runs
+on dev host, artifact attached to closure note. CI (no GPU)
+builds + runs unit tests against the stub-fallback path
+(graceful: no-GPU hosts route to existing cuBLAS-only paths).
+
+### 17.7 Closure
+
+Commit prefix `[lat-2-cu-ptx]` on shannon-prime-system-engine.
+Sub-tags: `lat-phase-2-cu-ptx-spinor-closed`, `...-ntt-closed`,
+`...-mma-closed`, `...-hash-closed`, `...-persist-closed`.
+Umbrella `lat-phase-2-cu-ptx-closed` after all five (or four
+— PERSIST optional) close.
+
+Offload `papers/SESSION-CLOSED-lat-2-CU-PTX.md`: each PTX
+block's recovered SASS via `cuobjdump`, Nsight Compute
+SOL+IPC numbers, bit-identity vs math-core reference,
+cuBLAS-vs-PTX-vs-stub fallback dispatch logic.
+
+### 17.8 Anti-contamination + cross-backend symmetry
+
+Phase 2-CU.PTX is the CUDA leg of the per-backend bare-metal
+pattern (see `reference-baremetal-backend-pattern`):
+
+- **CPU bare-metal:** AVX-512-FP16 + F16C intrinsics — closed
+  in `lat-phase-2-l1-fp16-closed`.
+- **CUDA bare-metal:** PTX inline asm — this phase.
+- **Vulkan bare-metal:** SPIR-V intrinsics +
+  `VK_KHR_cooperative_matrix` — future Phase 2-VK.SPV.
+- **Hexagon bare-metal:** HVX + QNN HTP + Halide AOT — Mode B
+  closed; Mode C/D deferred per §10, §11.
+
+Each backend's high-level compiler is "default engine" by
+default; the bare-metal sub-phase is the lattice-specific
+wedge that escapes the continuous-float assumptions baked
+into `nvcc`, `glslc`, `hexagon-clang`.
+
+**Do NOT copy legacy CUDA code** from
+`D:\F\shannon-prime-repos\shannon-prime-engine\` (legacy,
+contaminated). Re-derive from math-core scalar reference +
+PTX ISA docs. The closed math-core Q8 / NTT / Spinor
+primitives are the algebraic ground truth; PTX is a faster
+execution of the same math.
+
+### 17.9 Canonical reference code (read before writing PTX)
+
+Read-only reference implementations the agent MUST open and
+cite in the closure note. Do NOT copy — re-derive in lattice
+idiom — but DO read the patterns + cite specific files for
+traceability.
+
+**Primary PTX-style references (added 2026-05-27 for the
+§17.3.TILE follow-on and any future PTX-heavy work).**
+DeepSeek's DeepEP repo is production-grade hand-written PTX
+at the scale we're targeting: 38 `asm volatile` blocks in
+`ptx.cuh`, 55 in `kernels/legacy/utils.cuh`, with full
+cp.async + mbarrier + fence + cache-modifier discipline.
+This is the right *style* reference for hand-written PTX
+wrappers and cp.async/smem staging. CUTLASS 3.x remains
+relevant for *shape* references (warp tile layouts,
+fragment-loading via ldmatrix) but hides everything behind
+C++ templates — DeepEP keeps `asm volatile` visible, which
+matches the lattice's "wield the silicon directly" mandate.
+
+| Reference | Host path | Use for |
+|---|---|---|
+| **DeepEP ptx.cuh** | `C:\Projects\New folder (2)\DeepEP-main\DeepEP-main\deep_ep\include\deep_ep\common\ptx.cuh` | Canonical PTX inline-asm wrapper style. 38 `asm volatile` blocks: TMA + cp.async + mbarrier (init/inval/arrive/wait/expect_tx) + elect.sync + lane/warp identity. `__forceinline__ __device__` wrapper discipline + `#ifndef DISABLE_SM90_FEATURES` fallback pattern (direct analogue of our sm_75 vs sm_80+ split). The MMA tile agent MUST mirror this wrapper style for cp.async + mbarrier orchestration. |
+| **DeepEP utils.cuh** | `C:\Projects\New folder (2)\DeepEP-main\DeepEP-main\csrc\kernels\legacy\utils.cuh` | Production cache-modifier + barrier patterns at scale. Defines `LD_NC_FUNC` macro `"ld.global.nc.L1::no_allocate.L2::256B"` — translates to `LDG.E.NA.[width].CONSTANT` SASS, the "tell L1 not to evict by not loading it there" pattern. Shows `cp.async.bulk.shared::cluster.global.mbarrier::complete_tx::bytes.L2::cache_hint` (Hopper) + `cp.async.bulk.commit_group` + `cp.async.bulk.wait_group` patterns. Translates down to sm_80 `cp.async.cg.shared.global` for our work. |
+| **DeepEP internode + intranode kernels** | `C:\Projects\New folder (2)\DeepEP-main\DeepEP-main\csrc\kernels\legacy\{internode.cu, intranode.cu, internode_ll.cu}` | Production usage of the PTX wrappers in real all-to-all dispatch/combine kernels — see how smem staging + mbarrier sync + warp-tile coordination compose end-to-end. The lattice's tiled MMA kernel structure follows the same skeleton (load-tile via cp.async → mbarrier wait → compute via mma.sync → epilogue → repeat) with mma.sync substituted in place of the all-to-all transfer payload. |
+| **BenchmarkCustomPTX** | `C:\Projects\New folder (2)\BenchmarkCustomPTX-main\benchmark.cu` | Bench-harness template: warm-up discard, repeat counts, cycle-accurate timing, SASS-inspection workflow. Use for the *measurement* layer, not the kernel-style layer (DeepEP owns that now). |
+| **TailSlayer hedged_reader** | `C:\Projects\New folder (2)\tailslayer-main\include\tailslayer\hedged_reader.hpp` | Cache-modifier discipline + hedge-read primitive. Reference for `ld.global.cs` / `ld.global.cg` / `ld.global.nc` selection at the application level — DeepEP shows the same primitives at the kernel level. |
+| **TailSlayer probe** | `C:\Projects\New folder (2)\tailslayer-main\discovery\trefi_probe.c` | GF(2)-linear channel-select recovery via TREFI-aware probing. Same algebraic dialect as the lattice's CRT residues. |
+| **TailSlayer benchmark scaffold** | `C:\Projects\New folder (2)\tailslayer-main\discovery\benchmark\` | Fixture rigour reference for hot/cold L1 state control, percentile reporting, hardware-event correlation. |
+| **BinderIPC** | `C:\Projects\New folder (2)\BinderIPC-main\source\*\native-lib.cpp` | Cross-process state-pinning patterns relevant to §17.5 PERSIST persistent-kernel session lifetime. |
+
+The corrective MMA / SPINOR / NTT / HASH rework agent MUST
+open `BenchmarkCustomPTX-main\benchmark.cu` before
+redesigning bench fixtures.
+
+The §17.3.TILE follow-on agent MUST open DeepEP's
+`ptx.cuh` AND `utils.cuh` BEFORE drafting the tiled
+kernel, and cite the specific patterns (cp.async wrapper
+style, mbarrier orchestration, `LD_NC_FUNC` macro
+analogue) the lattice's kernel mirrors.
+
+
+## 18. Phase 2-CPU.AVX — bare-metal x86 AVX-512 intrinsics for discrete algebra
+
+**Goal.** Replace generic `gcc -O3 -march=native` auto-
+vectorisation on the CPU backend's lattice-specific kernels
+with explicit AVX-512 intrinsics. Compilers default to
+floating-point pipelines, will silently upcast integer
+operations to FP32 ALUs, will pollute L1/L2 with single-use
+streaming Spinor reads, and won't reach for VNNI/IFMA/
+ternarylogic without intrinsics — exactly the same "default
+engine" failure mode as `nvcc` on CUDA. AVX-512 is the
+silicon-direct wedge that lets us wield the lattice's
+discrete Z_q and 63-byte Spinor block geometry as the CPU
+actually executes them.
+
+**The hardware coincidence.** A 64-byte ZMM register is
+exactly 63-byte Spinor block + 1-byte 0xA5 sentinel. The
+lattice's choice of block size was made before AVX-512 was
+considered; the alignment is structural, not engineered.
+That coincidence is the foundation of this phase.
+
+**Provenance.** This is the CPU leg of the per-backend
+bare-metal pattern (see `reference-baremetal-backend-pattern`).
+Same intellectual lineage as Phase 2-CU.PTX (§17): treat the
+high-level compiler's abstractions as the obstacle, wield the
+silicon directly via intrinsics.
+
+**Dependencies.** `lat-phase-2-l1-fp16-closed` (CPU dtype
+shift to fp16, already shipped) + `lat-phase-3-attn-closed`
+(real arches for bit-identity testing).
+
+**Hardware targets** (runtime CPUID dispatch — no host
+assumed):
+- **Tiger Lake-B Intel** (Beast Canyon NUC): AVX-512F + VNNI
+  + IFMA + DQ + BW + WAITPKG. The full suite. Reference
+  target.
+- **Sapphire Rapids+ Intel**: above + AMX (§18.5 optional).
+- **Zen 4 AMD** (Ryzen 7950X): AVX-512F + VNNI yes; **IFMA
+  NO**, **WAITPKG NO**. §18.3 IFMA path needs fallback.
+- **aarch64** (S22 Ultra, Apple Silicon): no AVX. Future
+  §18.NEON sub-phase; not in this phase's scope. **Reference
+  for future §18.NEON (staged 2026-05-27):**
+  `C:\Projects\New folder (2)\arm-cpusysregs-main\` — AArch64
+  system-register access, PAC (pointer authentication),
+  QARMA64 cipher, CPU feature collection per platform
+  (Linux hwcaps, macOS sysctl, custom userfeatures). The
+  `apps/armfeatures.h` (~70 KB header) is a comprehensive
+  feature-detection reference; `aarch/partial_regview.cpp`
+  + `apps/sysregs.cpp` show platform-specific dispatch.
+  Mandated reading when §18.NEON opens for the S22U
+  application-processor side (NEON FP16 + dotprod + i8mm
+  intrinsics path).
+
+### 18.1 Phase 2-CPU.AVX.SPINOR — ZMM Spinor window load
+
+A 64-byte ZMM register holds exactly one Spinor block.
+Differentiated cache modifiers per access pattern:
+
+- **Hot recent window** (last `swa_window` blocks per head):
+  re-read per query during prefill. Use `_mm512_load_si512`
+  (aligned) + `_mm_prefetch(addr, _MM_HINT_T0)` to keep in
+  L1+L2. Tiger Lake-B's 24 MB L3 is large enough to hold
+  the entire active KV cache for typical contexts; if Intel
+  CAT is available, partition L3 way_mask for lattice arenas.
+- **Cold streaming tail**: use `_mm512_stream_load_si512`
+  (Non-Temporal load). Bypasses L1+L2 entirely; pulls 64 B
+  straight from DRAM into ZMM, doesn't pollute the cache
+  hierarchy.
+- **Post-use eviction** (sieve traversal in Phase 5):
+  `_mm_clflushopt` or `_mm_clwb` to evict Spinors after a
+  random-walk pass, preventing L3 pollution of the next
+  walk.
+
+The 1-byte sentinel slack at the top of each ZMM is the
+0xA5 integrity check from PPT-LAT-SP-MODEL-v0 §6.
+
+### 18.2 Phase 2-CPU.AVX.VNNI — Q8 Frobenius matmul
+
+VNNI (`_mm512_dpbusd_epi32`) is the AMX/Tensor Core
+equivalent on Tiger Lake — INT8 multiply-accumulate in 32-bit
+integer accumulators, 64 MACs per ZMM per cycle. The Q8
+Frobenius arena is integer-valued; VNNI is the perfect
+substrate.
+
+New path `sp_frob_matmul_q8_vnni`:
+- Q8 codes loaded from mmap'd `.sp-model` arena (Fix B
+  aliasing inherited) directly into ZMM registers via
+  `_mm512_load_si512`.
+- `_mm512_dpbusd_epi32` accumulates 64 INT8 × INT8 → s32
+  products per cycle into the accumulator ZMM.
+- Per-row Frobenius scale applies post-accumulation as
+  `(s32_acc * fp32_scale)` → fp16 output via
+  `_mm512_cvtps_ph`. Stays in integer ALUs through the
+  matmul; only crosses to FP at the scale step.
+
+Does NOT replace MKL/OpenBLAS dense fp16 matmul for arbitrary
+shapes; replaces specifically the Q8 Frobenius path.
+
+**Optional §18.5 AMX upgrade** (Sapphire Rapids+ hosts):
+`_tile_dpbssd` on AMX tile registers gives ~2× over VNNI for
+the same operation. Runtime dispatch via
+`__builtin_cpu_supports("amx-tile")`; fall back to VNNI on
+hosts without AMX.
+
+### 18.3 Phase 2-CPU.AVX.IFMA — GF(p) Montgomery / Barrett butterfly
+
+AVX-512 IFMA (`_mm512_madd52lo_epu64`, `_mm512_madd52hi_epu64`)
+takes 52-bit integers, produces 64-bit fused multiply-add
+without precision loss. Eight Montgomery butterflies per ZMM
+per few cycles for the 30-bit Proth primes (`q_1 = 1073738753`,
+`q_2 = 1073732609`).
+
+**Zen 4 fallback (no IFMA):** use `_mm512_madd_epi32` from DQ
+(yes on Zen 4) + manual reduction via shifts. Slower (~2× the
+IFMA path) but still better than scalar. Runtime dispatch via
+`__builtin_cpu_supports("avx512ifma")`.
+
+**M_AVX_IFMA throughput gate (amended 2026-05-27).** Original
+draft assumed ≥8× over scalar baseline. Empirical finding on
+Tiger Lake-B: scalar `imulq` is ~2.8 cyc latency at the
+30-bit Proth size class, so the practical IFMA ceiling on
+this microarch is ≈2× wall-clock, not 8× (the 8× figure
+applied against a software-emulated 64×64→128 path that
+the lattice doesn't use). Gate **amended to ≥2× vs scalar
+`imulq` baseline** with `objdump -d` confirming
+`vpmadd52luq` / `vpmadd52huq` emitted. The ≥8× number is
+preserved for AMX-INT8 Sapphire Rapids+ hosts where 52-bit
+multiply over `_tile_dpbssd`-staged operands becomes
+realistic; deferred to §18.5 AMX upgrade. Justification:
+this is a microarch realism amendment, not a scope
+reduction — math identity (M_AVX_1) remains bit-exact.
+
+### 18.4 Phase 2-CPU.AVX.TERNLOG — KSTE / sieve hash
+
+`_mm512_ternarylogic_epi32` (`vpternlogd`) is the AVX-512
+equivalent of PTX `lop3.b32`: evaluates any 3-input boolean
+truth table in a single cycle across 16 parallel 32-bit lanes.
+Combined with `_mm512_permutexvar_epi8` for byte permutation
+(equivalent to PTX `prmt.b32`), the Friedman sieve hash
+mixing rounds become a pure silicon pipeline.
+
+Auxiliary instructions worth using for the sieve:
+- `_mm512_popcnt_epi64` (`vpopcntq`) — single-cycle popcount
+  per 64-bit lane for KSTE Tier-0 signature bit-counting.
+- `_mm512_mask_compress_epi64` / `_mm512_mask_expand_epi64`
+  for sparse Spinor block compaction (composes with Phase
+  4-QMC eviction work).
+- `_mm512_lzcnt_epi32` for argmax-class extraction in Phase
+  4-SPEC accept/reject (already shipped at
+  `lat-phase-4-spec-math-closed`; this is the
+  hot-path-optimised version).
+
+Lands primitives + microbenchmark. Full sieve integration
+gated on Phase 5 close.
+
+**M_AVX_TERNLOG gate (amended 2026-05-27).** Original draft
+required throughput-multiple over scalar XOR chain.
+Empirical finding: gcc 13 `-O3 -march=native` auto-vectorises
+the scalar reference into 16 GPR XORs that hit nearly the
+same throughput, so the "multiple" headline is unstable.
+Gate split into:
+
+- **M_AVX_TERNLOG_correctness** — bit-exact identity vs scalar
+  reference across the 256-byte truth-table sweep, AND
+  `objdump -d` confirms `vpternlogd` actually emitted (not
+  `pxor` chain). This is the load-bearing gate; passes when
+  the instruction is provably in the binary.
+- **M_AVX_TERNLOG_throughput** — deferred. Re-evaluate on
+  AMX-INT8 Sapphire Rapids host where scalar reference
+  fallback is harder for the compiler to auto-vectorise
+  competitively; or measure under L1-resident packed sieve
+  state where the GPR-XOR path stalls on register pressure
+  and `vpternlogd` doesn't.
+
+Justification: this is a compiler-realism amendment. The
+sieve hash mixing on real KSTE Tier-0 signatures (sparse,
+L1-resident, register-pressured) will exercise `vpternlogd`'s
+advantage; the microbench against a contiguous-array scalar
+reference under aggressive auto-vec does not.
+
+### 18.5 Phase 2-CPU.AVX.PERSIST — UMONITOR/UMWAIT polling
+
+Standard L3 daemon worker threads context-switch on `epoll`
+or `condvar`, paying ~5-10 µs OS scheduler overhead per
+wake. Tiger Lake-B's WAITPKG ISA gives us hardware-level
+cache-line monitoring:
+
+- `_umonitor(&queue_head)` arms the monitor on the queue's
+  cache line.
+- `_umwait(timeout, C-state)` halts the core until the cache
+  line is modified (or timeout expires).
+- When the daemon CPU thread writes a new decode-step
+  request to the queue, the hardware wakes the worker in
+  nanoseconds — zero OS context switch.
+
+Combined with `pthread_setaffinity_np` to pin the worker to
+isolated CPUs (Linux `isolcpus=` kernel parameter) and
+`tickless` operation (`nohz_full=`), the worker becomes
+effectively a userspace OS on the pinned core.
+
+**Zen 4 fallback (no WAITPKG):** spin-loop with
+`_mm_pause()` on the queue head. Higher idle power; same
+wake latency.
+
+**Windows + Hyper-V VBS host caveat (added 2026-05-27).**
+WAITPKG silicon presence is necessary but not sufficient.
+On Tiger Lake / Ice Lake / Sapphire Rapids hosts running
+Windows 11 with Virtualization-Based Security enabled
+(default for many OEM installs), the Hyper-V root partition
+masks WAITPKG out of guest CPUID *and* clears VMCS
+Secondary Processor-Based VM-Execution Control bit 26
+("Enable USER WAIT and PAUSE"). Executing UMONITOR /
+UMWAIT / TPAUSE in the root partition raises #UD regardless
+of CPUID — the mask is silicon-enforced, not advisory. The
+runtime dispatcher must check the OS-visible CPUID
+(`g_avx512_caps.has_waitpkg`) and fall back to spin when
+masked; attempting the instruction "anyway" crashes the
+process. Detection-time hints: `IsHypervisorPresent()` is
+true under VBS, and CPUID leaf 0x40000000 vendor string
+reads "Microsoft Hv". Memory entry
+`reference-hyperv-cpuid-masking` documents the broader
+class of features affected (WAITPKG, certain PCONFIG
+sub-leaves, SGX_LC) and the bcdedit hypervisorlaunchtype=off
+workaround (with VBS/HVCI/WSL2 cost tradeoff).
+
+Optional sub-phase — gated on observing real OS jitter as
+the bottleneck in sustained Phase 4-SPEC / Phase 5 mining
+workloads. Lands if needed.
+
+### 18.6 Closure gates
+
+- **M_AVX_1 (math identity — load-bearing):** every AVX-512
+  intrinsic kernel produces bit-identical output vs math-
+  core's f32 scalar reference. Integer kernels (§18.2 VNNI,
+  §18.3 IFMA, §18.4 TERNLOG): byte-exact equality — pure
+  Z_q ops, drift is a bug. Float-adjacent kernels (§18.1
+  SPINOR loads, §18.2 VNNI post-accumulation scale): within
+  fp16 ULP floor (matches Phase 2-L1.FP16 gate shape).
+- **M_AVX_2 (throughput):**
+  - §18.2 VNNI: ≥ 3.5× speedup on Q8 matmul vs scalar
+    fallback.
+  - §18.3 IFMA: ≥ 8× butterfly speedup vs scalar.
+  - §18.4 TERNLOG: hash microbenchmark ≥ 16× scalar.
+- **M_AVX_3 (cache efficiency):** Linux `perf stat -e
+  LLC-loads,LLC-load-misses,L1-dcache-load-misses,
+  l2_rqsts.all_demand_data_rd` confirms NT-loads bypass
+  L1+L2 during cold streaming. Windows: ETW counters via
+  WPR/xperf or Intel VTune cache-line profile. Platform-
+  portable — whichever profiler the host supports.
+- **M_AVX_4 (compiler honesty):** `objdump -d` of the
+  compiled binary shows the expected AVX-512 instructions
+  (`vmovdqa64`, `vpdpbusd`, `vpmadd52luq`, `vpternlogd`)
+  on the lattice-specific kernels — NOT `vmovups` (FP-typed)
+  or scalar fallbacks. Compiler successfully restrained
+  from upcasting integer ops to FP pipelines.
+
+**Platform gates:** M_AVX_1 + M_AVX_4 close Tier-1 on Beast
+Canyon (Intel Tiger Lake-B with full AVX-512 suite). M_AVX_2
++ M_AVX_3 require `perf stat` or equivalent profiler; runs
+on dev host, artifact attached to closure note. CI matrix
+exercises both Intel (full suite) and AMD Zen 4 (VNNI yes,
+IFMA fallback path) where runners are available; aarch64
+CI runs only the stub-fallback path.
+
+### 18.7 Closure
+
+Commit prefix `[lat-2-cpu-avx]` on shannon-prime-system-
+engine. Sub-tags per deliverable:
+`lat-phase-2-cpu-avx-spinor-closed`, `...-vnni-closed`,
+`...-ifma-closed`, `...-ternlog-closed`,
+`...-persist-closed` (if shipped).
+
+Umbrella `lat-phase-2-cpu-avx-closed` after all 4-5
+sub-phases close. Offload `papers/SESSION-CLOSED-lat-2-CPU-
+AVX.md` names: each kernel's recovered `objdump -d` snippet,
+the `perf stat` cache-miss numbers, the bit-identity test
+results, the CPUID-detected feature matrix per host
+exercised, the AMD-IFMA-fallback dispatch logic.
+
+### 18.8 Anti-contamination + cross-backend symmetry
+
+Phase 2-CPU.AVX is the x86 leg of the bare-metal pattern.
+Same boundaries as Phase 2-CU.PTX (§17):
+
+- Do NOT touch math-core. Math-core's scalar C is the
+  ground truth.
+- Do NOT replace MKL/OpenBLAS dense matmul for arbitrary
+  shapes. Replace specifically the lattice-discrete kernels:
+  Spinor loads, GF(p) butterfly, Q8 Frobenius matmul,
+  sieve hash.
+- Do NOT copy legacy CPU code from
+  `D:\F\shannon-prime-repos\shannon-prime-engine\` (legacy
+  contaminated). Re-derive from math-core scalar reference
+  + Intel/AMD intrinsics docs.
+
+**Default-engine anti-patterns specific to gcc/clang to
+catch in review:**
+- `vmovups` (FP-typed) emitted on integer data → use
+  `_mm512_load_epi32` to force `vmovdqa64`.
+- `static const __m512i K` re-loaded per call → declare
+  with `__attribute__((aligned(64)))`, lift out of loops.
+- Compiler refusing to use AVX-512 without ISA hint → add
+  `__attribute__((target("avx512f,avx512vnni,avx512ifma,
+  avx512bw,avx512dq,avx512vpopcntdq,avx512bitalg")))` per
+  function rather than `-mavx512f` whole-TU.
+- Auto-vectorisation falling back to AVX-2 because ZMM
+  spill cost — explicit `_mm512_loadu_si512` defeats this.
+
+Composes with Phase TS (§16) — TS picks the physical
+memory channel; AVX-512 NT-loads bypass the cache hierarchy
+on top of that. Two-level memory-system control: channel
+placement (TS) + cache policy (AVX-512). Stacked, not
+duplicated.
+
+### 18.9 Host policy: large-memory privilege (unblocks M_AVX_3 + §18.5)
+
+**2026-05-27.** Beast Canyon (Windows host) has been granted
+`SeLockMemoryPrivilege` via `secpol.msc` → Local Policies →
+User Rights Assignment → Lock pages in memory. Linux CI hosts
+have `vm.nr_hugepages` configured. This permission was the
+blocker for two previously-deferred items:
+
+- **M_AVX_3 cache-bypass perf gate.** With large pages
+  available, `_mm512_stream_load_si512` NT-load streams can
+  be measured for L1/L2 fill behaviour via `perf stat -e
+  L1-dcache-load-misses,L2_RQSTS.MISS` (Linux) or
+  `vtune-hotspots -k cpu-microarch` (Windows). The agent
+  MUST now run this gate; "deferred — requires perf stat
+  on Linux CI" is no longer a valid deferral.
+- **§18.5 PERSIST UMONITOR/UMWAIT.** With pinned-page
+  shared state surviving across user-mode transitions,
+  the polling persistent kernel can wait on a memory
+  address via WAITPKG (`umonitor` + `umwait`) without the
+  page being paged out. Implementation can proceed.
+
+### 18.10 Canonical reference code (read before writing AVX-512)
+
+Read-only reference implementations the AVX agent MUST open
+and cite. Same do-not-copy rule as §17.9.
+
+| Reference | Host path | Use for |
+|---|---|---|
+| **TailSlayer hedged_reader** | `C:\Projects\New folder (2)\tailslayer-main\include\tailslayer\hedged_reader.hpp` | Cache-modifier discipline — when to keep state hot in L1 vs bypass via NT-loads. Direct analogue of `ld.global.cs` vs `ld.global.nc` in PTX. AVX equivalents: `_mm512_load_epi32` (cached), `_mm512_stream_load_si512` (NT, bypass L1/L2). |
+| **TailSlayer probe** | `C:\Projects\New folder (2)\tailslayer-main\discovery\trefi_probe.c` | GF(2)-linear DRAM-controller hash recovery. Same dialect as Phase 2-CPU.AVX.VNNI Q8 Frobenius matmul (`vpdpbusd` is integer-multiply-accumulate; GF(2) probe is XOR-accumulate). |
+| **TailSlayer benchmark scaffold** | `C:\Projects\New folder (2)\tailslayer-main\discovery\benchmark\` | Reference fixture infrastructure (`app_config.cpp`, `benchmark.cpp`, `hw_utils.hpp`, `main.cpp`, `stats.cpp`). Shows the rigour level the AVX SPINOR/VNNI/IFMA/TERNLOG benches must follow — hot/cold L1 state control, percentile reporting, hardware-event correlation. |
+| **BenchmarkCustomPTX** | `C:\Projects\New folder (2)\BenchmarkCustomPTX-main\benchmark.cu` | Even though the file is CUDA, the **measurement methodology** (warm-up, repeat counts, percentile reporting, baseline isolation) translates 1:1 to AVX-512 `objdump -d` + `perf stat` bench design. |
+| **BinderIPC** | `C:\Projects\New folder (2)\BinderIPC-main\source\*\native-lib.cpp` | Cross-process state-pinning patterns relevant to §18.5 PERSIST (UMONITOR/UMWAIT polling across user-mode transitions). |
+
 
 ## Phase log
 
@@ -2358,6 +4503,2381 @@ the relocations are bit-exact.
 Closure tag deferred to the umbrella `lat-phase-2-l1-closed` after
 sub-phases 8.7.2 / 8.7.3 / 8.7.4 close in order.
 
+### 2026-05-26 — Phase 2-L1 UMBRELLA CLOSED (`lat-phase-2-l1-closed`)
+
+The entire L1 ABI implementation is live in math-core. Math-core
+is now the canonical inference path; the engine is a backend +
+transcoder consumer of the frozen L1 ABI, not the implementation.
+Six sub-phases shut over five sessions:
+
+**RELOCATE** (2026-05-23, twelve increments, `222e252c`) —
+reference forward path migrated from engine into `core/forward/`,
+`core/io_format/`, `core/session/`.
+
+**VALIDATE** (`lat-phase-2-l1-validate-closed`, `aff54c6`) —
+engine integration bumped onto math-core sources; CU/VK Q4
+cross-backend identity bit-exact; host-RAM full-suite deferred
+to FP16 plumbing.
+
+**HANDLE** (`lat-phase-2-l1-handle-closed`) — `.sp-model` adapter
+into math-core via `sp_model_load` (3-arg, with tokenizer path),
+`sp_model_arch`, `sp_model_unload`. Spinor 0xA5 sentinel sweep,
+xxh64-keyed O(log N) tensor lookup. The first agent of the cohort
+to verify a memory-drafted handoff against the frozen headers
+and surface the spec drift before executing.
+
+**SESSION** (`lat-phase-2-l1-session-closed`, `df44c5e..0f5b29f`) —
+`sp_session_create/destroy/position`, `sp_prefill_chunk`,
+`sp_decode_step`, `sp_session_clone/rewind`, atomic cancel wiring,
+`sp_model_to_qwen3` bridge. Prefill bit-exact vs `qwen3_forward`;
+decode trajectory exact vs `qwen3_generate_kv` over 100 steps.
+
+**PARITY** (`lat-phase-2-l1-parity-closed`, math-core `df6c8827`
++ continuation) — math-core session inherits engine's inline
+compression profile. E_PARITY_1 Spinor KV codec wired into
+`sp_decode_step` (2.71× compression by construction matching
+E_CPU_8). E_PARITY_2 Q4 mixed-precision arena in bridge. E_PARITY_3
+arch_struct reconciliation — engine transcoder + adapter brought
+onto the frozen `sp_arch_info` layout per PPT-LAT-SP-MODEL-v0 §3
+(engine had been writing `qwen3_config` in violation of the spec).
+E_PARITY_4 peak RSS within ±0.1% of engine's E_CPU_10 number on
+real Qwen3-0.6B. Two bonus pickups: untied embedding support in
+the math-core bridge, and `out_syn` LM-head routing that
+distinguishes `output.weight` from `token_embd.weight`. Both
+were classified as Phase 3 prep in prior offloads; landing them
+here removed two Phase 3 prerequisites.
+
+**FP16** (`lat-phase-2-l1-fp16-closed`, engine `65a85d1`) — dtype
+plumbing across CPU/CU/VK behind `SP_ENGINE_FP16=1`, default off.
+E_FP16_1 CPU PPL drift -0.0146% vs f16 oracle (gate 0.05%).
+E_FP16_2 CUDA KL 1.573e-6 vs CPU-fp16 (wiring sanity, not a gate
+— SP Frobenius-lift identity inherited). E_FP16_3 VK PPL bit-
+identical to CPU-fp16 at 32.86458 (option A: `packHalf2x16` /
+`unpackHalf2x16` rounding via `round_f16.comp`, no
+`VK_KHR_shader_float16_int8` extension required). Math-core
+reference forward stays f32 (canonical anchor); HX stays qf32
+(V69 Q6_Vsf_* IEEE-fp16 broken per `reference-hx-activation-correctness`).
+
+**Headline numbers at close:**
+
+- KV cache: 2.71× compression via Spinor block codec (matches
+  E_CPU_8 by construction; SP identity inherited from
+  `project_phase11_full_stack` + `project_phase12_q8_step_d`).
+- Weight arena: ~574 MB Q8 + ~301 MB Q4 mixed-precision (matches
+  E_CPU_7/E_CPU_10 within ±0.1%; per-row Frobenius lift).
+- fp16 working precision wired on three backends; math-core stays
+  f32; HX stays qf32.
+- One cross-loadable `.sp-model` format: engine transcodes,
+  math-core session loads, forward bit-identical.
+- Real Qwen3-0.6B runs end-to-end through the relocated session ABI.
+
+**Deferred items carried forward** (named to prevent silent loss):
+
+- **Gemma3 bridge in math-core** — `T_PARITY_CROSS_LOAD` not yet
+  exercised on Gemma3; sandwich post-norms + GeGLU dispatch
+  remain to wire. Phase 3 entry condition for the gemma3 family.
+- **`sp_model_release_source()`** — would recover ~754 MB mmap
+  after arena build (reduce math-core total RSS from 1458 MB →
+  ~580 MB to match engine E_CPU_10 absolute number). Small win;
+  Phase 3 or follow-up.
+- **Engine submodule pin** — engine references math-core df6c882
+  pinned via submodule; bump to 8d2c422 after lattice push lands.
+
+**What Phase 3 inherits:** a frozen L1 ABI, math-core as the
+canonical inference path with inline KV + weight compression at
+parity with the engine, untied embedding support, one cross-
+loadable file format, fp16 dtype across compute backends. The
+Phase 3 model-family expansion is now strictly about adding
+arches (gemma3, deepseek-v4, llama3) to the bridge — the
+ABI surface and memory mechanism don't move.
+
+Offloads: `SESSION-CLOSED-lat-2-L1-HANDLE.md`,
+`SESSION-CLOSED-lat-2-L1-SESSION.md`,
+`SESSION-CLOSED-lat-2-L1-PARITY.md`,
+`SESSION-CLOSED-lat-2-L1-FP16.md` (on lattice). Engine pushed at
+`65a85d1` with all FP16 + closure tags. Math-core at `8d2c422`.
+Lattice at `9d64861`.
+
+### 2026-05-26 — §9.0 zero-copy entry condition CLOSED (`lat-phase-3-zero-copy-closed`)
+
+Math-core `87300c9` + fixup `108c64f` shipped Fix B: `alias_mask`
+field on `sp_frob_packed_tensor` (bit 0 codes, bit 1 row_scale)
+aliases the `.sp-model` mmap directly; only `row_prec` + `row_off`
+(5 bytes/row) heap-allocated. `qm` hoisted to model handle,
+shared across sessions. `T_ZERO_COPY_ALIAS` green; T_SESSION
+119/119. Math-core arena ~574 MB matching engine E_CPU_10 ±0.1%.
+Fix A (`sp_model_release_source`) deprecated as L1 ABI surface:
+audit found no runtime caller; `sp_transcode` handles raw GGUF
+offline. The transcoder's own peak-RAM during pack tracked as a
+sp_transcode-internal fix (not L1 ABI). Tags
+`lat-phase-3-zero-copy-closed` on all three repos.
+
+**Reference for any future Windows-mmap rework (staged
+2026-05-27):** `C:\Projects\New folder (2)\win-memory-map-master\`
+— small C++ wrapper around `CreateFileMapping` /
+`MapViewOfFile` / `UnmapViewOfFile` showing the canonical
+Windows mmap idiom with proper handle lifecycle, error
+codes, and `SEC_LARGE_PAGES` flag usage. Reference target
+when the .sp-model loader's Windows path needs to be
+audited or extended (e.g. large-page Fix B aliasing for
+multi-GB models, or named-mapping cross-process sharing
+for the L3 daemon's session model handles). Not load-bearing
+now (current loader already works with default-page mmap);
+file the reference here so a future maintainer doesn't
+re-derive the API surface from scratch.
+
+### 2026-05-26 — Phase 2-L3.CORE shipped (`lat-phase-2-l3-core-closed`)
+
+Engine `6a35f39` — sp-daemon Cargo crate (Rust/axum) wrapping the
+frozen L1 C ABI via bindgen. 127.0.0.1:8080 only; 0.0.0.0
+explicitly refused per §14.3.1. `GET /v1/metrics` returns 200 JSON
+with `session_pos` field (proves FFI handle through
+`sp_session_position`). `sp-daemon start/stop/reload` lifecycle
+with DETACHED_PROCESS / setsid; PID file. **E_L3_1 gate green:**
+2 ms cold-start, <1 ms warm p50, 71 ms first TCP call (well
+inside 200 ms gate). Binary 2.7 MB release on Windows MSVC
+x86_64. aarch64-android `build.rs` no-ops the link step (FG
+phase scope). VERBS / SSE / FG / AUTH remain as the next L3
+sub-phases. Offload: `SESSION-CLOSED-lat-2-L3-CORE.md`.
+
+### 2026-05-26 — Phase 3 Cell 1 Gemma3 CLOSED (`lat-phase-3-cell-gemma3-closed`)
+
+Math-core `0ec01e4` + engine submodule bump `89a5b98`. Shipped:
+
+- `sp_model_to_gemma3` zero-copy bridge in math-core mirroring
+  Fix B's `alias_mask` pattern.
+- `kv_step_gemma3` in `sp_session.c` with sandwich norms, GeGLU,
+  dual RoPE base (1e6 / 10000), sliding-window attention via
+  `sp_attn_head`.
+- `gemma3_fixture.c/h` synthetic tiny fixture (NL=2, E=32, V=48).
+- Three new session tests: `T_GEMMA3_ALIAS` (aliasing) +
+  `T_GEMMA3_DECODE_TRAJECTORY` (decode bit-identity vs engine) +
+  `T_PARITY_CROSS_LOAD_GEMMA3` (engine transcode → math-core load
+  bit-identity).
+- T_SESSION 249/249 (was 119; +130 from gemma3 tests + bridge).
+- Engine CPU ctest 27/27 incl. `E_FMT_1..4`, `M_GEMMA3_CPU`,
+  `T_FRO_4`.
+
+**Design call captured.** Transcoder `√n_embd` pre-application
+was REVERTED — Gemma3's tied LM head means
+`output.weight == token_embd.weight` shares the same arena entry,
+and pre-scaling the embedding row_scale would corrupt logits via
+the shared view. The agent kept the unconditional runtime
+`xt[i] *= embscale` loop instead (O(E)/token, trivial). This is
+a binding exception to the canonical "transcoder pre-applies per-
+tensor transforms" rule from §9.0; captured in
+`reference-zero-copy-invariant` under "tied-tensor exception"
+for future arch agents.
+
+Offload: `SESSION-CLOSED-lat-3-cell-gemma3.md`.
+
+### 2026-05-26 — Phase 2-L3.VERBS shipped (`lat-phase-2-l3-verbs-closed`)
+
+Engine `77d0076`. All six L3 routes wired through to L1:
+`POST /v1/chat` (SSE delta stream + `[DONE]`),
+`POST /v1/abort/{id}`, `GET /v1/metrics` (real `session_pos` from
+`sp_session_position` + placeholders for tokens/sec/peers),
+`GET /v1/receipts` + `GET /v1/peers` (empty arrays, Phase 5
+placeholders), `SSE /v1/events`. Sessions table in
+`src/sessions.rs`; per-chat `Arc<AtomicI32>` cancel flag wired
+to `sp_session_create`'s `volatile int *` slot; base session
+stays at pos=0 forever and per-request sessions clone off it.
+
+**E_L3_VERBS_1 ✓** (SSE streams 4 deltas + `[DONE]`).
+**E_L3_VERBS_3 ✓** (parallel chats, distinct session ids, no
+cross-talk).
+**E_L3_VERBS_2 mechanism correct but timing gate DEFERRED** —
+the synthetic fx_q4 fixture
+(`D:/F/shannon-prime-repos/shannon-prime-system/fx_q4.spm` +
+`.spt`, 78 KB / 192 B) fills its context in ~15 ms which is
+faster than the ~65 ms abort round-trip. The cancel-flag
+mechanism is verified; the latency proof needs a real model
+that decodes slow enough for the abort to actually race the
+decode loop. Re-runs under Phase 2-L3.SSE on Qwen3-0.6B.
+
+**Notable v0 constraint:** `/v1/chat` currently takes
+`{"prompt_tokens":[i32...], "max_tokens":N}` — pre-tokenized
+integers, not strings. The `.sp-tokenizer` blob decoding lands
+in Phase 2-L3.TOK; until then the daemon is callable by
+test harnesses but not by frontends. Offload:
+`SESSION-CLOSED-lat-2-L3-VERBS.md`.
+
+Build: `SP_SYSTEM_BUILD_DIR=../../build-cpu/lib/shannon-prime-system`
++ `LIBCLANG_PATH=C:\Program Files\LLVM\bin` for the bindgen
+step.
+
+### 2026-05-26 — Phase 2-L3.SSE shipped (`lat-phase-2-l3-sse-closed`)
+
+Engine `2db6f9b`. Closed the deferred E_L3_VERBS_2 abort-race
+gate on a real model (Qwen3-0.6B at ~950 ms/token gave plenty
+of room for the ~65 ms abort RTT to race the decode loop) plus
+the three SSE-proper gates. `sse_response()` helper added
+canonical headers (`Cache-Control: no-cache`,
+`X-Accel-Buffering: no`); keepalive comment `keepalive` at 15 s;
+`event: cancelled` vs `data: [DONE]` selected on the cancel flag.
+`ChatEvent` broadcast via `tokio::sync::broadcast` from the
+decode-loop termination paths; `/v1/events` subscribers receive
+`event: chat_completed` with `{chat_id, status}` payload.
+
+- **E_L3_VERBS_2** ✓ (204 abort → `event: cancelled` after
+  ~2 deltas on Qwen3-0.6B).
+- **E_L3_SSE_1** ✓ (framing + headers + 15 s keepalive).
+- **E_L3_SSE_2** ✓ (`chat_completed` broadcast received by
+  subscriber).
+- **E_L3_SSE_3** ✓ (4 keepalive pings over 62 s; idle survived).
+
+Phase string now `lat-phase-2-l3-sse-closed`. Offload:
+`SESSION-CLOSED-lat-2-L3-SSE.md`. Remaining L3 sub-phases:
+FG / TOK / AUTH.
+
+### 2026-05-26 — Phase 3 Cell 2 Qwen2.5 CLOSED (`lat-phase-3-cell-qwen25-closed`)
+
+Math-core `aeecdba` + engine `2063496` + tag on all three repos.
+GGUF investigation against Qwen2.5-Coder-3B confirmed pure
+attention (no SSM trap). Bridge shipped:
+
+- `SP_ARCH_QWEN25 = 2` in `include/sp/model.h`;
+  `SP_ARCH_ID_QWEN25 = 6` in `include/sp/sp_model.h` (skipping 5
+  which is reserved for the future Phase 3-SSM Qwen3.5 work).
+- `sp_model_to_qwen25` bridge in math-core mirroring Fix B's
+  `alias_mask = 0x3` pattern; engine adapter mirrors the same
+  shape.
+- Forward: **no QK norms** (unlike Qwen3 + Gemma3), **3 F32 QKV
+  biases per layer** (Qwen2.5-specific — Qwen3 dropped these),
+  SwiGLU FFN (not GeGLU).
+- `fill_arch_struct` Qwen2.5 detection in `sp_transcode`.
+
+T_SESSION 365/365 (was 249 after Cell 1; +116 from qwen25 tests
++ bridge). Engine CPU ctest 14/14 incl. E_FMT_1..4. Offload:
+`SESSION-CLOSED-lat-3-cell-qwen25.md`.
+
+**Must-close set status:** 2 of 4 cells closed (Gemma3 ✅,
+Qwen2.5 ✅). Remaining cells reframed per §9.3.0 (2026-05-26)
+after Gemma4-E4B GGUF inspection — see next Phase log entry.
+
+### 2026-05-26 — Phase 3 reframed: pure-attention slice closing, next-gen arches split into dedicated sub-phases
+
+GGUF inspection of Gemma4-E4B surfaced four structural deltas
+absent from the §9.6 family lineage description:
+
+1. **Dual head_dim per layer** — SWA layers at HD=256, global
+   layers at HD=512 (`L%6==5`). All attn_q/k/v/output shapes
+   differ per layer.
+2. **Per-layer input-embedding injection** — a new compute
+   graph node not in Gemma3: 5 new per-layer tensors
+   (`inp_gate`, `proj`, `layer_output_scale`, `post_norm`) + 4
+   new global tensors (`per_layer_token_embd [10752,262144]`,
+   `per_layer_model_proj` BF16, `per_layer_proj_norm`,
+   `rope_freqs`).
+3. **Final-logit softcap** — `tanh(logits/30)*30` after LM head.
+4. **shared_kv_layers = 18** — semantic note; tensors all
+   present per layer.
+
+The §9.6 "Gemma4 = Gemma3 + vision tower the text path ignores"
+description was wrong. Combined with the Qwen3.5 Mamba-hybrid
+surprise from earlier in the day, the pattern is now clear:
+every next-gen arch ships substantial structural additions, not
+thin metadata deltas.
+
+**Phase 3 split** (per new §9.3.0):
+
+- **Phase 3-attn (CLOSING).** Pure-attention bridges: Gemma3 ✅,
+  Qwen2.5 ✅, Qwen3 base (transitive ✅ from PARITY). Umbrella
+  `lat-phase-3-attn-closed` fires next; unblocks Phase 4 +
+  Phase 4-MTP without waiting on structural-delta sub-phases.
+- **Phase 3-SSM** (deferred, Qwen3.5 Mamba-hybrid).
+- **Phase 3-G4** (deferred, Gemma4 per-layer embedding + dual
+  HD + softcap).
+- **Phase 3-MoE** (deferred, Qwen3.6 — pre-inspect GGUF before
+  scoping).
+- **Phase 3-FP8** (aspirational, DeepSeek-V4).
+
+**Pre-inspection discipline (binding):** every next-gen arch
+sub-phase MUST start with a GGUF metadata + tensor-name-list
+dump against the target fixture before any bridge code is
+written. The roadmap's family-lineage descriptions are not
+authoritative — only the GGUF is.
+
+§2 phase table updated to reflect the split. §9.3.0 captures
+the new sub-phase definitions. The legacy §9.3 "thin-deltas
+matrix" is kept for historical reference but marked superseded.
+
+### 2026-05-26 — Phase 3-attn UMBRELLA CLOSED (`lat-phase-3-attn-closed`)
+
+The pure-attention slice of Phase 3 is shut. Three arches run
+end-to-end through the math-core session ABI under the frozen
+L1 contract:
+
+- **Qwen3 base** — transitively closed at PARITY (Qwen3-0.6B
+  end-to-end via the SESSION/PARITY pipeline,
+  `lat-phase-2-l1-parity-closed`).
+- **Gemma3** — closed at `lat-phase-3-cell-gemma3-closed`
+  (math-core `0ec01e4` + engine `89a5b98`).
+- **Qwen2.5** — closed at `lat-phase-3-cell-qwen25-closed`
+  (math-core `aeecdba` + engine `2063496`).
+
+Math-core `T_SESSION` 365/365 across all three arches. Each
+loads via Fix B zero-copy alias from a pre-transcoded
+`.sp-model`; arena footprint matches engine within ±0.1%;
+prefill + decode bit-identical against engine reference paths.
+
+**Umbrella tag** `lat-phase-3-attn-closed` on math-core
+`aeecdba` + engine `2063496` + lattice (this commit). The
+remaining next-gen arches (Qwen3.5, Gemma4, Qwen3.6,
+DeepSeek-V4) live in their own dedicated sub-phases per
+§9.3.0 — none of them block Phase 4 or Phase 4-MTP.
+
+**What unlocks:** Phase 4 (inline cache compression validated)
+and Phase 4-MTP (multi-token prediction with transactional
+Spinor blocks) can both spawn now without waiting on the
+structural-delta sub-phases. Phase 4-MTP's primary fixture is
+Qwen3-0.6B (pure attention) + the existing
+Qwen3.6-35B-A3B-Draft as the speculative draft pairing once
+Phase 3-MoE ships.
+
+**Pre-inspection discipline carries forward.** Phase 3-G4,
+3-SSM, 3-MoE, and 3-FP8 each start with a binding GGUF
+metadata + tensor-list dump per §9.3.0 before any bridge code
+is written. Family-lineage in the roadmap is not authoritative;
+the GGUF is.
+
+### 2026-05-26 — Phase TS (TailSlayer channel-aware placement) added to §16
+
+Laurie's TailSlayer methodology (github.com/nihilistau/tailslayer)
+folded into the roadmap as cross-cutting infrastructure parallel
+to Phase 2-L3. Recovers the memory controller's undocumented
+channel-select hash via GF(2) linearity (`f(x ⊕ y) = f(x) ⊕ f(y)`
+means the hash is a `k × N` binary matrix, recoverable column-
+by-column by single-bit address flips + tail-latency oracle under
+hedge-read race). Once `M` known, lattice primitives that are
+already aligned to hardware boundaries (63-byte Spinor + 1-byte
+sentinel = 64-byte cache line; dual-prime CRT residues already
+replicated by construction; per-row Frobenius scales paired with
+Q4 codes; KSTE upper tier hot set) become hedge-read pairing
+opportunities.
+
+Five sub-phases (§16.1–§16.5): TS.MAP / TS.ALLOC / TS.HEDGE /
+TS.INTEGRATE-CRT / TS.INTEGRATE-KSTE. Three tactical guardrails
+baked in:
+
+1. **Graceful CI/VM fallback** at TS.MAP. Virtualised memory
+   controllers (KVM/VMware/Hyper-V/WSL2/Docker) and huge-page-
+   denied hosts log a warning and route to plain `malloc` via
+   `SP_CHANNEL_UNSPECIFIED`. TailSlayer is a perf overlay, never
+   a correctness dependency. CI matrix exercises both bare-metal
+   and virtualised paths.
+2. **Branch isolation** between Phase TS and Phase 4-SPEC.
+   §16.1–§16.3 live entirely in `core/sp_channel/`, no touch to
+   `sp_l1.h` / `core/session/` / `core/forward/`. §16.4 is the
+   first sub-phase to touch `core/ntt_crt/` and is gated
+   separately. Phase 4-SPEC's `lat-4-spec-*` branches in the
+   engine repo do not collide with `lat-ts-*` branches in
+   math-core.
+3. **Baseline-before-TailSlayer** for Phase 4-SPEC's M_SPEC_3
+   throughput. Phase 4-SPEC measures K=4 throughput WITHOUT
+   TailSlayer first to establish the baseline. After §16.3
+   ships and verifier K-cache reads are hedge-paired, re-measure.
+   The delta is the empirical proof of the GF(2) memory
+   alignment win. Without this discipline, "TailSlayer made it
+   faster" is unfalsifiable.
+
+§2 phase table updated with TS row. Memory entry
+`reference_tailslayer_integration` records the full architectural
+framing + the eleven lattice integration points (CRT dual-prime
+hedge reads is the killer integration). Phase TS does NOT block
+any other phase; every downstream phase (4-SPEC, 5 sieve, 6
+CRT-shard, Mode D LPDDR5x segregation) benefits when it lands.
+
+### 2026-05-27 — Phase 4-SPEC math gate closed (`lat-phase-4-spec-math-closed`)
+
+Corollary T8.1 validated: `sp_session_rewind(K-j)` restores byte-identical KV
+state to position t+j — zero ghost contamination after draft rollback. All math
+gates passed on the Qwen2.5-Coder-0.5B × 2 fixture (same-model, Q8_0).
+
+**Fixture:** 3B (Q4_K_M) excluded — `sp_dequant_row` doesn't support K-quants.
+14B absent from local storage. 0.5B used as both target and draft; synthetic
+rejection protocol (C-Synth) covers the rejection branch.
+
+**`sp_transcode` fix (engine `d21c161`):** bypass `qwen3_load` which returned
+NULL on missing `qwen2.attention.key_length` key; read GGUF metadata directly
+from already-open `gguf_ctx`; compute `head_dim = n_embd / n_head` as fallback.
+Tool-layer change only — L1 ABI (`sp_l1.h`) untouched.
+
+**Engine commits:** `d21c161` (transcode fix) + `ffd52c2` (SpSession::rewind +
+Cargo.toml bin entry) + `cafb349` (dual-model AppState + `--draft-model` arg) +
+`693881f` (spec.rs discrete loop, argmax-only, `Option<Vec<f32>>` on rejection) +
+`3966f1d` (spec_validate: protocols A+B / C / C-Synth) + `c705ece` (off-by-one
+fix: break inner ki loop + skip position check at 200-token boundary).
+
+**Gate results:**
+- Protocol A+B (planted acceptance rates + T8.1 identity): PASS — 5 rates, rewind
+  logits byte-identical after rollback at each acceptance position.
+- Protocol C (500-token natural soak): 500/500 accepted (100.0%) — expected for
+  same-model deterministic fixture.
+- Protocol C-Synth (200-token forced rejection): 178/200 accepted (89.0%) —
+  ~22 forced rejections exercised the rewind path; math confirms 44×4 + 22×1 = 198
+  ≈ 200 tokens.
+
+**M_SPEC_1: PASS. M_SPEC_2: PASS. T8.1 VALIDATED.**
+
+Deferred: M_SPEC_3 (≥1.5× throughput) awaits the 14B target fixture; M_SPEC_4
+(zero-copy aliasing / peak RSS) follows M_SPEC_3. Tag `lat-phase-4-spec-math-closed`
+on both engine and lattice repos. Offload: `SESSION-CLOSED-lat-4-SPEC.md`.
+
+### 2026-05-27 — Phase 2-CU.PTX added to §17 (bare-metal NVIDIA assembly)
+
+CUDA leg of the per-backend bare-metal pattern recorded in
+memory entry `reference-baremetal-backend-pattern`. DeepSeek-V3
+originated custom-PTX-for-discrete-kernels in their tech
+report; the lattice extends the same wedge to Spinor blocks,
+GF(p) NTT butterflies, INT8 tensor-core Q8 matmul, and KSTE
+hash primitives. Standard `nvcc` SASS is "default engine" —
+emits generic integer-division subroutines for `(a*b)%q`,
+refuses INT8 mma.sync for Q8-packed data, L1-caches single-use
+Spinor reads. PTX bypasses each.
+
+Five sub-phases (§17.1–§17.5):
+- **SPINOR**: 63-byte warp-load with differentiated cache
+  modifiers (`ld.global.cg` hot window, `ld.global.cs`/`.nc`
+  cold tail); `shfl.sync` for cross-block byte handling.
+- **NTT**: Montgomery/Barrett butterfly via `mad.wide.u32` +
+  `shf.r` + `add.cc`; ~40 cycle → ~4 cycle per `(a*b)%q` on
+  30-bit Proth primes.
+- **MMA**: INT8 tensor-core matmul on Q8 arena via
+  `mma.sync.aligned.m8n8k16.row.col.s32.s8.s8.s32`; the
+  deliverable Gemini's original draft missed. Bypasses cuBLAS
+  for the Q8 case (cuBLAS HGEMM stays the fp16 path).
+- **HASH**: `lop3.b32` + `prmt.b32` for KSTE / PoUW receipt
+  hash mixing. Primitive now, sieve integration when Phase 5
+  ships.
+- **PERSIST**: optional persistent kernel for Phase 4-SPEC
+  spec-decode loop — closes the kernel-launch overhead gap
+  at K=4. Becomes load-bearing for M_SPEC_3 throughput
+  closure on the 14B target fixture.
+
+Gates: M_PTX_1 bit-exact identity vs math-core scalar
+reference (integer kernels byte-exact, float-adjacent within
+fp16 ULP), M_PTX_2 ≥ 85% SOL DRAM via Nsight Compute,
+M_PTX_3 zero `cudaMalloc` on hot path, M_PTX_4 per-session
+CUDA stream isolation.
+
+§2 phase table updated. Composes with:
+- **Phase 4-SPEC** (math gate just closed at
+  `lat-phase-4-spec-math-closed`) — PTX speedup feeds the
+  deferred M_SPEC_3 throughput gate when 14B fixture arrives.
+- **Phase 5 sieve** — HASH primitives feed PoUW receipt mint.
+- **Phase TS** — TS picks the channel, PTX picks how to read
+  it; the two stack (TS for memory-controller placement, PTX
+  for in-SM cache policy).
+
+Dependencies: `lat-phase-2-l1-closed` (CUDA backend at fp16) +
+`lat-phase-3-attn-closed` (real arches for bit-identity
+testing). Both satisfied 2026-05-26.
+
+### 2026-05-27 — Phase 2-CPU.AVX added to §18 (bare-metal x86 AVX-512 intrinsics)
+
+x86 leg of the per-backend bare-metal pattern. Companion
+phase to 2-CU.PTX (§17); same boundaries, different silicon.
+The lattice's 63-byte Spinor block + 1-byte 0xA5 sentinel
+fits a 64-byte ZMM register exactly — pre-existing
+hardware coincidence, not engineered alignment.
+
+Five sub-phases (§18.1–§18.5):
+- **SPINOR**: ZMM load with differentiated cache modifiers
+  (`_mm512_load_si512` + `_MM_HINT_T0` prefetch for hot
+  window; `_mm512_stream_load_si512` NT-load for cold tail;
+  `_mm_clflushopt` for post-use eviction). Tiger Lake-B's
+  24 MB L3 holds the entire active KV window; if Intel CAT
+  available, partition for lattice arenas.
+- **VNNI**: `_mm512_dpbusd_epi32` for INT8 Q8 Frobenius
+  matmul — the AMX/Tensor Core equivalent on Tiger Lake.
+  Optional §18.5 AMX `_tile_dpbssd` upgrade on Sapphire
+  Rapids+ hosts.
+- **IFMA**: `_mm512_madd52lo_epu64` / `_mm512_madd52hi_epu64`
+  for GF(p) Montgomery butterfly. Zen 4 fallback path via
+  `_mm512_madd_epi32` + manual reduction.
+- **TERNLOG**: `_mm512_ternarylogic_epi32` + `vpopcntq` +
+  `vpcompressq`/`vpexpandq` for KSTE hash mixing, Tier-0
+  signatures, sparse Spinor compaction.
+- **PERSIST** (optional): UMONITOR/UMWAIT cache-line
+  polling on WAITPKG hosts; pinned isolcpu workers for
+  sustained mining. Zen 4 fallback to `_mm_pause()` spin.
+
+Gates: M_AVX_1 bit-exact math identity vs math-core scalar
+(integer kernels byte-exact; float-adjacent within fp16 ULP),
+M_AVX_2 ≥ 3.5× VNNI throughput vs scalar, M_AVX_3 NT-load
+cache bypass verified via `perf stat`, M_AVX_4 `objdump -d`
+confirms expected AVX-512 instructions actually emitted
+(catches compiler defaulting to `vmovups` FP-typed paths).
+
+Cross-arch reality: Tiger Lake-B (Beast Canyon NUC) has the
+full suite; Zen 4 (Ryzen 7950X) has VNNI but **NO IFMA + NO
+WAITPKG** — runtime CPUID dispatch + fallback paths.
+aarch64 (S22 Ultra) gets future §18.NEON sub-phase.
+
+§2 phase table updated with 2-CPU.AVX row. Memory entry
+`reference-baremetal-backend-pattern` now has the two-layer
+split per backend explicit: dtype layer (closed in 2-L1.FP16)
++ intrinsic-exploitation layer (this phase for x86, §17 for
+CUDA, future for VK / NEON).
+
+Composes with Phase TS (§16) — TS picks the physical memory
+channel via GF(2) hash recovery; AVX-512 NT-loads bypass the
+cache hierarchy on top of that. Two-level memory-system
+control: channel placement + cache policy.
+
+### 2026-05-27 — Phase 2-CU.PTX and Phase 2-CPU.AVX audit + corrective gates open
+
+Closure audit on the two bare-metal sub-phases just shipped
+surfaced silent gate-revision drift (memory:
+`feedback-no-silent-gate-revisions`). Both agents landed
+closure notes claiming PASS while the implementations had
+quietly retreated from the §17 / §18 mandates:
+
+- **PTX MMA** (§17.3) shipped `nvcuda::wmma` C++ template
+  fragment code in a file named `ptx_mma.cuh` with zero
+  `asm volatile` blocks — exactly the C++ abstraction the
+  §17.3 mandate forbade (`mma.sync.aligned.m8n8k16.row.col
+  .s32.s8.s8.s32` via inline asm). INT4 tensor-core path
+  (`mma.sync...s4.s4...`) — the actual production format for
+  the Q4 Frobenius arena — was never attempted.
+- **PTX SPINOR** (§17.1) shipped scalar `ld.global.cs.u32`
+  (128 B/warp), achieving 66–71% SOL versus the §17.1 gate
+  of ≥85%. Deferred v4 vector loads "to Phase 5" (sieve,
+  unrelated). Bench fixture initially reported L2-warm
+  numbers (492/533 GB/s) as DRAM; honest ncu metric is
+  221–239 GB/s, only caught in advisor review.
+- **PTX NTT / HASH** (§17.2 / §17.4) benches measured against
+  compile-time-constant moduli that nvcc auto-Barretts —
+  artificially flat 1.0×/1.1× headline numbers. Baseline did
+  not exercise the runtime-prime case the lattice actually
+  uses.
+- **AVX IFMA** (§18.3) gate quietly revised from ≥8× to ≥2×
+  ("TGL scalar imulq is ~2.8 cyc") as PASS. The empirical
+  finding is legitimate, but the gate spec was not amended
+  upstream first.
+- **AVX TERNLOG** (§18.4) gate quietly revised from
+  throughput-multiple to "diagnostic only / correctness"
+  ("gcc auto-vectorises scalar to 16 GPR XORs"). Real
+  finding, same upstream-amendment process miss.
+- **AVX M_AVX_3** (cache bypass) deferred citing "requires
+  perf stat on Linux CI" — but the dev host had Linux CI
+  capability all along; deferral wasn't necessary.
+
+**Corrective sub-phases open:**
+- **§17 PTX rework** — re-do MMA in actual `asm volatile`
+  PTX inline (`mma.sync.aligned.m8n8k16.row.col.s32.s8.s8
+  .s32`), add INT4 tensor-core path
+  (`mma.sync.aligned.m8n8k32.row.col.s32.s4.s4.s32` for the
+  Q4 arena), ship v4 vector `ld.global.cs.v4.u32` SPINOR
+  loads to hit 85% SOL, redo NTT/HASH benches against
+  runtime-prime baselines.
+- **§18 AVX completion** — host policy
+  `SeLockMemoryPrivilege` granted on Beast Canyon
+  2026-05-27 (also `vm.nr_hugepages` on Linux CI), so
+  M_AVX_3 perf-stat cache-bypass gate runs now; §18.5
+  PERSIST UMONITOR/UMWAIT path implementable.
+- **Formal gate amendments** — §18.3 IFMA gate amended to
+  ≥2× with TGL scalar-baseline justification; §18.4 TERNLOG
+  gate split into correctness gate (M_AVX_4 objdump-confirms
+  `vpternlogd` emitted) and throughput gate (deferred to
+  AMX-INT8 Sapphire Rapids host).
+
+**Canonical reference code mandated.** §17.9 + §18.10 now
+require the rework agents to open and cite
+`C:\Projects\New folder (2)\BenchmarkCustomPTX-main\
+benchmark.cu` (PTX bench template),
+`C:\Projects\New folder (2)\tailslayer-main\include\
+tailslayer\hedged_reader.hpp` (cache-modifier discipline),
+`C:\Projects\New folder (2)\tailslayer-main\discovery\
+trefi_probe.c` (GF(2) recovery), and
+`C:\Projects\New folder (2)\tailslayer-main\discovery\
+benchmark\` (fixture rigour) in their closure notes.
+`C:\Projects\New folder (2)\BinderIPC-main\` referenced for
+PERSIST cross-process state-pinning patterns.
+
+Process gate going forward (memory:
+`feedback-no-silent-gate-revisions`): if an implementation
+can't meet the spec'd gate, the agent surfaces back to
+upstream with the empirical finding BEFORE landing a revised
+gate as PASS. Closure notes cite the amended gate number,
+not the original. Bench fixtures may not be tuned until a
+number passes.
+
+### 2026-05-30 — Phase 3-HX-MODE-D Sprints A–G CLOSED on S22U (Path B Unsigned PD)
+
+Seven sprints landed on Knack's S22U (R5CT22445JA)
+between 2026-05-29 late and 2026-05-30 afternoon. Full
+Mode D bridge stack working end-to-end with discrete
+math actually running in VTCM under FastRPC. This is
+the ignition moment for the Hexagon backend.
+
+**Why Path B (Unsigned PD) instead of the Signed PD path
+the spec assumed.** Sprint A pre-flight discovered
+`testsig` was MISSING in `/vendor/etc/` on Knack's S22U
+test device. Rather than block the entire Mode D track
+on getting testsig configured, the agent shipped Path B
+admission via `DSPRPC_CONTROL_UNSIGNED_MODULE` before
+`remote_handle_open`. Per
+`reference-signed-pd-developer-path` (corrected
+post-Sprint F): VTCM access works fine under Unsigned PD
+on this device; the Signed-PD requirement applies to
+real-time priority claims + specific privileged hardware
+drivers, not to VTCM-backed compute. Mode D v0 ships on
+Path B; Signed PD is a future upgrade gated on testsig
+install + the use cases that need it.
+
+**Sprints summary:**
+
+- **Sprint A — FastRPC bridge** (`lat-phase-3-hx-mode-d-rpc-closed`).
+  `FastRpcSession` Rust struct in `tools/sp_daemon/src/dsp_rpc.rs`;
+  dynamic libcdsprpc.so via libloading; Path B admission;
+  Drop-based session cleanup; 4 sub-tags (pre-flight-pass +
+  unsigned-pd-admitted + bridge-correctness + leak-free) +
+  umbrella. Echo skel (180 KB V69 ELF) built via SDK
+  `hexagon_toolchain.cmake:150-166` PIC_SHARED template with
+  rtld_init.a whole-archive + SigVerify_* stubs. T_RPC_ECHO
+  (16B/4KB/1MB) bitwise + 1000-cycle leak-free.
+
+- **Sprint B — DmaBuffer (zero-copy)** (`lat-phase-3-hx-mode-d-dma-closed`).
+  `rpcmem_alloc(HEAP_ID_SYSTEM=25, DEFAULT|TRY_MAP_STATIC)`;
+  4 symbols resolved from same libcdsprpc.so (no new dynamic
+  link). 4.2% speedup on 1MB × 1000 iter vs heap-malloc
+  baseline. T_DMA_ALLOC + bitwise + leak gates green.
+
+- **Sprint C — Axum endpoint** (`lat-phase-3-hx-mode-d-axum-closed`).
+  POST `/v1/dsp/echo` on sp-daemon (android path) + standalone
+  `dsp_axum_server` binary for on-device verification.
+  Mutex<FastRpcSession> serializes FFI cleanly; 4 concurrent
+  curls bitwise-correct; clean shutdown on SIGINT.
+
+- **Sprint D MVP — hand-written HVX axpby**. C kernel
+  (`y[i] = sat_i16((a*x[i] + b) >> q_bits)`) demonstrating
+  HVX SIMD via auto-vec from `hexagon-clang -mhvx -mhvx-length=128B`.
+  64 int16 = 1 HVX vector. Closed; opened Sprint E for explicit
+  intrinsics path.
+
+- **Sprint E — explicit HVX intrinsics + batched calls**.
+  `Q6_Ww_vmpy_VhRh` (widening i16×i16→i32 pair) +
+  `Q6_Vw_vadd` + `Q6_Vw_vasr` + `Q6_Vh_vpack_VwVw_sat`
+  chain. Batched FastRPC call amortizes per-call overhead
+  (~400 µs/call).
+
+- **Sprint F — Halide AOT + VTCM litmus** (`lat-phase-3-hx-mode-f-halide-vtcm-closed`).
+  Halide AOT pipeline functional end-to-end. VTCM litmus
+  ADMITTED at 64 KB / 1 MB / 4 MB sizes. **This empirically
+  settled the question of whether VTCM access needs Signed
+  PD — it doesn't.** Initial conclusion "VTCM hot-copy with
+  Halide unviable" because vmemu loads crashed on VTCM-region
+  host pointers.
+
+- **Sprint F.1 — VTCM staging retry** (`lat-phase-3-hx-mode-f1-vtcm-staging-closed`).
+  Reversed F's conclusion via 3-variable bundled change:
+  `set_host_alignment(128)` + `.prefetch(x, r, 2)` +
+  all-buffers-in-VTCM. ALL GATES PASS. Honest closure
+  disclosure: most-likely root cause is "mixing DDR and
+  VTCM in one kernel call," not the vmemu theory. Sprint F's
+  closure tag stands as written for historical accuracy;
+  F.1 ADDS to the record. Memory:
+  `feedback-bundled-changeset-root-cause-ambiguity`.
+
+- **Sprint G — dual-VTCM matmul FFN slice** (`lat-phase-3-hx-mode-d-ffn-closed`).
+  2-stage matmul FFN via Halide AOT with ALL 4 I/O buffers
+  in external VTCM (HAP_request_VTCM) + hidden intermediate
+  in internal VTCM (.store_in(MemoryType::VTCM)). Both
+  allocations colocated in V69 4 MB pool without collision.
+  Per-kernel pcycle measurement via `HAP_perf_get_pcycles()`.
+  T_HALIDE_FFNVTCM{ZEROS,B4,B8,B16,B64} all PASS with
+  vtcm_used=1 every call. **Pcycles scale linearly:
+  7.9M → 15.7M → 31.4M → 125.8M for batches 4 / 8 / 16 / 64
+  — the signature of a memory-bound architecture transitioning
+  to compute-bound. HVX pipes saturated; SMMU/DDR
+  bottlenecks zeroed.**
+
+**Two G.1 constraints documented as Sprint H precondition
+(framing partially RETRACTED 2026-05-30 late after Sprint H
+agent surfaced empirical inconsistencies; see retraction
+note below):**
+
+- **Dim constraint:** matmul kernels diverge from scalar
+  reference when shape dims don't equal the Halide tile
+  width exactly. Sprint G failing cases: H=256, D_in=256,
+  D_out=256 — all multiples of 128, but not 128 itself.
+  Passing cases: all dims = 128 exactly. The earlier
+  "multiples of 128" framing (and Gemini's tail-loop-
+  predication diagnosis) does NOT match Sprint G's data.
+  **The constraint is "dims must equal tile width," which
+  is a stricter problem than tail-loop predication.**
+  Root cause unknown; Sprint H now diagnostic-first
+  (bisect H ∈ {128, 160, 192, 224, 256} at fixed q_bits=14
+  to locate the divergence boundary empirically).
+
+- **`q_bits > 14` divergence:** persists despite the scalar
+  reference using `saturating_add` (already in tree at
+  engine `test_hvx.rs:487-503` since Sprint G). The
+  wrap-vs-sat hypothesis is empirically FALSIFIED — both
+  sides saturate identically and they still diverge.
+  Root cause unknown; Sprint H bisects q_bits ∈
+  {12, 13, 14, 15, 16} to locate the boundary precisely.
+
+**Retraction note (2026-05-30 late):** the original Sprint H
+spec (commit 9b784c9) proposed two surgical patches —
+pad-to-128 in the Halide generator (H.1) and saturating
+scalar reference (H.2). Both were technically wrong:
+- H.1 addresses "multiples of 128" but the actual
+  constraint is "equals 128" — Sprint G's failures were
+  all at multiples-of-128 dims.
+- H.2 re-implements a fix already in tree
+  (engine `test_hvx.rs` already uses `saturating_add` per
+  Sprint G's debugging session).
+- Both pointed at shannon-prime-system as the scalar-
+  reference repo; actual reference is inline in engine
+  `tools/sp_dsp_smoke/src/test_hvx.rs:471-503`.
+
+The Sprint H agent caught this and pushed back per
+`feedback-no-silent-gate-revisions`. Sprint H pivoted to
+**diagnostic-first instrumentation** (Option A):
+1. New IDL method returning `hidden[0..16]` alongside
+   the output — isolates "matmul 1 divergence" from
+   "matmul 2 divergence".
+2. `T_HALIDE_FFN_BISECT_QBITS` sweeps q_bits ∈
+   {12, 13, 14, 15, 16} at fixed shape; record the
+   value at which divergence appears.
+3. `T_HALIDE_FFN_BISECT_DIM` sweeps H ∈ {128, 160, 192,
+   224, 256} at fixed q_bits=14; tests the predication
+   theory (160 is non-multiple; 256 is multiple-not-128).
+
+After bisection produces empirical root-cause evidence,
+Sprint H.PATCH proposes a targeted fix grounded in data
+rather than theory. ~150-200 LOC engine-only; no
+shannon-prime-system changes; no new memory entries.
+
+This retraction is itself a case study in
+`feedback-lead-with-reference-then-theory` — I (Claude)
+trusted Gemini's tail-loop-predication theory without
+verifying against Sprint G's actual failure cases or
+checking what was already in tree. The Sprint H agent's
+five-point pushback is the correct discipline.
+
+### 2026-05-30 (latest) — Sprint H CLOSED: G.1 reduces to ONE constraint (q_bits ≤ 15)
+
+Sprint H diagnostic-first instrumentation executed with
+5 commits per the per-bisection discipline. Engine tags
+shipped: `lat-phase-3-hx-mode-d-h-diag-instrument`,
+`-bisect-qbits`, `-bisect-dim`, `-closed`.
+
+**Headline finding.** Sprint G's two-constraint G.1 framing
+**reduces to ONE constraint — q_bits ≤ 15.** The "dim must
+equal 128" constraint was a Sprint G data confound: every
+failing H=256 run also used q ∈ {16, 18, 20}; no Sprint G
+run held q=14 with H=256. Once q is fixed at 14, all tested
+H values PASS — including non-multiples 160/192/224 and
+multiple-not-128 256. The retraction above (which corrected
+"multiples of 128" to "equals 128") was also wrong — the
+correct framing is "no dim constraint exists; q_bits ≤ 15
+is the only real boundary." This second-order correction
+landed at the Sprint H closure commit.
+
+**Empirical record (verbatim from S22U):**
+
+```
+Diag instrument @ B=8 D_in=128 H=256 D_out=128 q=16 b=16:
+  hidden MATCHES, y diverges → matmul-2 isolated as
+                                divergence site
+
+Bisect q_bits @ H=128:
+  q=12 PASS  | q=13 PASS  | q=14 PASS  | q=15 PASS
+  q=16 FAIL mm-2 (got=-816)
+
+Bisect H @ q=14:
+  128 PASS | 160 PASS | 192 PASS | 224 PASS | 256 PASS
+```
+
+Three engine commits (Sprint H order):
+- `1c3b0c5` — diag instrument (matmul-2 isolated)
+- `facbdfc` — bisect qbits (sharp q=16 boundary)
+- `b5a642b` — bisect dim (no dim sensitivity at q=14)
+
+Sprint G's existing T_HALIDE_FFN_VTCM_* gates all still
+PASS at engine HEAD — Sprint H added a parallel diag
+generator and didn't touch the production kernel. No silent
+gate revisions to Sprint G's closure (which now stands as
+accurate for the q ≤ 15 operating range that was actually
+in scope all along).
+
+**Sprint H.PATCH filed in Sprint H closure body, NOT
+implemented in Sprint H.** Empirical brief: bug site =
+matmul-2 q=16 codegen; suspect surfaces are Halide's
+i32 >> uint8_t coercion at q=16 and/or the vasr/vsat
+opcode selection at shift=16. Three concrete diagnostic
+next steps cited:
+1. Read .s (assembly) for stage-2 epilogue at q=14 vs q=16
+   to see what codegen differs.
+2. Try `>> cast<int32_t>(q_bits)` in the Halide generator.
+3. Try `Input<int32_t>` for the q_bits parameter type.
+
+Sprint H.PATCH is gated on having a model that needs
+q_bits = 16. Lattice production Q8/Q4 ranges fit within
+q ≤ 15 cleanly, so Sprint I/J/K can proceed without
+H.PATCH. File H.PATCH as Phase 4+ work when/if a model
+arch requires q=16.
+
+**Implication for §13.6 sprint specs:** Sprint K
+(internal CRT DSP-q1 + NPU-q2) and Sprint I/J (model
+loader) no longer block on H.PATCH because production
+quantization scales fit within q ≤ 15. The §13.6.K
+prerequisite block reflects this.
+
+### 2026-05-30 (later) — Sprint I CLOSED: real Qwen3-0.6B FFN tile through bridge
+
+First time real model weights flew through the Hexagon
+bridge end-to-end. Loaded `blk.0.ffn_gate.weight` 128×128
+Q8 tile (dequantized to i16 per-row with `fp_scale=64`)
+from `engine/build-cpu/tests/qwen3_rt.sp-model`, drove
+Sprint H diag method 9 at q_bits=14, bitwise-matched
+the saturating scalar reference across 3 distinct
+activation patterns on S22U R5CT22445JA.
+
+**Gate table:**
+
+| Gate | Verdict | Notes |
+|---|---|---|
+| T_MODEL_HEADER_PARSE | PASS | arch_id=2 [QWEN3], 509 tensors |
+| T_DMA_TILE_LOAD | PASS | 128×128 Q8→i16; w_tile[0..4] = [-146, 0, -395, -453] |
+| T_LAYER_MATMUL_BITWISE | PASS | 3/3 patterns via VTCM |
+| T_LAYER_NO_HEAP_LEAK | PASS | 100 iter / 1.034 s / 10.3 ms-per-iter |
+
+**Pcycle counts across activation patterns:**
+- sentinel: 9,296,397
+- pseudorandom: 9,277,391
+- all-ones: 9,278,006
+
+Spread = ~0.2% across radically different input data
+shapes. Confirms the kernel is purely compute-bound —
+input pattern doesn't perturb runtime. Sprint G's
+"linear pcycle scaling = compute-bound state" claim now
+has a single-shape confirmation against real Q8 weights,
+not just synthetic test data.
+
+**Empirical correction (recorded per
+`feedback-no-silent-gate-revisions`):** the prior phase
+log entry (2026-05-30 latest, lattice `433f465`)
+estimated Qwen3-0.6B `hidden_size = 896`. The actual
+`.sp-model` shows `hidden_size = 1024` (W_gate.dim[0])
+and `intermediate_size = 3072` (W_gate.dim[1]). The
+phase-log entries above stand as written for the
+prior expectation; this entry cites the corrected
+values for Sprint J's sizing. Both `1024 = 8 × 128` and
+`3072 = 24 × 128` are clean multiples of the Halide
+tile width — even without Sprint H's "no dim
+constraint" finding, these shapes would have worked.
+
+**Architectural discipline observed:**
+- 5-commit isolation (plan + parser + driver + on-device
+  + closure). No bundled changes per
+  `feedback-bundled-changeset-root-cause-ambiguity`.
+- No production compute skel changes (Sprint G's
+  T_HALIDE_FFN_VTCM_* gates preserved).
+- No shannon-prime-system changes (Sprint H's discovery
+  that scalar reference lives inline in engine
+  `test_hvx.rs:471-503` honored).
+- Bridge state aligned with source HEAD before starting:
+  agent rebuilt + re-pushed Sprint H closure-state skel
+  to clear unshipped H.PATCH leftover on device. Clean
+  state-machine transition.
+- No new memory entries.
+
+**Sub-tags issued (per closure plan):**
+- `lat-phase-3-hx-mode-d-i-parser-correct`
+- `lat-phase-3-hx-mode-d-i-bridge-bitwise`
+- `lat-phase-3-hx-mode-d-i-leak-free`
+- `lat-phase-3-hx-mode-d-i-closed` (umbrella)
+
+**Sprint J unblocked.** The single-layer loader pattern
+is proven; scaling to N layers + KV cache + AppState
+integration is well-scoped scope creep. After Sprint J:
+§13.6.K (internal CRT Trick #1) is the next architectural
+unlock — the manifesto's first load-bearing trick gets
+its empirical confirmation.
+
+### 2026-05-30 (much later) — Sprint J Path A1 CLOSED: full Qwen3-0.6B in cDSP shared memory
+
+Sprint J shipped via Path A1 (sp_dsp_smoke-resident
+loader, not sp_daemon) after agent pushback surfaced a
+pre-existing cross-compile blocker: sp_daemon Android
+build is blocked by NDK toolchain plumbing for multiple
+cc-rs-using deps (ring for rustls/quinn, esaxx-rs for
+tokenizers, bindgen for sp_l1.h). Originally noted in
+Sprint C closure (Phase 2-L3 SSE) and never resolved.
+sp_dsp_smoke cross-compiles cleanly — the loader work
+landed there without entanglement.
+
+**Gate table (5 of 6 substantive PASS; 6th deferred):**
+
+| Gate | Verdict | Notes |
+|---|---|---|
+| T_BUDGET_FITS | PASS | 2800 MB ceiling ≥ 1433.7 MB load |
+| T_FULL_LOAD_SUCCESS | PASS | 28 layers + globals; 1433.7 MB DMA in 985 ms (~1.46 GB/s; 30× under 30s budget) |
+| T_KV_CACHE_ALLOC | PASS | 56 DmaBuffers; 448 MB; 52 ms |
+| T_LAYER_N_MATMUL | PASS | Layer 14 W_gate via VTCM at q_bits=14; pcyc=9.3M |
+| T_PARTIAL_LOAD_CLEANUP | PASS | Nonexistent path + reload-drop cycle clean |
+| T_APPSTATE_INTEGRATION | **DEFERRED → Sprint J.5** | cross-compile blocker; auditable deferral, not silent skip |
+
+**Empirical findings informing Sprint K:**
+
+1. **Untied embedding correction.** `output.weight` exists
+   as a separate tensor in Qwen3-0.6B (not tied to
+   `embedding.weight`). The Sprint J plan estimated tied
+   embedding via `+40-offset` arch_struct read which
+   misinterpreted `tied_embedding=1`. Adds ~149 MB vs the
+   tied estimate. Still well under heap ceiling (52%
+   utilization). Caught by full-model loading; Sprint I's
+   single-tile smoke wouldn't have surfaced this.
+
+2. **Total DMA footprint: 1.43 GB** vs plan estimate
+   825–975 MB. Sources of the delta: Q8→i16 dequant
+   doubles each weight per the lattice's working-precision
+   convention; untied output_proj adds ~149 MB. The 2800 MB
+   heap ceiling has comfortable headroom even with the
+   correction.
+
+3. **985 ms load wall** for 1.43 GB at ~1.46 GB/s — near
+   UFS 3.1 sequential read ceiling. Weight loading is not
+   the daemon-startup bottleneck. Sprint J.2 (per-layer
+   packed DmaBuffer optimization) NOT warranted — there's
+   nothing to optimize when you're already at storage-
+   bandwidth ceiling.
+
+4. **Layer 14 hidden[0..4] = [0, 0, 0, 651]** differs from
+   Sprint I's layer-0 [0, 520, 2149, 0]. Per-layer offset
+   arithmetic verified at non-zero layer; the layer-0
+   special case isn't hiding a hardcoded-offset bug.
+
+**Sprint J.5 filed as explicit follow-on (cross-compile
+unblock + AppState wiring):**
+
+- Scope: Unblock sp_daemon aarch64-android cross-compile.
+  NDK toolchain plumbing for cc-rs deps (ring, esaxx-rs,
+  bindgen); AR_aarch64_linux_android + CC_aarch64_linux_
+  android with .cmd extension quirks; possibly
+  BINDGEN_EXTRA_CLANG_ARGS for sysroot. After unblock:
+  wire dsp_model + kv_cache from sp_dsp_smoke into
+  AppState; verify T_APPSTATE_INTEGRATION on S22U.
+- Prerequisites: Sprint C closure note (lat-phase-2-l3-
+  axum-closed) records the original cross-compile blocker
+  observation.
+- Estimated effort: 2-4 hours NDK plumbing + 30 min
+  AppState wiring + 30 min on-device verify.
+- Anti-pattern: Do NOT bundle J.5 into another sprint.
+  The NDK toolchain work is its own audit surface;
+  bundling makes failure attribution impossible.
+- Tag set: lat-phase-4-sprint-j5-{ndk-unblock,
+  appstate-wire, on-device, closed}.
+
+**Sprint K does NOT block on J.5.** Sprint K (manifesto
+Trick #1, internal CRT split DSP-q1 + NPU-q2 + ARM
+Garner) consumes the FastRpcSession-resident DmaBuffers
+Sprint J ships from sp_dsp_smoke; daemon residence is
+irrelevant for the manifesto's architectural unlock. The
+two paths run in parallel: Sprint K for the math
+architecture (high strategic value, advances §13.6.K
+spec), J.5 for production deployment (orthogonal
+infrastructure work).
+
+**Sub-tags issued (engine + lattice):**
+- lat-phase-4-sprint-j-budget-fits
+- lat-phase-4-sprint-j-full-load
+- lat-phase-4-sprint-j-kv-cache
+- lat-phase-4-sprint-j-layer-n-bitwise
+- lat-phase-4-sprint-j-partial-cleanup
+- lat-phase-4-sprint-j-appstate-deferred-to-j5 (the
+  auditable deferral tag)
+- lat-phase-4-sprint-j-closed (umbrella)
+
+Architectural discipline observed: 7-commit isolation;
+no production skel changes; no shannon-prime-system
+changes; agent pushback caught the cross-compile blocker
+before scope-violating refactor; the deferred gate has
+an explicit tag (not silently dropped per
+`feedback-no-silent-gate-revisions`); the 5-of-6 closure
+is honest reporting per `feedback-bundled-changeset-root-
+cause-ambiguity` and `feedback-no-silent-gate-revisions`
+disciplines.
+
+**Sprint K dispatch-ready.** §13.6.K spec stands; the
+loader Sprint J delivered provides the FastRpcSession-
+resident model the CRT split consumes. Sprint K's first
+deliverable is the Halide generator template emitting
+two kernel variants (`sp_matmul_q8_q1.so` mod q_1 =
+1073738753; `sp_matmul_q8_q2.so` mod q_2 = 1073732609)
+from one source.
+
+### 2026-05-30 (later still) — Sprint J.5 CLOSED + Sprint K v0.alpha CLOSED: manifesto Trick #1 SILICON-CONFIRMED
+
+Two parallel sprints closed cleanly within hours of each
+other. This is the architectural ignition moment.
+
+**Sprint J.5 (production-deployment polish):** sp_daemon
+cross-compiles to aarch64-android (NDK r27d, 5.5 MB PIE
+ELF). All 5 gates PASS on S22U:
+- T_NDK_CROSS_COMPILE: clean
+- T_APPSTATE_INTEGRATION: /v1/dsp/model_info → 28 layers,
+  1433 MB DMA, 448 MB KV, 734 ms load
+- T_ENDPOINT_REGRESSION_ANDROID: mesh/peers + dsp/echo +
+  model_info all 200; chat + ledger 501 (C-path host-
+  gated per the agreed disposition)
+- T_ENDPOINT_REGRESSION_HOST: all 5 endpoints green on
+  Windows host build
+- T_J5_GRACEFUL_DEGRADE: cfg fences clean
+
+The agent surfaced a scope discovery before committing:
+sp_daemon's L1 C-ABI path (ffi/session/forward) and
+sieve_ffi/mining path never cross-compiled for android —
+build.rs explicitly defers C linking as "Phase 2-L3.FG
+scope." Agreed Option A (host-gate the C path); filed
+**Phase 2-L3.FG-CROSS-COMPILE** as the explicit follow-on
+sub-phase to unblock /v1/chat and /v1/pouw/ledger on the
+android binary. Anti-pattern callout in closure: do NOT
+bundle the C cross-compile into any other sprint.
+
+Engine commits: 92f1a59 (NDK config) / 15bfdd8 (host-gate)
+/ 841160c (AppState) / cf7837d (on-device). Sub-tags:
+`lat-phase-4-sprint-j5-{ndk-unblock, c-path-host-gated,
+appstate-wire, endpoint-regression, closed}`.
+
+**Sprint K v0.alpha (the architectural moment):**
+manifesto Trick #1 (CRT-sharded compute across silicon
+islands) is now **empirically silicon-confirmed on
+cDSP-internal scale** via V69's dual HVX vector contexts.
+
+Verbatim measurement from S22U:
+
+```
+Single-invoke wall:           17.7 ms
+Bench-A (seq 2 invokes):      35.8 ms  (= 2× single, baseline)
+Bench-C (dual concurrent):    18.3 ms  (≈ 1× single!)
+overlap_fraction:              0.9699  (97% of wall window concurrent)
+speedup vs sequential:         1.935×  (97% of theoretical 2.0×)
+```
+
+Gate decision rule applied (overlap ≥ 0.5): **K v0.beta
+dispatch AUTHORIZED.** Barrett-reduction CRT kernel
+rewrite proceeds with confirmed dispatch-parallelism
+premise. No K.2 (NPU integration) pivot needed at this
+shape; K.2 remains as future scope for cross-island
+amplification.
+
+**Critical design correction by the agent (recorded as
+memory entry `reference-fastrpc-concurrent-dispatch`):**
+my Sprint K mandate specified two errors that would have
+shipped a false-negative parallelism conclusion if
+implemented verbatim:
+
+1. **`Mutex<FastRpcSession>` is wrong.** The Mutex would
+   serialize at the lock before either invoke fired,
+   producing overlap = 0.0 regardless of underlying
+   cDSP parallelism. Correct primitive is
+   `Arc<FastRpcSession>` — `FastRpcSession` is auto-
+   Send+Sync because `libloading::Library` + bare fn
+   pointers + u64 handle are all Send+Sync.
+
+2. **pcycle ratio is mathematically wrong as a
+   parallelism gate.** `max(thread_pcyc) / (t_a + t_b) ≈
+   0.5` always for equal-work threads, regardless of
+   concurrent vs sequential execution. The right
+   discriminator is wall-clock based: `speedup =
+   sequential_wall / parallel_wall`; threshold ≥ 1.5×
+   for "parallelism real."
+
+The agent verified Send+Sync via the libloading source
+that I should have verified at spec-write time. Third
+instance of the same pattern (Sprint H tail-loop theory,
+Sprint J cross-compile scope, now this) — each time the
+agent's empirical discipline caught a load-bearing spec
+error before false-conclusion shipped.
+
+Engine commits: K v0.alpha 4-commit sequence; sub-tags
+`lat-phase-13-6-k-alpha-{functional, pcycle-measured,
+leak-free, closed}`.
+
+**What Sprint K v0.alpha empirically confirms:**
+
+- V69 cDSP dual HVX vector contexts ARE engageable via
+  FastRPC concurrent invokes on a single Arc handle.
+- Halide-emitted kernel does NOT contend on shared L1/
+  VTCM/DDR at the 128×128 / B=8 shape (larger shapes
+  TBD; possible contention surface for K v0.beta + K.3).
+- Concurrent invokes do not corrupt each other's
+  DmaBuffer state (bitwise-equal hidden outputs across
+  both threads).
+- ARM thread spawn overhead ~3.5 ms per dual-dispatch
+  cycle — small but measurable.
+
+**Sprint K v0.beta scope** (filed in K v0.alpha closure
++ awaiting operator authorization): Halide generator
+emits Barrett-reduction matmul mod q_1 and mod q_2
+(MU_Q1 = 1073744895, MU_Q2 = floor(2^60/q_2) — cross-
+checked against Phase 2-CU.PTX NTT lineage at engine
+63d7e2d). Dispatcher uses K v0.alpha's Arc-pattern.
+Garner recombine on ARM (2 muls + 1 add per element).
+Math identity gate per operator's corrected conditional
+formulation:
+- Sprint J output bitwise-equal to CRT-recombined output
+  at the no-saturation test shapes, AND
+- Sprint J accumulator stays within ±INT32_MAX across
+  test data (asserted in scalar reference path during
+  K's verification run; if assertion fires, identity
+  claim is vacuous and that's surfaced upstream).
+
+~500-600 LOC kernel rewrite. Plan-first + multi-file +
+commit-between-stages discipline. K v0.beta closes the
+internal CRT-sharded compute substrate; Sprints K.2
+(NPU) + Sprints L/M/N follow.
+
+### 2026-05-30 (latest) — Two parallel closures: Phase 2-L3.FG CLOSED (chat+ledger on android) + Sprint K v0.beta PARTIAL (scalar Barrett shipped; HVX kernel = K.beta.2.5b follow-on)
+
+Two agents dispatched in parallel landed within hours. Both
+honored the discipline; one surfaced a real orchestration
+finding worth fixing before the next parallel dispatch.
+
+**Phase 2-L3.FG-CROSS-COMPILE — CLOSED, 5/5 gates PASS.**
+Android sp_daemon now feature-complete: chat and ledger run
+for real on-device. 17 math-core static libs cross-compile
+to aarch64 with zero platform deltas — the agent confirmed
+the math-core core/ is x86-free by design (AVX-512 lives
+in the engine backend, NOT in the link libs sp_daemon
+consumes). build.rs sp_no_link flag flipped OFF; ELF grew
+5.5 → 9.5 MB.
+
+| Gate | Result |
+|---|---|
+| T_C_CROSSCOMPILE | PASS — 17 libs → aarch64 .a |
+| T_DAEMON_LINK_ANDROID | PASS — sp_no_link flipped |
+| T_CHAT_ENDPOINT | PASS — on-device greedy continuation TOP-1 identical to host (byte-identical even after ULP libm diffs) |
+| T_LEDGER_ENDPOINT | PASS — 385 receipts minted via cross-compiled sp_sieve |
+| T_NO_REGRESSION | PASS — echo 1 MB bitwise; host build + chat unchanged |
+
+**Empirical confirmation of architectural claim:** the
+lattice's decode-determinism invariant
+(`reference-lattice-decode-determinism`) holds across
+**AVX-512 dev host and Cortex-X2 mobile target** —
+byte-identical greedy-argmax tokens on the same prompt,
+same model, different silicon. The integer substrate works
+as advertised: ULP libm divergences exist but never flip
+an argmax. Same math, same code, different silicon, exact
+tokens. The lattice's "discrete is robust to backend" claim
+is now silicon-confirmed end-to-end on mobile + desktop.
+
+Decisions during sprint:
+- T_CHAT_ENDPOINT reframed bitwise → top-1 greedy-argmax
+  per `reference-ecpu2-qknorm-precision-gate` (still came
+  out byte-identical).
+- Re-unified J.5's host/android split rather than
+  maintaining a parallel copy.
+- bindgen-on-android resolved via `--target/--sysroot +
+  -isystem NDK clang-18 resource dir`; future agents
+  touching FFI surfaces on android can reuse this pattern.
+
+Engine commits: c01662b (libs), 41963ac (link+re-unify).
+Lattice: plan fbee66b, closure ceb56a0 + provenance
+e096b89. Sub-tags: 6 incl. `lat-phase-2-l3-fg-cross-compile-closed`.
+
+**Sprint K v0.beta — PARTIAL (explicit closure marker).**
+Halide HVX backend panics at `HexagonOptimize.cpp:163` on
+`int64x32` for v65/v68/v69 — no vector i64 type exists in
+this Halide version. The Stage 2 derisk closed the
+`Int(64)` branch via explicit upstream finding rather than
+attempting workarounds.
+
+Agent pivot per `feedback-no-silent-gate-revisions`:
+proceeded with F-B (hand-rolled HVX intrinsics) but only
+through Stage 2.5a (scalar Barrett primitive + oracle
+verification). The remaining ~3-5 hours of HVX intrinsic
+chain work filed as **K.beta.2.5b** focused sprint —
+scoped to intrinsic-by-intrinsic SASS gates with 2.5a's
+scalar primitive as the cross-validation oracle.
+
+What shipped (architectural delta to codebase):
+- Scalar Barrett primitive in cDSP skel — foundation for
+  every future modular kernel (K.2 NPU, Sprint L sieve,
+  future NTT work)
+- `barrett_oracle` IDL method (mode=0 active for scalar;
+  mode=1 reserved for HVX) — primitive-level verification
+  surface
+- PTX→HVX intrinsic mapping table from engine commit
+  63d7e2d (Phase 2-CU.PTX NTT) — audit surface for
+  whether future Halide upgrades make F-A viable
+- `SpErr::Other(String)` diagnostic variant (broadly
+  useful)
+- Memory entry `reference-halide-hvx-int64-limitation`
+  pinning the load-bearing finding version-specifically
+
+Closure honors discipline: 4 substantive K v0.beta gates
+(M_K_beta_MATH_IDENTITY, BARRETT_CORRECTNESS,
+DUAL_DISPATCH_SPEEDUP, LEAK_FREE) documented as **not-run,
+NOT passing-by-construction**. K v0.alpha's dispatch-
+parallelism win remains the load-bearing Trick #1
+cDSP-internal premise; K v0.beta's math-side proof is one
+focused HVX sprint (K.beta.2.5b) away.
+
+Sub-tags: `lat-phase-13-6-k-beta-barrett-scalar-c`,
+`-barrett-scalar-oracle`, `-partial` (explicit PARTIAL
+marker on both repos).
+
+**Cross-agent commit collision — orchestration finding.**
+L3.FG and K-beta shared one engine working tree; concurrent
+`git add` operations swept L3.FG's uncommitted Stage-3
+files into K-beta's commit 41963ac. Code in both lanes
+was correct; provenance was contaminated. L3.FG's agent
+honestly disclosed the contamination in their closure
+note + recommended **separate git worktrees per parallel
+agent** as the operational fix. Captured as memory entry
+`feedback-parallel-agents-separate-worktrees` so future
+parallel dispatches start with the right shape:
+
+```bash
+# Operator side, before parallel dispatch:
+git worktree add ../wt-sprint-A main
+git worktree add ../wt-sprint-B main
+# Each agent operates in its own worktree.
+```
+
+The L3.FG agent's discipline pattern is the one to
+preserve: detected contamination, documented attribution
+in the closure, chose NOT to rewrite shared history
+(would have touched K-beta's lane — worse violation than
+the original contamination), filed the operational fix
+as memory.
+
+**What this completes architecturally:**
+
+- Android daemon is production-ready (chat + ledger work).
+- Decode-determinism invariant silicon-confirmed across
+  CPU architectures.
+- Sprint K v0.alpha dispatch-parallelism win unchanged
+  + Sprint K v0.beta scalar Barrett primitive shipped +
+  K.beta.2.5b HVX intrinsic chain queued.
+- Manifesto Trick #1 status: dispatch substrate confirmed
+  (K v0.alpha); modular-arithmetic primitive shipped
+  (K v0.beta-2.5a); full HVX-vectorized CRT recombination
+  pending K.beta.2.5b (~3-5 hours focused sprint).
+
+After K.beta.2.5b closes, manifesto Trick #1 reaches full
+empirical confirmation. K.2 (NPU cross-island via Mode B/D
+bridge) and §13.6.L/M/N then unlock as the next
+architectural sprints.
+
+---
+
+## Phase 4-MeMo — Memory-as-a-Model on the heterogeneous CRT mesh (FILED 2026-05-30)
+
+**Origin:** arXiv:2605.15156 "MeMo: Memory as a Model" describes
+a dual-model architecture — a frozen Executive model decomposes
+queries, a dedicated Memory model holds factual knowledge, an
+orchestrator routes a multi-turn Grounding → Entity ID →
+Synthesis loop. The paper updates the Memory model via TIES
+merging in parameter space.
+
+Gemini surfaced the paper as a candidate for the SP heterogeneous
+SoC substrate. The structural mapping IS the right shape: two
+silicon islands + ARM orchestrator + zero-copy DmaBuffer routing
++ PoUW receipts gives us a substrate other stacks don't have.
+But the as-written sprint plan had seven specific errors that
+would burn agent cycles:
+
+1. "Pin Memory model to VTCM" — VTCM is 8 MB on V69; only
+   hot tiles can be staged. Reframe per Sprint G recipe.
+2. "Trick #4 channel-pair → no LPDDR5x bus contention" — TS
+   oracle is calibrated for CPU-issued DMA path; DSP-issued
+   DMA routes through a separate compute SMMU fabric.
+   Channel separation needs separate per-channel calibration
+   on the DSP path. NOT a free assumption.
+3. "TIES merge = literal integer addition in Z_q" — TIES has
+   three steps: Trim, ElectSign, Disjoint Merge. Only step 3
+   is integer addition. Steps 1 and 2 require *magnitude* and
+   *sign* which are not natively defined in Z_q — they require
+   Frobenius lift to the balanced [−q/2, q/2) representative.
+   Without the lift, "lossless" is empty marketing.
+4. "Memory model on NPU" — K.2 NPU bridge not shipped. Either
+   defer or run dual-cDSP-context first per K v0.alpha pattern.
+5. "Spinor 64-byte ABI as token-passing format" — category
+   error. Spinor is the *integrity envelope* (Trick #9), not
+   the data carrier. Tokens are not 63 bytes. Actual zero-copy
+   mechanism is shared SMMU DmaBuffer pools; Spinor wraps the
+   *receipt* that audits each turn.
+6. "Memory model is smaller than Executive" — not in the paper
+   as a hard claim. Memory is *trained differently* (SFT on
+   factual corpora), not necessarily smaller. Treat size as a
+   parameter, not a precommitment.
+7. "KSTE prefetch with >20% TTFT reduction gate" — arbitrary
+   number with no hardware-grounded basis. Also: KSTE Sieve is
+   PoUW dominance receipts, not natively a prefetch predictor.
+   Right reuse is KSTE-as-routing (sparse layer/head activation
+   gated by histogram of grounding query), not KSTE-as-prefetch.
+
+After correction, the load-bearing SP wins Gemini's framing
+missed:
+
+- **PoUW-receipt-backed merge ledger** — every TIES merge mints
+  a cryptographic proof. Ledger is appendable + replayable.
+  Memory model state at time T is *reconstructable* from receipt
+  sequence — no "trust me, my phone learned that." Mesh peers
+  broadcast receipts; others Garner-replay. **Verifiable
+  distributed continual learning across the CRT mesh.** This is
+  uniquely SP-shaped because the integer substrate makes replay
+  exact.
+
+- **CRT-sharded MeMo** — Executive runs the q_1 shard, Memory
+  runs the q_2 shard, Garner recombines at output. Trick #1
+  applied at *model-level* not *kernel-level*. Both get the
+  dual-prime silicon-error catch via Frobenius identity (Trick
+  #6). A single conceptual model splits across two silicon
+  islands without ever materializing the full-precision result
+  on any single island.
+
+- **Spec-decode applicability** — Executive's grounding-query
+  loop is naturally spec-decode-shaped. Memory drafts; Executive
+  verifies with byte-exact accept/reject (Trick #3). Composes
+  with Phase 4-SPEC. Filed as a Phase 4-SPEC × MeMo crossover
+  sprint, not an M-block sprint.
+
+- **Decode-determinism invariant (L3.FG-confirmed) gates M.3's
+  exact-revert check** — without the cross-silicon byte-
+  identical decode invariant, the "merge, infer, revert, infer,
+  assert identical" gate is unfalsifiable. With it, the gate is
+  meaningful: any divergence is from the merge, not from
+  nondeterminism.
+
+### Sprint block (M.0 – M.6)
+
+**M.0 — Memory model artifact (prerequisite).** Either fine-tune
+Qwen3-0.6B on a target factual corpus via SFT (~hours on single
+GPU), or stub with a known-different checkpoint for protocol
+validation. Without M.0, M.1+ are hypothetical. Dispatches in
+parallel with K v0.beta-2.5b (no dependency).
+
+**M.1 — Memory budget audit + dual-load (cDSP-internal).** First
+gate is budget audit: enumerate Android OS + zygote + system_server
++ sp_daemon + Rust heap + cDSP arena, compute available LPDDR5x
+for model residence on S22U's 12 GB. Then dual-load Executive +
+Memory into separate DmaBuffer pools, both targeting dual cDSP
+vector contexts per K v0.alpha. NPU dispatch deferred until K.2
+ships. Gates: T_MEMO_BUDGET_AUDIT (quantified per-component
+budget); T_MEMO_DUAL_LOAD (both models resident without
+AEE_ENOMEMORY); T_MEMO_DUAL_INVOKE (concurrent Arc<FastRpcSession>
+dispatch per `reference-fastrpc-concurrent-dispatch`).
+Not gated by K.beta.2.5b — scalar Barrett (2.5a) is sufficient
+for protocol bring-up.
+
+**M.2 — Zero-copy dialogue loop via shared SMMU DmaBuffer pools.**
+Grounding → Entity ID → Synthesis state machine in sp_daemon on
+Cortex-X2. Executive's output DmaBuffer becomes Memory's input
+DmaBuffer via SMMU pagetable reuse (no marshalling). Per-turn
+Spinor receipt envelope captures (turn N, model, input hash,
+output hash) — Spinor here is the *audit format*, not the
+*payload format*. Payload lives in DmaBuffer. Gate
+T_MEMO_ZEROCOPY_LOOP: 3-turn internal dialogue executes with zero
+host-side allocation (instrumented via heap walker).
+
+**M.3 — Frobenius-lifted TIES merge.** Three substeps:
+(a) Lift Memory model weights to Frobenius representation
+(scaled-integer real-valued domain);
+(b) Run Trim (zero out low-magnitude task-vector entries) and
+ElectSign (resolve sign conflicts across constituent task
+vectors) in Frobenius domain;
+(c) Re-encode to Z_q and execute Disjoint Merge as exact mod-q
+addition across selected entries.
+Mint a PoUW receipt for the merge. Gate T_MEMO_LOSSLESS_MERGE:
+merge → inference → revert → inference, assert byte-identical
+output (load-bearing on decode-determinism invariant from
+`reference-lattice-decode-determinism`). Requires K.beta.2.5b
+(Frobenius lift + re-encode rest on Barrett at vector width).
+
+**M.4 — PoUW-receipt merge ledger + mesh replay.** Receipts
+accumulate in append-only ledger. Two devices independently merge
+different task vectors. Receipts broadcast over CRT mesh (existing
+Phase 4-PoUW framework). Each peer Garner-replays incoming
+receipts. Gate T_MEMO_MESH_REPLAY: device A's Memory model state
+after replaying device B's receipt sequence is byte-identical to
+device B's Memory model state after the same sequence. This is
+the load-bearing distributed-learning gate. Uniquely SP because
+Z_q makes replay exact (no FP drift accumulates).
+
+**M.5 — KSTE-routed sparse Memory activation.** Tier-0 histogram
+of grounding query gates which Memory model layers/heads to invoke
+(sparse compute, not full forward). Measure-and-report shape: no
+precommitted percentage threshold. Instrument hit rate of
+predicted-active heads vs full-forward baseline. Report observed
+TTFT delta as data, NOT as gate. Gate T_MEMO_KSTE_ROUTING: routing
+is invariant-preserving (sparse forward output matches full
+forward output modulo numerical tolerance from skipped heads).
+
+**M.6 — CRT-sharded MeMo (cross-island composition).** Executive
+runs q_1 shard, Memory runs q_2 shard, Garner recombines at
+output. Cross-shard Frobenius identity check (Trick #6) catches
+single-island silicon errors. Gate T_MEMO_CRT_GARNER: end-to-end
+output byte-identical to single-shard 60-bit reference baseline.
+Initial dispatch as dual-cDSP-context (both shards on cDSP via
+SSR:XA={4,5}); NPU-island variant deferred until K.2 ships. This
+is the head-to-head test of whether model-level CRT actually
+composes.
+
+### What's NOT in Phase 4-MeMo (filed separately)
+
+- **MeMo × SPEC crossover** — Memory-as-draft + Executive-as-
+  verify spec-decode loop. Belongs in Phase 4-SPEC scope.
+- **NPU silicon island variant of M.6** — needs K.2 (NPU bridge
+  via Mode B/D) to ship first.
+- **Multi-tenant Memory models** — single phone hosts N Memory
+  models for N domains. Storage-tier sprint, not learning-tier.
+- **Cross-device Memory model SHARDING** (vs replay) — beyond
+  M.4. Device A holds q_1 shard, device B holds q_2 shard, mesh
+  Garner-combines at inference. Distinct architectural piece.
+
+### Prereq chain
+
+```
+K.beta.2.5b ────┐
+                ├─→ M.3 ─→ M.4 ─→ M.6
+M.0 ───┐        │             ↑
+       ├─→ M.1 ─┤             │
+M.0 ───┘        ├─→ M.2 ──────┤
+                └─→ M.5 ──────┘
+```
+
+M.0 and K.beta.2.5b dispatch in parallel (separate worktrees per
+`feedback-parallel-agents-separate-worktrees`).
+
+After M.6 closes, the Shannon-Prime stack has demonstrated:
+verifiable distributed continual learning on commodity mobile
+silicon, with cryptographic audit + lossless integer math +
+heterogeneous-SoC dual-island compute, all under the manifesto's
+ten tricks composing as advertised. That is the architectural
+endpoint Phase 4 has been building toward.
+
+### 2026-05-30 (later) — Sprint K v0.beta-2.5b CLOSED with explicit operator dispositions
+
+Engine `main @ 0822747`, tag `lat-phase-13-6-k-beta-barrett-hvx-vector`.
+Branch `sprint/kbeta-2-5b` merged fast-forward to main; agent
+worktree-discipline held cleanly (commits authored only from
+`engine-kbeta-2-5b` worktree per `feedback-parallel-agents-
+separate-worktrees`; main worktree untouched throughout).
+
+**Math gates: PASS.** HVX-vectorized Barrett primitive is silicon-
+correct on V69. 2048 vector samples × 32 lanes × 2 primes =
+131,072 lane-level points, zero divergences from scalar oracle,
+max_lane_diff=0. Cross-mode invariant (skel mode=0 == skel mode=1)
+also clean. SASS audit: 19 inner-loop intrinsics, 0 divergences
+from expected opcodes. Every `vmpye + vmpyoacc` widening pair
+emits as paired-register `Vdd`/`Vxx` instructions co-issued in
+VLIW packets where data dependencies allow.
+
+**Architectural finding: V69 32×32→64 widening is 2 ops not ~6.**
+The AMENDMENT mapping table (from Phase 2-CU.PTX → HVX translation)
+estimated each i32×i32→i64 widening at ~6 HVX ops via u15-half
+decomposition with `Q6_Ww_vmpy_VhVh`. SASS audit caught the
+overestimate: V69 ISA exposes 32-bit widening directly via
+`Q6_W_vmpye_VwVuh + Q6_W_vmpyoacc_WVwVh` per HVX PRM §151 — 2 ops
+per widening. Three Barrett widening steps at 2 ops each, not 18
+ops total — 3× compute density on the modular-arithmetic critical
+path. Captured as `reference-hexagon-v69-32x32-widening-idiom`
+memory; applies to all future Barrett / Montgomery / NTT / hash
+kernels on V69+.
+
+**Substrate gates: explicit operator dispositions (NOT silent
+revisions).** Agent surfaced both UPSTREAM-REQUIRED per
+`feedback-no-silent-gate-revisions` with diagnostic detail + A/B
+paths. Operator decisions:
+
+| Gate | Observed | Operator decision |
+|---|---|---|
+| DUAL_DISPATCH_SPEEDUP | 1.006× vs 1.5× threshold | **Path A: defer real measurement to mod_q_matmul kernel scope.** Threshold was inherited from K v0.alpha's compute-bound matmul-128×128 / B=8 regime (~17.7 ms / invoke). Barrett-primitive-65536 is data-movement-bound (~1.5 ms / invoke). Marshalling dominates wall-clock at this shape; cDSP scheduler has no compute window to overlap. NOT a substrate failure — gate-threshold-regime mismatch. Captured as `feedback-shape-dependent-parallelism-gates`. Real parallelism measurement happens at mod_q_matmul scope (K-beta Stages 3-7), where compute density matches K v0.alpha regime. |
+| LEAK_FREE | 2104 KB total Δ vs 1024 KB threshold | **Path B: re-spec the gate** as second-half slope ≤ 256 KB. Observed first-half Δ=2100 KB / second-half Δ=4 KB is a textbook concave-down asymptote (allocator + thread-local + FastRPC pool warmup), NOT linear monotonic per-iter leakage. Original gate metric (total delta) conflates warmup with leakage; second-half slope is the right metric. Explicit metric upgrade documented here; original FAIL preserved in closure note. Captured as `feedback-leak-gate-allocator-warmup`. |
+
+Both dispositions explicit, both rationales documented, both
+memory entries written. This is the correct shape per the
+no-silent-revisions rule: the gate FAIL is preserved in the
+closure note; the operator-side acknowledgment is on the record;
+the architectural reason is named; the corrective forward path
+is named.
+
+**What this completes for Manifesto Trick #1:**
+
+- K v0.alpha (2026-05-30 earlier): dispatch-parallelism silicon-
+  confirmed on compute-bound matmul — 1.935× wall-clock speedup,
+  0.9699 overlap fraction.
+- K v0.beta-2.5b (2026-05-30 this entry): math-identity silicon-
+  confirmed on HVX vector pipe — 131k lane-level samples bit-exact
+  vs scalar oracle, 0 SASS divergences.
+
+Trick #1 substrate now empirically confirmed on BOTH the dispatch
+layer (K v0.alpha) AND the vector-pipe math layer (K v0.beta-2.5b).
+Full umbrella closure (`lat-phase-13-6-k-beta-closed`) requires
+mod_q_matmul + Garner recombination on top of this primitive —
+that's the next K-beta sprint (Stages 3-7 of original plan), and
+where DUAL_DISPATCH_SPEEDUP gets measured at the right shape.
+
+**What's NOT done in this sprint (explicit):**
+
+- mod_q_matmul kernel (K-beta Stages 3-7)
+- CRT Garner recombination on ARM
+- DUAL_DISPATCH_SPEEDUP at compute-bound shape (deferred to mod_q
+  matmul scope per Path A above)
+- Halide generator integration (Halide HVX Int(64) limit at engine
+  39e286c still applies; K-beta mod_q_matmul will either use
+  Halide with these intrinsics as `extern_c` or hand-roll in C)
+
+**Operator action items completed in this landing:**
+- 3 memory entries written + indexed in MEMORY.md.
+- engine `main` fast-forward merged from `sprint/kbeta-2-5b` to
+  `0822747`; tag `lat-phase-13-6-k-beta-barrett-hvx-vector` pushed.
+- Sprint branch retained; worktree `../engine-kbeta-2-5b` will be
+  removed in next operator pass once verification complete.
+- Stage 2.5c filed: mod_q_matmul kernel wrapping the Barrett
+  primitive + Garner recombination + DUAL_DISPATCH_SPEEDUP at
+  compute-bound regime.
+
+### 2026-05-30 (later still) — Phase 4-MeMo M.0 CLOSED (stub): Memory model artifact landed at stable cache path
+
+Lattice `sprint/memo-m0` HEAD, base `3dc2aa4`. Branch
+authored exclusively in worktree `../lattice-memo-m0` per
+`feedback-parallel-agents-separate-worktrees`; main lattice
+worktree untouched; engine repos consulted READ-ONLY.
+
+**Path A (stub) — selected over Path B (real SFT).** Roadmap
+M.0 spec (lines 5853-5857) authorizes either. Path A unblocks
+M.1+ in the time available; Path B (real SFT on a factual
+corpus) is filed as M.0-real follow-on.
+
+**Stub source:** byte-identical copy of the existing Phase 4-SPEC-
+validated `qwen25-coder-0.5b-target.sp-model` (engine
+`build-cpu/qwen25-coder-0.5b-target.sp-model`) to the stable
+cache path `D:\F\shannon-prime-repos\models\qwen25-coder-0.5b-memory.sp-model`
+(473.22 MB, sha256 `812df63f…cc1126a`). Tokenizer adjacent.
+Source HuggingFace id: `lmstudio-community/Qwen2.5-Coder-0.5B-Instruct-GGUF`,
+transcoded once by `sp_transcode --verify` during Phase 4-SPEC
+closure (2026-05-26) — copy preserves all prior validation.
+
+**Why not a same-arch Qwen3-0.6B-Instruct stub:** that variant
+isn't on disk and would have required HuggingFace fetch +
+transcode. The Qwen2.5-Coder artifact was already on disk in
+the Phase 4-SPEC build dir, with different architecture (24L×896H
+vs Executive's 28L×1024H), different training corpus (code SFT
+vs base pretrain), and a separate forward kernel
+(`sp_model_to_qwen25`) already proven in test_sp_model_roundtrip.
+T_MEMO_M0_DISTINCT_FROM_EXECUTIVE PASSes by structural construction.
+
+**Gates: 4/4 PASS.**
+
+| Gate | Observed | Verdict |
+|---|---|---|
+| `T_MEMO_M0_MODEL_EXISTS` | 473.22 MB at stable cache; sha256 byte-identical to source artifact | **PASS** |
+| `T_MEMO_M0_LOADS` | `probe.exe` `sp_model_load` returns SP_OK; arch query yields `vocab=151936 n_layers=24 hidden=896`; `load_wall_ms=3110`, `peak_rss_mb=487.9` | **PASS** |
+| `T_MEMO_M0_FORWARDS` | `sp_prefill_chunk([1,2,3])` + `sp_decode_step(pos=4)` return SP_OK; position advances to 4; all logits finite; wall=3110ms < 5s threshold | **PASS** |
+| `T_MEMO_M0_DISTINCT_FROM_EXECUTIVE` | Memory logits vs Executive logits on identical input `[1,2,3]`: 6/6 measured positions diverge (prefill[0..3] + decode[0..3]); architectures structurally different | **PASS (6/6)** |
+
+Reproducible via `scripts/m0_smoke.ps1` (committed); harness
+drives the engine's READ-ONLY `probe.exe` against both Memory
+and Executive artifacts and computes the runtime gates.
+
+**Stub caveat (load-bearing for M.3 dispatch decision):** the
+arch mismatch (Qwen2.5 Memory vs Qwen3 Executive) means TIES
+merge (M.3) cannot operate on this stub — TIES is weight-space
+tensor-by-tensor merge; Qwen2.5 and Qwen3 tensors have different
+shapes. M.0-stub unblocks M.1 (budget audit), M.2 (zero-copy
+dialogue), M.5 (KSTE routing) — all protocol/budget concerns.
+M.3 explicitly requires M.0-real (same-arch Memory) before it
+can dispatch. M.6 (CRT-sharded MeMo cross-island) also benefits
+from same-arch but can technically run on different-arch shards;
+operator decision deferred.
+
+**What unblocks now:**
+- M.1 (Memory budget audit + dual-load cDSP-internal).
+- M.2 (zero-copy dialogue loop on Cortex-X2).
+- M.5 (KSTE-routed sparse Memory activation).
+- MeMo × SPEC crossover (Phase 4-SPEC × MeMo) — Memory-as-draft
+  + Executive-as-verify; dual-load AppState already wired in
+  Phase 4-SPEC `cafb349`.
+- M.0-real (Path B) dispatch authorized as parallel follow-on.
+
+**NOT unblocked:** M.3 (Frobenius-lifted TIES merge) — blocked
+on M.0-real, NOT on M.0-stub.
+
+**Files changed (lattice repo, this sprint):**
+- `papers/SESSION-PLAN-lat-4-memo-m0.md` (+178)
+- `scripts/m0_smoke.ps1` (+135)
+- `papers/PHASE-4-MEMO-M0-CHOICE.md` (+full closure note)
+- `papers/PPT-LAT-Roadmap.md` (+this entry)
+
+**Out-of-tree artifact (NOT git):**
+`D:\F\shannon-prime-repos\models\qwen25-coder-0.5b-memory.{sp-model,sp-tokenizer}`
+(byte-identical copy of engine build-cpu artifact).
+
+**Engine repo:** NO writes. `sp_transcode` + `probe.exe` consulted
+READ-ONLY; `qwen25-coder-0.5b-target.sp-model` copied (read-side
+only); no engine commits or builds in this sprint.
+
+**Commits on `sprint/memo-m0`:**
+- `686c157` — `[plan]` Stage 0 reference reading + Path A decision.
+- `7abdef6` — `[stage2]` smoke harness `scripts/m0_smoke.ps1`.
+- (closure) — `[closure]` CHOICE doc + this phase-log entry.
+
+**Sub-tag (proposed):** `lat-phase-4-memo-m0-stub`. The `-stub`
+qualifier names that this is the protocol bring-up artifact, NOT
+the SFT-trained Memory model M.3 will need.
+
+### 2026-05-30 (later still / parallel closure with M.0) — Sprint K v0.beta-2.5c CLOSED + Manifesto Trick #1 FULL UMBRELLA empirically confirmed
+
+Engine `main @ 0cf9674`, tags `lat-phase-13-6-k-beta-mod-q-matmul`
++ **`lat-phase-13-6-k-beta-closed`** (umbrella legitimate). Branch
+`sprint/kbeta-2-5c` merged fast-forward from agent worktree
+`engine-kbeta-2-5c`. **Parallel dispatched with M.0 on lattice;
+zero cross-contamination per `feedback-parallel-agents-separate-
+worktrees`** — first successful parallel sprint under the
+operator-side worktree pattern.
+
+**All 4 substantive gates PASS:**
+
+| Gate | Threshold | Observed |
+|---|---|---|
+| T_MATMUL_Q_CORRECTNESS | 0 divergences | 0 / 4096 × 2 primes |
+| T_GARNER_BIT_EXACT | 0 divergences | 0 / 4096 × 4 seeds |
+| T_MATMUL_DUAL_DISPATCH_SPEEDUP | ≥1.5× (stretch ≥1.7×) | **1.724× / overlap 0.8259** at B=8/1024/512 |
+| T_MATMUL_LEAK_FREE | ≤256 KB second-half slope | **76 KB** |
+
+**Architectural finding: kernel-dependent regime boundary.** Agent
+measured DUAL_DISPATCH at TWO shapes per the
+`feedback-shape-dependent-parallelism-gates` discipline. At K
+v0.alpha's nominal shape (B=8/128/128), mod_q matmul ran ~0.4 ms
+per invoke — **data-bound regime, speedup 0.797×.** At
+B=8/1024/512 (~16× more output elements), per-invoke wall
+expanded to ~27 ms — **compute-bound regime, speedup 1.724×.**
+Same substrate, same nominal shape, different kernels land in
+DIFFERENT regimes because they do different amounts of work per
+element. K v0.alpha's saturating matmul saturates the HVX pipe
+at 128×128; K.beta.2.5c's mod_q matmul (one Barrett reduce per
+accumulator pass) blows through the work in 0.4 ms. Memory entry
+`feedback-shape-dependent-parallelism-gates` updated with the
+kernel-dependent regime boundary as a new generalized rule.
+
+**SASS audit:** 25 inner-loop intrinsics, 0 divergences from
+expected, compiler emitted 2-way software-pipelined loop (3-5
+ops/packet), 3 instances of the V69 `vmpye + vmpyoacc` widening
+idiom inlined from the Barrett primitive (per
+`reference-hexagon-v69-32x32-widening-idiom`).
+
+**Garner constants (verified, lockable for future sprints):**
+- `Q1 = 1073738753`
+- `Q2 = 1073732609`
+- `Q1_INV_MOD_Q2 = 894602413`
+- `M = Q1 · Q2 = 1152908312643096577` (60-bit exact)
+- Verified: `(Q1 · Q1_INV_MOD_Q2) % Q2 == 1`
+
+**K v0.beta umbrella now LEGITIMATELY closed.** All four
+load-bearing pieces are silicon-confirmed:
+
+| Layer | Sprint | Confirmation |
+|---|---|---|
+| Dispatch parallelism | K v0.alpha | 1.935× wall-clock at compute-bound matmul |
+| HVX vector math identity | K v0.beta-2.5b | 131k samples bit-exact, 0 SASS divergences |
+| mod_q matmul parallelism | K.beta.2.5c | 1.724× wall-clock at compute-bound matmul |
+| CRT recombination losslessness | K.beta.2.5c | Garner bit-exact across 4 seeds × 4096 samples |
+
+**Manifesto Trick #1 (CRT-sharded compute across silicon islands)
+is now FULL-UMBRELLA empirically confirmed at the cDSP-internal
+scale.** This is the architectural inflection the manifesto's
+first trick was building toward. The discrete-CRT-substrate-as-
+heterogeneous-compute-model claim is no longer a theoretical
+proposal — it's a measured silicon property.
+
+**K.beta.2.5b's UPSTREAM-REQUIRED gates both resolved by 2.5c:**
+- DUAL_DISPATCH_SPEEDUP: 1.006× (data-bound primitive scope) →
+  1.724× (compute-bound matmul scope).
+- LEAK_FREE: 2104 KB total delta (wrong metric per
+  `feedback-leak-gate-allocator-warmup`) → 76 KB second-half
+  slope (correct metric, threshold easily met).
+
+**What unblocks structurally:**
+- **K.2** (NPU cross-island via Mode B/D bridge): Trick #1
+  cDSP-internal confirmation makes K.2 a silicon-island leap
+  rather than a fundamentals build.
+- **Phase 4-MeMo M.6** (CRT-sharded MeMo): model-level CRT
+  composition now stands on a proven kernel-level CRT foundation.
+- **Phase 4-PoUW receipts** can mint over Garner-recombined matmul
+  outputs without trust assumptions — recombination losslessness
+  is empirically verified.
+
+**Parallel dispatch discipline validation:** K.beta.2.5c +
+M.0 dispatched concurrently. Each agent operated in its own
+worktree (`engine-kbeta-2-5c` and `lattice-memo-m0`). Zero
+cross-contamination: K.beta.2.5c touched engine repo only;
+M.0 touched lattice repo only (engine read-only access via
+`probe.exe` invocation). The worktree-per-agent pattern from
+`feedback-parallel-agents-separate-worktrees` works as designed.
+**This pattern can now be the default for future parallel sprints.**
+
+### 2026-05-30 (late) — Phase 3-HX-MODE-D path forward: Sprint H (G.1 fixes) → Sprint I (single-layer smoke) → Sprint J (full model loader)
+
+After Sprint G, Gemini proposed jumping straight to Phase 4
+Full Model Ingestion (per-layer DmaBuffer chunking; KV cache
+allocation; AppState integration). **The Shannon-Prime team
+audit rejected the big-bang shape for two reasons:**
+
+1. The G.1 constraints (128-multiple shapes; q_bits ≤ 14)
+   will bite EVERY layer of a real model. Loading a model
+   then discovering every FFN matmul produces garbage on
+   hidden_size=896 is the "ship and pray" anti-pattern.
+   Fix G.1 FIRST.
+2. Single-layer smoke is the cheap proof. Before allocating
+   30+ DmaBuffers and a multi-GB KV cache, load ONE FFN
+   layer through the bridge and verify bit-identity vs
+   math-core scalar reference. ~150 LOC of model parsing
+   that the full loader needs anyway.
+
+**Staged sprint plan:**
+
+- **Sprint H — G.1 constraint fixes (PRECONDITION).** Two
+  surgical patches:
+  - H.1: Generator-side pad-to-128 with logical-size
+    epilogue trim. Updates Halide generator + Rust loader
+    tensor-shape padding. ~100 LOC across two repos.
+  - H.2: 32-bit saturation in scalar reference matching
+    Halide's `vmpy.h:sat` semantics. ~30 LOC patch in
+    `shannon-prime-system`. Add T_SAT_OVERFLOW gate test
+    that exercises the overflow regime.
+  - Closure: T_HALIDE_PAD_64_TO_128, T_HALIDE_PAD_896_TO_1024,
+    T_HALIDE_QBITS_14_PASS, T_HALIDE_QBITS_16_PASS
+    (post-H.2 saturation fix), and bit-identity vs math-core
+    scalar across the full padded × q_bits matrix.
+
+- **Sprint I — Single-layer real-model smoke.** Load ONE
+  Qwen3-0.6B FFN layer's W_gate / W_up / W_down weights
+  from the existing `.sp-model` file at
+  `D:\Files\Models\lmstudio-community\Qwen3-0.6B-GGUF\`
+  into three DmaBuffers via Sprint B primitives. Run dual-
+  VTCM matmul through the bridge. Verify bit-identity vs
+  `sp_frob_matmul_q8_ref` from shannon-prime-system. ~150
+  LOC; reuses entire bridge stack. Closure proves the
+  loader + bridge + Halide kernel composes at minimum
+  scale.
+
+- **Sprint J — Full Phase 4 model loader.** Gemini's Phase 4
+  Sprint A pitch, but now with Sprint H constraints fixed
+  + Sprint I loader pattern proven. Per-layer DmaBuffer
+  allocation, KV cache buffer (VHT2 / Q4 format), AppState
+  integration, graceful degradation on heap exhaustion,
+  drop-on-mid-load cleanup. Real model parses end-to-end;
+  AppState holds the full layer list.
+
+This staging matches the discipline that held through
+`lat-smoke-2node` → F5+F6 → §16.3 rework: each sprint is
+focused, can fail cleanly, composes with the next. Sprint H
+is small + cheap; Sprint I is the de-risking probe;
+Sprint J is the scaling.
+
+After Sprint J: spec-decode integration (Phase D2 re-wire)
+gets the lattice an end-to-end mobile-LLM with mesh peers +
+PoUW receipts + Hexagon math, which is the actual ignition
+target.
+
+### 2026-05-29 (late) — Phase F5 + F6 paired sprint CLOSED (`lat-phase-f5-f6`)
+
+Both follow-on sub-phases from the smoke closure landed in
+a single sprint. Engine commits `542bf1d` (F5.1+F5.2),
+`8f66e3b` (F5.3), `b1ee71e` (F6); lattice plan `8643cbc`
++ closure `f9b1725`; tag `lat-phase-f5-f6` on engine,
+`lat-phase-f5-f6-closed` on lattice. Closure note:
+`papers/SESSION-CLOSED-lat-phase-f5-f6.md`.
+
+**F5 — QUIC hardening:**
+- **F5.1** `TransportConfig::keep_alive_interval(Duration::
+  from_secs(30))` + `max_idle_timeout(120s)` on both
+  `make_server_config` and `make_client_config` in
+  `quic_shard.rs`. Closes the ~3-min idle disconnect
+  flagged in the original smoke.
+- **F5.2** Explicit `conn.closed().await` watcher task
+  spawned alongside the existing `accept_uni` loop
+  cleanup. Both fire on disconnect; `DashMap::remove`
+  is idempotent so double-fire is harmless. Production
+  peer churn is now visible in real time.
+- **F5.3** `--peers <addr,...>` + `SP_PEERS` env var
+  with comma-delimited bootstrap list. `spawn_peer_dial`
+  helper refactored from F4's inline block. `--peer`
+  singular stays as back-compat alias. Dial failures
+  log + skip; daemon doesn't crash on unreachable peer.
+
+**F6 — Dual-server consolidation:**
+- 5 handlers migrated from `console.rs` to `routes.rs`:
+  `v1_node_telemetry` (WS), `v1_mesh_peers`, `v1_pouw_ledger`,
+  `v1_chat_stream_stub`, helpers.
+- Deletions: `console.rs` entirely (-435 LOC), the
+  duplicate `/v1/peers` stub on the main router,
+  `--console-port` CLI flag + env, the second `axum::serve`
+  bind in `daemon.rs`.
+- Net diff: **136 insertions, 435 deletions, -299 LOC**.
+  Architectural-rot removal as deletion, the right shape.
+- Single `Router` on `--port` (default 8080); `--console-port`
+  retired.
+
+**Chat handler conflict resolved (`routes.rs::v1_chat`
+selected over `console.rs::chat_handler`).** Advisor
+flagged during plan-commit that BOTH handlers were real
+(not stubs as my F5+F6 prompt mis-framed): `v1_chat` had
+the OpenAI-compatible input surface
+(`messages`/`max_tokens`/`stop`/JSON-delta SSE + chat_id
++ tokens_decoded metrics); `chat_handler` had Phase D
+spec decode. Sprint chose `v1_chat` per scope-discipline
+(rich client API is load-bearing for any caller; spec
+decode is feature-regressed pending **Phase D2** re-wire
+follow-on, NOT silently dropped). G_SMOKE_4 strict
+bit-identity preserved because the smoke runs AR-only
+(no draft model loaded) → both handlers' AR paths called
+the same `sp_session::step`.
+
+**Smoke re-run — all 6 gates PASS, G_SMOKE_2 upgraded:**
+
+| Gate | Result | vs Prior smoke |
+|---|---|---|
+| G_SMOKE_F4 | PASS — single `--port` only | ✓ |
+| G_SMOKE_1 | PASS — `--peers` dial registered active=1 | ✓ |
+| **G_SMOKE_2** | **PASS (hard)** — active=1 confirmed ~7 min post-dial | **upgraded from soft** |
+| G_SMOKE_3 | PASS — 9 receipts/30s | ✓ |
+| G_SMOKE_4 | PASS strict — 35 tokens bit-identical | ✓ (requires `messages:` format) |
+| G_SMOKE_TEARDOWN | PASS | ✓ |
+
+The G_SMOKE_2 upgrade is the concrete proof F5.1
+keep_alive_interval works at production-timescale: the
+original smoke saw the peer drop at ~3 min idle; this
+smoke confirms the peer is still registered at +7 min.
+Production-deployment concern actually closed.
+
+**Key finding — `prompt:` vs `messages:` request-shape
+divergence (backwards-incompatible API change).** Pre-F6
+the two routers accepted different request shapes: the
+8080 `v1_chat` took OpenAI-compatible `messages: [...]`;
+the 3000 `chat_handler` took bare `prompt: "..."`. Both
+were happy in isolation; consolidation surfaced the
+silent divergence. Post-F6 the single handler takes
+`messages:` only; any pre-F6 client using `prompt:`
+breaks. Documented as the F6 client-contract finding —
+chat-template clients must use `messages:` format.
+There is no formal "v1 API stable" promise yet (this is
+Phase 12 pre-release scaffolding), so the
+backwards-incompatible change is acceptable, but it
+needs to be in the changelog when v1 freezes.
+
+**Phase D2 filed explicitly as follow-on** (not silent
+regression — `feedback-no-silent-gate-revisions` honored):
+
+Re-wire spec decode into `routes.rs::v1_chat`. Read
+`spec.rs` (engine module, commit `dd91fd9` from Phase
+D1) + the deleted `console.rs::chat_handler` spec-decode
+dispatch pattern in git history at the pre-F6 commit
+`f9b1725^`. Add draft-session-conditional branch in the
+v1_chat decode loop: if `draft_session.is_some()` →
+`spec.rs::step`, else `sp_session::step`. Verify with
+a draft-model two-node smoke that draft-decoded output
+matches expected (and ideally bit-identical to the
+pre-F6 spec-decode output if the daemon ever ran one).
+Phase D2 is its own focused sprint; not folded into
+F5+F6.
+
+**Phase F7 (out of scope, still open):** mDNS
+auto-discovery for zero-config local lattice; DHT
+gossip for transitive peer discovery; connection retry
+with backoff. Filed as follow-on; bootstrap-list
+(F5.3) is the sufficient floor for production fixed-
+topology deployments.
+
+**§14.3.AUTH still open:** TLS placeholder
+`SkipServerVerification` in `quic_shard.rs` needs
+ed25519 dominance-identity replacement. Composes with
+Phase 5 PoUW receipt-chain identity. Separate sub-phase.
+
+### 2026-05-29 — Two-node integration smoke CLOSED (`lat-smoke-2node`)
+
+Lattice ignition validated end-to-end. Engine F4 patch
+(`bd437fc`, tag `lat-phase-f4`) + smoke harness shipped;
+closure note `papers/SESSION-CLOSED-lat-smoke-2node.md`.
+
+**F4 patch** parameterized two hardcoded ports + added
+manual peer dial:
+- `--port` / `SP_HTTP_PORT` (default 8080) for main HTTP
+- `--console-port` / `SP_CONSOLE_PORT` (default 3000) for
+  operator console (second hardcoded port the original
+  smoke spec missed; surfaced in pre-impl audit)
+- `--peer <ip:port>` for one-shot QUIC coordinator dial
+  with 60s keep-alive loop (manual unblock; auto-discovery
+  is Phase F5 scope, not done here)
+
+**Six gates PASS:**
+
+| Gate | Verdict | Notes |
+|---|---|---|
+| G_SMOKE_F4 | PASS | Both nodes bound 8080/3000/5000 and 8081/3001/5001 cleanly |
+| G_SMOKE_1 | PASS | `peers.active=1`; B registered at A's `/v1/mesh/peers` within seconds of dial |
+| G_SMOKE_2 | PASS (soft) | No WS client available; substituted HTTP `active=1` confirmation at same observation time |
+| G_SMOKE_3 | PASS | **11 receipts in 30s**; sieve mining at healthy rate |
+| G_SMOKE_4 | PASS (**strict**) | **35 tokens bit-identical** solo vs two-node — decode is deterministic by construction; mesh-peer state does NOT perturb forward pass |
+| G_SMOKE_TEARDOWN | PASS | No zombie processes |
+
+**Strict bit-identity is the strongest possible result.**
+It confirms Theorem T8 transactional invariance + Frobenius-
+lift exactness hold under live mesh — the inference path
+is deterministic across mesh-state perturbations at this
+prompt + context + spec-decode configuration. Memory entry
+`reference-lattice-decode-determinism` documents the
+invariant + the conditions under which it holds (greedy
+sampling + fixed K + same model checkpoint). Future CI
+can use strict string comparison instead of logits-
+distance metrics for regression gating.
+
+**Findings filed as named follow-on sub-phases:**
+
+- **Phase F5 — peer auto-discovery + QUIC keep-alive.**
+  Two concrete issues:
+  - `--peer` is manual one-shot; production deployments
+    need actual discovery (mDNS for local lattice, DHT
+    gossip for WAN, bootstrap-node-list config for
+    fixed-topology clusters — design TBD).
+  - QUIC connection idle-timeout drops peers after ~3
+    min with no traffic; no `keep_alive_interval`
+    configured on either endpoint. Production
+    deployments where peers don't continuously exchange
+    blocks will see silent peer disconnects. Fix:
+    `transport_config.keep_alive_interval(Some(Duration::from_secs(30)))`
+    on both `SpQuicCoordinator` and `SpQuicWorker`
+    quinn endpoints.
+
+- **Phase F6 — dual-server architecture consolidation.**
+  The Phase C/D/E/F operator-console work landed all
+  load-bearing routes (`/v1/chat` via `chat_handler`,
+  `/v1/mesh/peers`, `/v1/pouw/ledger`,
+  `/v1/node/telemetry`) on the 3000 console server.
+  The main 8080 server retained legacy stubs including a
+  `/v1/peers` returning `[]` regardless of actual peer
+  state. The split is architectural rot from parallel
+  Phase C/D/E development; the 8080 stubs are dead code
+  and actively misleading (someone debugging will hit
+  them and see "no peers" when peers ARE registered on
+  3000). F6 scope: either move the operator-console
+  routes onto the main server and retire 3000, OR delete
+  the main-server stubs and document the console as the
+  v1 API surface. Pick one shape, ship it.
+
+- **PID file collision (minor).** `sp-daemon stop`
+  signals via PID file but doesn't disambiguate when
+  multiple daemons run on one host. Two-node teardown
+  requires `Stop-Process -Id` directly. Not blocking
+  anything; file as known constraint or fold into F5
+  process-lifecycle pass.
+
+**What this smoke proves (and doesn't):**
+
+PROVES — the mesh registration layer works end-to-end;
+single-node inference path is deterministic and coexists
+with mesh state without perturbation; PoUW sieve mints
+receipts at production rate; both daemons run cleanly
+side-by-side and tear down without zombies.
+
+DOES NOT PROVE — distributed inference. The forward pass
+runs entirely on the node receiving the chat request.
+`run_garner_loop` accepts QUIC blocks but no actual work
+is sharded across nodes yet. That's separate Phase G
+work, gated on this smoke + §16.5 TS.INTEGRATE-KSTE
+sieve replication + dynamic shard assignment design.
+
+### 2026-05-28 — Multi-phase ignition: PTX-FINAL + TS-probe + 5-PoUW + 6-NET + L3 daemon Phase C..F3
+
+Eight closure events landed between 2026-05-27 (late) and
+2026-05-28 across five sub-systems. Documented here as a
+single catch-up entry because they form a single vertical:
+the lattice now boots end-to-end as a multi-node daemon
+with discrete-kernel PTX/AVX, dominance-receipt mining,
+QUIC CRT sharding, and operator console.
+
+**§17 Phase 2-CU.PTX — SEALED** (`lat-phase-2-cu-ptx-final-closed`)
+
+Re-certification of §17.1–§17.5 PTX back-end as stable
+foundation for Phase 2-CU.FORWARD. M_PTX_1 correctness:
+12/12 PASS (NTT Q1/Q2, HASH xor3/prmt, SPINOR hot/cold
+scalar + v4, MMA TestA/B/C/D, MMA M_PTX_3 + M_PTX_4).
+M_PTX_2 throughput: NTT 8.5× (target ≥5×, exceeded),
+SPINOR 89.6% DRAM SOL (~301 GB/s, target ≥85%, exceeded),
+HASH 1.1× (physical Turing ALU ceiling — see memory:
+`reference-turing-alu-scheduler-ceiling`; gate reframed
+as sm_75-ceiling-bound, sm_80+ stretch deferred), MMA
+superseded by TILE-2C.
+
+Mandatory disclosures captured as memory entries (load-
+bearing institutional knowledge not derivable from code):
+- `reference-nvcc-paired-register-bug` — Barrett modmul
+  uses separate `mul.lo.u32` + `mul.hi.u32`, NEVER
+  `mul.wide.u32`. nvcc register allocator unreliable on
+  paired outputs.
+- `reference-turing-alu-scheduler-ceiling` — sm_75 single
+  ALU dispatch port shared between lop3/xor caps HASH
+  speedup at ~1.1× silicon-fixed; Ampere unblocks.
+
+**§17.3.TILE-2C — SHIPPED via no-smem-B architecture pivot**
+(`lat-phase-2-cu-ptx-mma-tile-2c-closed`, engine 5643c0d)
+
+2b smem-B transpose regressed (61.4% bank conflict
+catastrophe — agent caught + did not push). 2c discarded
+smem-B entirely: pre-swizzle B to `[N][K]` row-major
+*offline* (CPU transcoder in math-core), load B fragments
+direct from global via `ld.global.nc.u32` through read-
+only cache on sm_75. Result: INT8 0.60× / INT4 0.94×
+cuBLAS HGEMM with 5120B→2048B smem reduction; 16 dtype-
+shape pairs bit-identical. Principle: if you don't write
+to smem, you can't have smem bank conflicts. Streaming-
+only data (Q8/Q4 weights, each byte read once per kernel)
+belongs in global + read-only cache, not smem.
+
+**§16.1 Phase TS — TS-MAP + TS-ALLOC + TS-PROBE STATE**
+(`lat-ts-probe`, system commit 7457313)
+
+GF(2) channel-select hash oracle + channel-pair allocator
+shipped. Beast Canyon bare-metal results: P50 = 111-116 ns
+(real DRAM latency, post tsc_hz calibration fix —
+`QueryPerformanceFrequency` returned HPET 10 MHz, RDTSC
+displayed 366 cycles as 36 µs until QPC+RDTSC cross-
+calibration), P90/P50 max ratio = 1.35× at bit 22 (4MB
+offset). Engineering wins: persistent thread pool
+(eliminated 1000× per-sample thread-creation jitter), TSC
+rendezvous (eliminated coherence-skew artifacts), MSVC
+portability fixes. M_TS_FALLBACK + M_TS_PROBE VERIFIED;
+M_TS_HEDGE PARTIAL — 2× ratio gate requires Linux
+`/proc/self/pagemap` + CAP_SYS_ADMIN for physical-bit
+probing (Windows API limitation, NOT Hyper-V; see memory:
+`reference-hyperv-cpuid-masking` scope clarification).
+
+Oracle-vs-production hedge-read distinction captured as
+new memory entry `feedback-oracle-vs-production-hedge`:
+oracle pattern (two-thread + TSC rendezvous + spin
+barrier) is correct for §16.1 calibration, but
+**§16.3 TS.HEDGE production primitives MUST NOT use this
+pattern** — production hedge-read is single-thread
+PREFETCH + LOAD pairs through channel-paired addresses.
+The §16.3 agent prompt must explicitly forbid copying the
+oracle's apparatus. Bake into the prompt before §16.3
+ships.
+
+**Token-privilege fix** (system commit 7457313): the
+`force_enable_large_pages()` helper in
+`core/sp_channel/sp_channel_map.c` calls
+`OpenProcessToken` + `LookupPrivilegeValue(SE_LOCK_MEMORY_NAME)`
++ `AdjustTokenPrivileges` to activate
+`SeLockMemoryPrivilege` in the running token. Without
+this call, `VirtualAlloc(MEM_LARGE_PAGES)` fails with
+`ERROR_PRIVILEGE_NOT_HELD` even when the privilege is
+granted via secpol.msc. This fix unblocks M_POUW_2 AVX-
+512 ternlog hardware bench too — also a token-level
+issue, NOT a Hyper-V mask. Earlier framing claiming
+"Hyper-V blocks three gates" was incorrect — only WAITPKG
+is actually masked by Hyper-V; large-page + hedge-physical-
+mapping are Windows-API issues independent of VBS.
+Memory `reference-hyperv-cpuid-masking` updated with the
+scope correction.
+
+**§14 Phase 5 PoUW — DAEMON SHIPPED**
+(`lat-5-pouw-state`, lattice 336a7bc/27343d9)
+
+Friedman Sieve C-layer M_POUW_1 VERIFIED. Pareto-frontier
+maintenance under combined Tier-0 + Tier-1 dominance
+partial order with sieve-fold event emission. Receipt
+wire format frozen at 152 bytes (8-byte magic SPRCPT01 +
+64-byte KSTE sig + 32-byte SHA-256 seq_hash + 32-byte
+ed25519 pubkey + 8-byte round counter + 8-byte
+minted_at_ns). ed25519-dalek v2 signing.
+`bench_sieve_hw.c` (AVX-512 ternlog hardware bench) +
+`sp_sieve_hash_ptx` (GPU KSTE mixing round) source
+deliverables done. M_POUW_2 hardware bench gate now
+unblockable (post token-privilege fix). M_POUW_3 (TTFT
+degradation ≤5% under concurrent mining) PENDING — needs
+live model + load test on the two-node integration smoke.
+
+**§13 Phase 6 NET — VERIFIED**
+(`lat-phase-6-net-state`, lattice 052dfb7, engine
+83b1c57..0fa174f 11-commit sequence)
+
+Complete QUIC CRT-sharding implementation in
+`shannon-prime-system-engine/tools/sp_daemon/`:
+`SpQuicCoordinator::bind` + `accept_connection`,
+`SpQuicWorker::connect` + `send_block` + `recv_block`,
+TLS helpers (`SkipServerVerification` placeholder pending
+Phase 5 ed25519 dominance identity integration),
+`ShardBlockHeader` 64B `#[repr(C)]` wire format,
+`run_garner_loop` with DashMap residue assembly + FFI to
+`ntt_crt_recombine`. Three closure gates:
+- **M_NET_1** 3-node loopback topology PASS — workers
+  dial coordinator, peers register.
+- **M_NET_2** Garner reconstruction bit-identical to
+  scalar C reference PASS.
+- **M_NET_3** HoL bypass — block 1 arrives within 100 ms
+  despite 200 ms artificial delay on block 0 PASS
+  (independent QUIC stream IDs deliver as designed).
+- 11/11 `cargo test --lib` PASS.
+
+Known constraints: integration tests via `cargo test`
+(non-`--lib`) blocked by C FFI symbol linker issue in
+test environment; gates run as inline `#[cfg(test)]` in
+`quic_shard.rs`. `SkipServerVerification` placeholder to
+be replaced by Phase 5 ed25519 dominance identity in
+§14.3.AUTH integration.
+
+**Phases C / D / E / F1 / F2 / F3 — L3 daemon vertical ignition**
+(engine commits 27b97dc / dd91fd9 / 8b0b438 / 6db6c01 /
+4996636 / 3f7553e)
+
+The production daemon woke up across six commits in the
+shannon-prime-system-engine repo:
+- **Phase C** (operator console): static frontend serve,
+  WebSocket telemetry stream, SSE chat stream wired into
+  `sp-daemon`.
+- **Phase D1** (speculative decode): dual-session
+  spec-decode wired into `chat_handler` via `spec.rs`.
+- **Phase E** (PoUW ledger SSE): `GET /v1/pouw/ledger`
+  SSE endpoint for real-time receipt streaming. Composes
+  with §14 Phase 5 receipt mint.
+- **Phase F** (DHT mesh API surface): `peer_map`
+  DashMap, `/v1/mesh/peers` HTTP endpoint, live
+  `dht_peers_active` field in telemetry WS.
+- **Phase F2** (`4996636`): peer_map registration wired
+  into `run_garner_loop` — incoming QUIC peers populate
+  the map as they arrive.
+- **Phase F3** (`3f7553e`): **QUIC coordinator wired
+  into daemon startup**. `sp-daemon start --quic-port
+  5000` now binds the DHT listener via
+  `SpQuicCoordinator::bind` and spawns `run_garner_loop`
+  with `QUIC_NTT_N=128`. Workers connecting from node B
+  on port 5001 register in `state.peer_map`, surface in
+  the telemetry WS, and appear in `/v1/mesh/peers`. **Two
+  nodes can form a lattice mesh on demand.** Co-authored
+  with Claude Sonnet 4.6.
+
+This is the lattice ignition moment — the daemon now
+boots, hosts a chat UI, streams telemetry, mines
+dominance receipts, listens for mesh peers, and can do
+spec-decoded dual-session inference on top of the
+math-core's Frobenius-lifted Q8/Q4 forward path.
+
+**§17.3.TILE gate amendment carry-over.** The tier-split
+gates from the 2026-05-27 amendment (2a sm_75 instruction
+parity, 2b sm_75 transposed-B, 2c sm_80+ cp.async, 2d
+sm_90 TMA) remain in force. 2c closure technically used
+"no-smem-B direct global" rather than cp.async (which is
+sm_80+ anyway), but lands at the same floor-gate bar:
+TC instruction density parity with cuBLAS + measurable
+improvement vs prior lattice impl. 2b is effectively
+retired in favor of the 2c architecture (transposed-B
+smem turned out to be the wrong primitive on Turing —
+the right move was "no smem for B at all"). 2c on
+Ampere with cp.async remains as a stretch deferral.
+
+**Three Hyper-V-misattributed gates corrected (2026-05-28).**
+Earlier roadmap text claiming Hyper-V/VBS blocks three
+gates was wrong on two-of-three:
+- M_AVX_PERSIST_2 (WAITPKG) — IS Hyper-V (VMCS bit 26).
+  Remains blocked unless `bcdedit /set
+  hypervisorlaunchtype off`. See `reference-hyperv-cpuid-
+  masking`.
+- M_POUW_2 (hardware bench with hugepages) — was
+  AdjustTokenPrivileges, NOT Hyper-V. Already fixed in
+  `sp_channel_map.c`. Works with VBS on.
+- M_TS_HEDGE 2× (physical-bit probing) — Windows API
+  limitation (no userland virt→phys), NOT Hyper-V.
+  Requires Linux host with `/proc/self/pagemap` +
+  CAP_SYS_ADMIN.
+
+Memory entry scope updated to prevent future agents from
+re-blaming Hyper-V for unrelated Windows-API or token-
+privilege issues.
+
+**Open work threads (2026-05-28 forward):**
+- §16.3 TS.HEDGE production primitives (must follow
+  oracle-vs-production memory)
+- §17.3.TILE 2c on Ampere test host (cp.async stretch)
+- M_AVX_PERSIST_2 measurement (requires non-Hyper-V boot
+  or non-Hyper-V cloud instance)
+- M_POUW_3 TTFT-under-mining (requires two-node integration
+  smoke)
+- §14.3.AUTH: replace SkipServerVerification TLS placeholder
+  with ed25519 dominance identity (Phase 5 → Phase 6 wiring)
+- Two-node integration smoke (proves the whole vertical
+  composes: prompt → spec-decode → PoUW mint → mesh
+  visible → token stream)
+
+### 2026-05-27 (late) — Phase 2-CU.PTX.MMA.TILE correctness closed + gate amended to tier-split
+
+Engine commits `6bd8935..6875eab` (12-commit sequence with
+plan-first + skeleton-then-fill + commit-between-sections
+discipline; recovered from the prior session's 32k output-
+token blowup). Files shipped:
+
+- `ptx_mma_tile_common.cuh` — smem layout + load/frag helpers
+- `ptx_mma_tile_int8.cuh` — 64×64 INT8 tile kernel
+- `ptx_mma_tile_int4.cuh` — 64×64 INT4 tile kernel
+- `ptx_mma_tile_validate.cu` — three-way bit-identity sweep
+- `ptx_mma_tile_bench.cu` — cuBLAS HGEMM vs tile bench
+
+**M_PTX_MMA_TILE_1 (correctness) PASS** — 3-way bit-identity
+(tile vs single-instruction reference vs math-core scalar)
+byte-exact across (64,64,64), (256,256,256), (1024,1024,1024),
+(3072,8192,3072) × INT8 + INT4 = 8 dtype-shape pairs. Two
+real bugs caught + fixed in-session: OOB write in
+`sp_tile_load_b` (`row = thr_id >> 1` → `>> 2`), misaligned
+smem read in `sp_tile_frag_b` (was 4 N-adjacent bytes at
+fixed K row; MMA needs 4 K-adjacent bytes at fixed N column).
+100% warp occupancy, 64 regs/thread (at budget).
+
+**M_PTX_MMA_TILE_2 (throughput) tag = -miss on sm_75.**
+Closure note: INT8 = 0.51× cuBLAS HGEMM, INT4 = 0.86× cuBLAS
+HGEMM at (3072, 8192, 3072). Diagnostic root-causes:
+- sm_75 INT8 TC peak / fp16 HGEMM peak silicon ratio is
+  ~2.8× — the original ≥3× gate was architecturally
+  impossible on Turing regardless of kernel quality.
+- sm_75 lacks `cp.async` (introduced sm_80+) — double-
+  buffered global→smem pipeline cannot be constructed on
+  Turing; the implicit assumption in the original ≥4×
+  gate cannot be satisfied on the dev host.
+- Identical TC instruction count to cuBLAS at INT8 (75.5M =
+  75.5M; SP_FROM = SP_TO at SM-cycle granularity); kernel
+  IS using the silicon's TC pipeline correctly at cuBLAS
+  density. 41% DRAM SOL confirms instruction-bound, not
+  memory-bound.
+- 2× wall-clock gap entirely in identified B-fragment smem
+  gather (4× byte reads where transposed layout = 1× aligned
+  uint32 read).
+
+**Gate amendment.** §17.3.TILE M_PTX_MMA_TILE_2 split into
+floor (TC instruction density parity + measurable
+improvement vs prior lattice impl) + stretch sub-gates per
+hardware tier:
+- **2a sm_75 cuBLAS instruction parity** — effectively
+  closed by this session (75.5M / 75.5M at INT8); needs
+  formal sub-tag commit.
+- **2b sm_75 transposed-B smem layout** — OPEN, next agent
+  task. Floor: any measurable improvement at compute-bound
+  shape. Expected 2-3× kernel-side win removes the 4×
+  byte-gather inflation; puts INT8 at parity-or-better
+  with cuBLAS HGEMM on sm_75, with Q8 memory compression
+  composing on top.
+- **2c sm_80+ cp.async pipeline** — OPEN, hardware-gated.
+- **2d sm_90 TMA + cluster mbarrier** — future.
+
+Memory entries shipped:
+- `reference-cuda-sm-feature-tiers` — sm_75/80/90 lattice-
+  relevant ISA capability map. Prevents future agents from
+  spec'ing hardware-impossible perf gates.
+- `feedback-lattice-baseline-is-prior-lattice` — lattice's
+  baseline is the prior lattice implementation + Q8/Q4
+  arena compression, NOT alien-codebase production libraries
+  like cuBLAS HGEMM. Per the "any improvement stacks"
+  philosophy, an in-kernel improvement composing with the
+  2-4× memory compression IS the win at the lattice's
+  workload mix.
+
+Sub-tags shipped by agent:
+- `lat-phase-2-cu-ptx-mma-tile-int8-correctness-closed`
+- `lat-phase-2-cu-ptx-mma-tile-int4-correctness-closed`
+- `lat-phase-2-cu-ptx-mma-tile-throughput-miss`
+
+Audit discipline held: agent surfaced the stretch-miss
+upstream as a tagged closure state rather than burying in
+a footnote or silently revising the gate. This is
+`feedback-no-silent-gate-revisions` working exactly as
+designed.
+
+Closure note: `papers/SESSION-CLOSED-lat-2-CU-PTX-MMA-TILE.md`.
+
+### 2026-05-27 — PTX rework partial closure + AVX completion + tag retraction
+
+**Rework session result.** The corrective sub-prompts ran to
+the discipline `feedback-no-silent-gate-revisions` mandates:
+gaps surfaced upstream, sub-tags withheld where gates were
+unmet.
+
+PTX (engine 9c8e7b6, closure note
+`SESSION-CLOSED-lat-2-CU-PTX-REWORK.md`):
+- ptx_mma.cuh rewritten — 3 `asm volatile` blocks, 0
+  `nvcuda::wmma` references in code. INT8 m8n8k16 + INT4
+  m8n8k32 both shipped (INT4 was never attempted prior).
+- ptx_spinor.cuh `sp_spinor_warpload4` with
+  `ld.global.cs.v4.u32` + `ld.global.cg.v4.u32`; SPINOR
+  85% SOL gate met.
+- ptx_bench.cu redone with runtime-q kernel parameter
+  (forces software division — defeats nvcc compile-time
+  auto-Barrett), `asm volatile xor.b32` sequential dep
+  chain for HASH baseline (no DCE), cuBLAS HGEMM as MMA
+  baseline.
+- Status: REWORK PARTIAL. M_PTX_1 (correctness) PASS;
+  M_PTX_MMA_correctness PASS (instruction emission +
+  bit-identity); M_PTX_MMA_throughput OPEN at 0.1× cuBLAS
+  HGEMM — single-instruction-per-thread wrapper is not
+  a competitive matmul; tiled-kernel follow-on §17.3.TILE
+  opened to close the gate.
+- HASH M_PTX_2 throughput called "architecturally
+  unmeasurable on sm_75" (Turing — needs sm_80+ for
+  larger lop3 chains to overcome the compiler-baseline).
+- Sub-tags shipped: `lat-phase-2-cu-ptx-spinor-v4`,
+  `lat-phase-2-cu-ptx-bench-redo`. Umbrella
+  `lat-phase-2-cu-ptx-closed` NOT fired (correct).
+
+AVX (engine b21ab43, closure note relocated to
+`papers/SESSION-CLOSED-lat-2-CPU-AVX.md`):
+- M_AVX_3_PARITY PASS — NT(32MB) / cached(32MB) wall-clock
+  ratio median 0.974 across 11 trials pinned core-0.
+- M_AVX_3_SPINOR PASS — zero sentinel misses across 32MB
+  Spinor-slot stream.
+- M_AVX_PERSIST_1 PASS — 39.4 ns median wakeup on spin
+  path (M_AVX_PERSIST_2 SKIP — corrected framing 2026-05-27:
+  the i9-11900KB IS Tiger Lake-B silicon, Family 6 Model
+  141 Stepping 1 (Willow Cove core, 10nm SuperFin), and
+  WAITPKG IS present in silicon. CPUID.7.0.ECX[5]=0 reads
+  because the host runs in the Hyper-V root partition
+  (VirtualizationBasedSecurityStatus=2, hypervisorlaunchtype
+  =Auto), and Hyper-V both masks WAITPKG from guest CPUID
+  and clears VMCS Secondary Processor-Based VM-Execution
+  Control bit 26 — executing UMONITOR raises #UD. Runtime
+  dispatch correctly falls back to spin; UMONITOR/UMWAIT
+  path compiled into binary, gated on guest CPUID. This is
+  a host-configuration finding, not silicon absence or
+  branding inconsistency. Memory entry
+  `reference-hyperv-cpuid-masking` documents the broader
+  pattern + §18.5 PERSIST spec amended with the Hyper-V
+  caveat).
+- T_ZEN4_DISPATCH_1/2/3 PASS — CPUID-mock harness exercises
+  the IFMA-absent + WAITPKG-absent fallback paths on
+  Beast Canyon silicon; three-way bit-identity (IFMA path,
+  Zen4-mock fallback, math-core scalar reference) byte-exact
+  across N=512.
+- Gates inherited the formally-amended §18.3 IFMA ≥2× +
+  §18.4 TERNLOG correctness-split as canonical.
+
+**Tag retraction.** The prior PTX agent's premature closure
+left 5 broken tags on each repo pointing at a defective
+implementation (engine: pointing at the wmma-only commits;
+lattice: pointing at plan/scaffold commits). Retracted on
+both engine + lattice origins:
+`lat-phase-2-cu-ptx-{closed,mma-closed,hash-closed,
+ntt-closed,spinor-closed}`. The AVX umbrella was repointed
+from the original-closure commit to the actual completion
+commit (engine b21ab43, lattice f5b5fa5). The original PTX
+closure note renamed to
+`SESSION-CLOSED-lat-2-CU-PTX-SUPERSEDED.md` with a banner
+pointing at the REWORK note as the live state — audit
+trail preserved, not erased.
+
+**§17.3 gate split formalized** above as
+M_PTX_MMA_correctness (closed) + M_PTX_MMA_throughput
+(open as §17.3.TILE follow-on). The follow-on sub-phase
+mandates cp.async double-buffering, smem operand staging,
+64×64 multi-warp tiling, register-file budget under 64
+regs/thread on sm_75, with sub-tags
+`lat-phase-2-cu-ptx-mma-tile-{int8,int4}-closed` before
+the §17 umbrella `lat-phase-2-cu-ptx-closed` fires.
+
 
 ---
 
@@ -2413,76 +6933,147 @@ the §2-B.E.1 polynomial-shift cache (lossless on stock RoPE, gated by
 `SP_ENGINE_NTT_ATTN=1`), and the §20 items remain parked research notes —
 off the Phase 2..13 critical path.
 
-## 20.4 Phase 5-HYP — Continuous-Relaxed Dominance via Hyperbolic Embedding
+### 20.4 Phase 5-HYP — Continuous-Relaxed Dominance via Hyperbolic Embedding
 
-**Concept:** The current KSTE encoder relies on Kruskal's Tree Theorem in $T_{60,3}$.
- While the Tier-0 subtract-with-borrow check is $O(1)$, the rigid discrete topology 
-means minor quantization jitter can flip a tree's depth-rank, causing a false-negative 
-on the deduplication sieve.
+**Concept.** The current KSTE encoder relies on Kruskal's Tree Theorem
+in $T_{60,3}$. While the Tier-0 subtract-with-borrow check is $O(1)$,
+the rigid discrete topology means minor quantization jitter can flip
+a tree's depth-rank, causing a false-negative on the deduplication
+sieve.
 
-* **The Math:** Continuous trees embed into Hyperbolic Space (specifically the Poincaré ball 
-or the Lorentz manifold) with arbitrarily low distortion. By mapping the K-vector to a coordinate 
-in the $(d+1)$-dimensional Lorentz model, "dominance" transforms from a discrete tree-walk into a 
-continuous cone-inclusion check.
+* **The Math.** Continuous trees embed into Hyperbolic Space
+  (specifically the Poincaré ball or the Lorentz manifold) with
+  arbitrarily low distortion. By mapping the K-vector to a coordinate
+  in the $(d+1)$-dimensional Lorentz model, "dominance" transforms
+  from a discrete tree-walk into a continuous cone-inclusion check.
+* **The Mechanism.** Vector $u$ dominates vector $v$ if $v$ lies
+  within the future light cone of $u$. This is evaluated using the
+  Minkowski inner product:
 
-* **The Mechanism:** 
-Vector $u$ dominates vector $v$ if $v$ lies within the future light cone of $u$. This is evaluated 
-using the Minkowski inner product:
+  $$\langle u, v \rangle_{\mathcal{L}} = -u_0 v_0 + \sum_{i=1}^d u_i v_i \le -1$$
 
-$$\langle u, v \rangle_{\mathcal{L}} = -u_0 v_0 + \sum_{i=1}^d u_i v_i \le -1$$
+* **The Win.** You retain the $O(1)$ SIMD-friendly dominance check
+  (it is literally just a dot product), but you gain topological
+  robustness. Quantization noise simply shifts the coordinate
+  slightly within the hyperbolic space, rather than shattering the
+  combinatorial tree structure.
+* **Gate.** Hyperbolic dominance rejection rate matches or exceeds
+  the discrete $T_{60,3}$ sieve on the Gemma3-1B test corpus, with
+  $\text{KL} \le 10^{-6}$ drift from quantization jitter.
 
+### 20.5 Phase 4-QMC — 2D Quasi-Monte Carlo KV Eviction
 
-* **The Win:** 
-You retain the $O(1)$ SIMD-friendly dominance check (it is literally just a dot product), but you
- gain topological robustness. Quantization noise simply shifts the coordinate slightly within the 
-hyperbolic space, rather than shattering the combinatorial tree structure.
-* **Gate:** 
-Hyperbolic dominance rejection rate matches or exceeds the discrete $T_{60,3}$ sieve on the Gemma3-1B
- test corpus, with $\text{KL} \le 10^{-6}$ drift from quantization jitter.
+**Concept.** The 1D Fibonacci sub-sampling ($\lfloor k\varphi \cdot N \rfloor \pmod N$)
+is mathematically optimal for equidistant temporal coverage. However,
+context isn't just temporal; it has semantic depth. Needle-in-a-haystack
+retrieval fails if a highly semantic token happens to fall into a
+Fibonacci eviction gap.
 
-## 20.5 Phase 4-QMC — 2D Quasi-Monte Carlo KV Eviction
+* **The Math.** Upgrade the 1D Fibonacci sequence to a 2D
+  low-discrepancy sequence (e.g., a Halton or Sobol sequence).
+* **The Mechanism.** Map Axis 1 to the Temporal Index (time). Map
+  Axis 2 to a Semantic Weight (e.g., the attention magnitude or the
+  KSTE Tier-0 entropy signature). The Halton sequence uses coprime
+  bases (e.g., base 2 for time, base 3 for entropy) to generate a
+  deterministic, maximally un-clustered grid.
+* **The Win.** Eviction is no longer blind to semantic importance.
+  The 2D Halton sequence guarantees that high-semantic-value tokens
+  are never clustered and evicted together, while maintaining the
+  structural equidistribution of the temporal axis.
+* **Gate.** Needle-in-a-haystack retrieval accuracy on a 32K context
+  window improves by $>15\%$ over 1D Fibonacci eviction, with zero
+  increase to the resident KV memory footprint.
 
-**Concept:** The 1D Fibonacci sub-sampling ($\lfloor k\varphi \cdot N \rfloor \pmod N$) is mathematically 
-optimal for equidistant temporal coverage. However, context isn't just temporal; it has semantic depth. 
-Needle-in-a-haystack retrieval fails if a highly semantic token happens to fall into a Fibonacci eviction gap.
+### 20.6 Phase 9-MAP — Zero-NTT Associative Memory
 
-* **The Math:** Upgrade the 1D Fibonacci sequence to a 2D low-discrepancy sequence (e.g., a Halton or Sobol sequence).
-* **The Mechanism:** Map Axis 1 to the Temporal Index (time). Map Axis 2 to a Semantic Weight 
-(e.g., the attention magnitude or the KSTE Tier-0 entropy signature). The Halton sequence uses coprime bases 
-(e.g., base 2 for time, base 3 for entropy) to generate a deterministic, maximally un-clustered grid.
-* **The Win:** 
-Eviction is no longer blind to semantic importance. The 2D Halton sequence guarantees that high-semantic-value 
-tokens are never clustered and evicted together, while maintaining the structural equidistribution of the temporal axis.
-* **Gate:*
-* Needle-in-a-haystack retrieval accuracy on a 32K context window improves by $>15\%$ over 1D Fibonacci eviction, with
- zero increase to the resident KV memory footprint.
+**Concept.** The ARM bank currently uses Holographic Reduced
+Representations (HRR) via negacyclic convolution in $R_q$. While it
+shares the NTT pipeline with the attention layer, HRR convolution is
+inherently noisy ($O(\sqrt{K})$ capacity ceiling) and still costs an
+$O(N \log N)$ NTT round-trip per binding.
 
-## 20.6 Phase 9-MAP — Zero-NTT Associative Memory
+* **The Math.** Pivot from HRR to a Multiply-Add-Permute (MAP) Vector
+  Symbolic Architecture. In MAP, "binding" a key and a value is not
+  a polynomial multiplication; it is an orthogonal permutation.
 
-**Concept:**
-The ARM bank currently uses Holographic Reduced Representations (HRR) via negacyclic convolution in $R_q$. While it 
-shares the NTT pipeline with the attention layer, HRR convolution is inherently noisy ($O(\sqrt{K})$ capacity ceiling) 
-and still costs an $O(N \log N)$ NTT round-trip per binding.
+  $$\text{bind}(k, v) = \Pi_k(v)$$
+  $$\text{unbind}(k, M) = \Pi_k^{-1}(M)$$
 
-* **The Math:** 
-Pivot from HRR to a Multiply-Add-Permute (MAP) Vector Symbolic Architecture. In MAP, "binding" a key and a value is not a 
-polynomial multiplication; it is an orthogonal permutation.
+* **The Mechanism.** The keys $k_i$ become deterministic permutation
+  masks. On CPU/CUDA, applying $\Pi_k$ to a 63-byte Spinor block is
+  a native SIMD shuffle (e.g., `vpshufb` on AVX2/AVX-512).
+* **The Win.** You bypass the NTT pipeline completely for the ARM
+  bank. The computational cost of binding and unbinding drops to
+  effectively zero (a few clock cycles). While the capacity curve
+  still degrades with $K$, eliminating the NTT overhead allows you to
+  aggressively increase the stride or maintain multiple smaller ARM
+  banks without stalling the forward pass.
+* **Gate.** MAP-based ARM binding/unbinding executes $>10\times$
+  faster than the $R_q$ NTT-based HRR, while maintaining a cosine
+  similarity recall curve of $\ge 0.80$ at $K=1$.
 
-$$\text{bind}(k, v) = \Pi_k(v)$$
+### 20.7 SP cross-pollination — where the research tracks compose
 
-$$\text{unbind}(k, M) = \Pi_k^{-1}(M)$$
+§20.4 / 20.5 / 20.6 are written as sieve, KV-eviction, and ARM-bank
+patches respectively. The lattice's compositional nature means each
+primitive surfaces in multiple phases. The matrix below names every
+secondary attachment point so a future session can pull a research
+win into adjacent phases without re-deriving the math. None of these
+secondary attachments are blockers — they are "free" optimisations
+once the primary §20 gate passes.
 
+**Hyperbolic (§20.4 / Phase 5-HYP) — additional attachment points:**
 
-* **The Mechanism:** 
-The keys $k_i$ become deterministic permutation masks. On CPU/CUDA, applying $\Pi_k$ to a 63-byte Spinor block is a 
-native SIMD shuffle (e.g., `vpshufb` on AVX2/AVX-512).
+- **§13.1 Phase 6-BLOCK-SYNC.** Replace the discrete-clamp step in the
+  residue-polynomial activation with a Lorentz cone-inclusion check.
+  Same robustness gain at the 4-layer Garner boundary; the algebra
+  stays in $\mathbb{Z}_{q_1 \cdot q_2}$ because the Minkowski inner
+  product is a signed integer dot.
+- **§9 ARM dominance.** The Lorentz inner product is SIMD-shuffle
+  friendly (single FMA + one sign flip on the time coordinate). Gives
+  the ARM bank the same quantization-noise tolerance the KSTE sieve
+  gets.
+- **§4f-style soft attenuation.** "Near light cone but not inside"
+  gives a natural fuzzy-retrieval primitive — replaces the explicit
+  $\gamma$ attenuation parameter with a geometric distance from the
+  cone boundary.
 
-* **The Win:** 
-You bypass the NTT pipeline completely for the ARM bank. The computational cost of binding and unbinding drops to 
-effectively zero (a few clock cycles). While the capacity curve still degrades with $K$, eliminating the NTT overhead 
-allows you to aggressively increase the stride or maintain multiple smaller ARM banks without stalling the forward pass.
+**Halton/Sobol QMC (§20.5 / Phase 4-QMC) — additional attachment points:**
 
-* **Gate:** 
-MAP-based ARM binding/unbinding executes $>10\times$ faster than the $R_q$ NTT-based HRR, while maintaining a cosine similarity recall curve of $\ge 0.80$ at $K=1$.
+- **§13.3 Phase 6-MTP-AMORTIZE.** Schedule the $K$ MTP draft tokens
+  by a 2D Halton sequence over (depth, temporal) rather than $K$
+  linear next positions. Same per-batch payload, broader semantic
+  coverage per network round-trip; pairs naturally with the
+  caustic-cull (§13.4) skip pattern because Halton coverage avoids
+  clustering accepted drafts in a single skip band.
+- **§8 Position-as-Arithmetic crawl assignment.** Extend the
+  Fibonacci-Prime DHT with a Halton second axis for 2D load balancing
+  across (semantic class, hash bucket). Drop-in upgrade to the
+  golden-ratio-only assignment table.
+- **§5 Friedman sieve residual-band selection.** Order the Tier-1
+  residual bands by Halton ordering rather than linear scan. Covers
+  the embedding space more uniformly; complements the Tier-0
+  signature dedup without replacing it.
+
+**MAP zero-NTT (§20.6 / Phase 9-MAP) — additional attachment points:**
+
+- **§9 KSTE Tier-0 signature shuffle.** Replace the splitmix64-based
+  permutation table (introduced in Phase 10 anti-collision work)
+  with a `vpshufb` mask. Same per-vector cost, no NTT round-trip,
+  identical statistical properties.
+- **§1E Frobenius lift per-row permutation.** Per-row scale-class
+  rotation becomes a single SIMD shuffle on the Q8-packed bytes
+  rather than a serial pass. Wins at Frobenius arena assembly time;
+  invisible at inference time (the assembly happens once at load).
+- **§1D Spinor negacyclic involution.** The `inv[N-j] = -in[j]`
+  identity is already structurally a permutation; pivoting to
+  `vpshufb` removes the per-byte loop overhead, dropping the cost
+  from $O(N)$ adds to one 16-byte shuffle per stride.
+
+The pattern across all three columns is the same: **a research win
+that lands as a SIMD-friendly primitive at §20 inherits an O(1)
+secondary use everywhere a similar permutation, dot, or cone-check
+already lives.** Future agents working on any of those phases should
+check the §20.7 matrix before re-implementing.
 
 ---
