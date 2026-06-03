@@ -2,8 +2,9 @@ cff-version: 1.2.0
 message: "If you use Shannon-Prime, please cite it."
 title: "Shannon-Prime: a two-ring memory architecture for long-context transformers"
 authors:
-  - family-names: Knack
-    given-names: A.
+  - family-names: Daniels
+    given-names: Ray
+    alias: KnackAU
 abstract: >
   A memory architecture that attaches to a frozen pretrained transformer:
   query-directed sparse recall (a ±1 Rademacher projection router), attention-sink
