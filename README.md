@@ -2,6 +2,8 @@
 
 > A number-theoretic architecture for transformer inference and long-context memory — where a token's position, index, and routing *are* exact arithmetic, not floating-point metadata about it.
 
+**Live site:** https://nihilistau.github.io/Position_Is_Arithmetic/
+
 **The main project is located at [Shannon-Prime-Lattice](https://github.com/nihilistau/shannon-prime-lattice) — you can join the Discord here: [Shannon-Prime-Lattice-Discord](https://discord.gg/rre9XZmvV).**
 
 ---
