@@ -72,39 +72,6 @@ The original document history — theory drafts, Friedman/KSTE notes, results, a
 
 ---
 
-<<<<<<< HEAD
+*Shannon-Prime-Lattice is an open-source research project by KnackAU — contact: raydaniels@gmail.com*
+
 *Attributed to Transformers and 250 years of Mathematicians.*
-=======
-https://github.com/nihilistau/shannon-prime-bernhard
-
-https://github.com/nihilistau/shannon-prime-burnhard
-
----
-
-https://github.com/nihilistau/shannon-prime-lattice
-
-https://github.com/nihilistau/shannon-prime-system
-
-https://github.com/nihilistau/shannon-prime-system-engine
-
----
-
-
-https://github.com/nihilistau/shannon-prime-lmstudio-server
-
-https://github.com/nihilistau/shannon-prime-comfyui
-
----
-
-https://github.com/nihilistau/voxtral-tts.c
-
-https://github.com/nihilistau/voxtral-mini-realtime-rs
-
-https://github.com/nihilistau/ComfyUI-FL-VoxtralTTS
-
----
-
-*This work was carried out over two days (2026-05-17 to 2026-05-19) on top of the Shannon-Prime project. The system that executes this mathematics is described in Part II.*
-
-*Submitted as preprint, 2026. The theoretical framework is offered as a research program; the implementations are evidence that the program is on the right track. Comments, criticism, replication, and extension are welcome via the Shannon-Prime repositories.*
->>>>>>> 14dc1b206df4155d6d72fcec1a9b82ae7841427b
