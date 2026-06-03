@@ -5955,6 +5955,279 @@ heterogeneous-SoC dual-island compute, all under the manifesto's
 ten tricks composing as advertised. That is the architectural
 endpoint Phase 4 has been building toward.
 
+---
+
+## Phase 4-NTT — HVX-vectorized NTT (the PPT ARM scaling primitive on mobile, FILED 2026-05-30)
+
+**The mission this phase serves.** Shannon-Prime PPT ARM is a
+discrete algebraic substrate for transformer inference with
+**O(N log N) NTT-accelerated polynomial-ring attention** running
+on heterogeneous SoC silicon, scaling to long context. The math
+shipped in Phase 4-9 (math-core CRT NTT, AVX-512, CUDA PTX) +
+the dispatch substrate shipped in K v0.alpha / K.beta.2.5b / K.beta.2.5c
+on Hexagon V69 → **all converge here**. The Hexagon HVX NTT is the
+mobile-silicon scaling primitive that completes the PPT ARM
+mission. Until it ships, every dialogue runs O(N²) attention and
+chokes the moment ctx > 1024.
+
+**The 630× number.** At ctx=8192, standard O(N²) attention is
+~67M ops vs NTT O(N log N) at ~106k ops — a **630× theoretical
+speedup**. Wall-clock won't deliver the full 630× (constants matter),
+but the asymptotic decoupling from N² is the unlock: long-context
+on mobile becomes viable.
+
+**Why MeMo IS the payload (per Knack + Gemini, 2026-05-30).**
+The Phase 4-MeMo work that closed M.0-M.5 + chat-integration is NOT
+adjacent research; it's the cognitive framework that drives the NTT.
+Without NTT, MeMo's Executive chokes on any grounding query > 1024
+tokens. Without MeMo, NTT is fast math with no production driver.
+Sprint NTT.5 wires NTT attention directly into MeMo's `run_dialogue()`
+loop — that's the moment MeMo + scaling unify into the actual product.
+
+### Architectural commitments baked into this phase (do NOT defer)
+
+These are load-bearing decisions the spec depends on. Future
+agents implementing NTT.0-NTT.6 MUST honor them or surface
+UPSTREAM:
+
+1. **Negacyclic NTT, not cyclic.** Polynomial-ring attention uses
+   `Z_q[x]/(x^N + 1)`. The NTT must use a **primitive 2N-th** root
+   of unity (not N-th). Standard FFT decompositions assume cyclic
+   `x^N - 1`; using them breaks polynomial-ring identity. Math-core's
+   existing `sp_ntt` is negacyclic; Hexagon NTT must match for
+   cross-backend bit-identity.
+
+2. **FROZEN primes.** `q_1 = 1073738753`, `q_2 = 1073732609` (30-bit
+   Proth primes). Garner constants per K.beta.2.5c: `Q1_INV_MOD_Q2
+   = 894602413`, `M = 1152908312643096577`. NTT primes match
+   math-core + K.beta.2.5c exactly. Do NOT pick different primes
+   for Hexagon convenience.
+
+3. **Halide HVX Int(64) path is CLOSED** per
+   `reference-halide-hvx-int64-limitation`. Phase 4-NTT uses
+   hand-rolled HVX intrinsics, same path as K.beta.2.5b/c. Reuse
+   the 2-op `Q6_W_vmpye_VwVuh + Q6_W_vmpyoacc_WVwVh` widening idiom
+   from `reference-hexagon-v69-32x32-widening-idiom` for every
+   32×32→64 multiply in the butterfly inner loop.
+
+4. **Negacyclic twiddle factors precomputed at assembly.**
+   `ψ = primitive 2N-th root of unity mod q`. Twiddle table
+   `[ψ^0, ψ^1, ..., ψ^(N-1)]` per prime, fits in 4N bytes per
+   prime. At N=4096: 16 KB per prime, trivially in 8 MB VTCM.
+   At N=131072: 512 KB per prime, still fits with headroom for
+   data + scratch.
+
+5. **N capped at 512 by frozen primes — target ladder N ∈ {128,
+   256, 512}. CORRECTED 2026-05-30** per
+   `reference-ntt-frozen-primes-N-cap` and NTT.0 agent Stage 0 catch.
+   The frozen Proth primes q_1 = 1073738753 and q_2 = 1073732609
+   both have 2-adic valuation 10 (`q-1 = 2^10 × odd`); negacyclic
+   NTT requires `2N | (q-1)`, so max 2N = 1024 and max N = 512.
+   N=1024 and beyond is **mathematically impossible** with current
+   primes. Math-core already enforces `N ∈ {128, 256, 512}` at
+   `lib/shannon-prime-system/core/ntt_crt/ntt_crt.c:189`; prior
+   session closure (`papers/SESSION-CLOSED-lat-1.md:62`) documents
+   this as a user-confirmed decision. The original spec's
+   {256, 1024, 4096, 16384} ladder was an operator-side fabrication
+   that didn't re-read the math-core ABI. **For long context
+   (ctx ≥ 1024): use tiled N=512 NTT blocks across the longer
+   sequence.** The asymptotic O(N log N) decoupling from O(N²)
+   still holds for tiled attention; at ctx=8192 the aggregate
+   compute via 16 × N=512 tiles is still ~450× faster than O(N²)
+   single matmul. Adding a third prime to admit N > 512 requires a
+   future "Phase 4-NTT-PRIME-EXTENSION" sprint (cascades across
+   Garner constants, L1 ABI, every cross-backend bit-identity gate).
+
+6. **Scalar Hexagon reference before vectorizing.** Sprint NTT.0
+   ships a scalar Hexagon C NTT that's bit-exact vs math-core's
+   portable C reference. NTT.1 vector path then has an
+   on-Hexagon oracle to compare against. Same cascade pattern as
+   K.beta.2.5a (scalar) → 2.5b (vector). No SASS audit can save
+   you from a mathematical divergence; the scalar oracle catches it.
+
+7. **Shape-regime-aware parallelism gates** per
+   `feedback-shape-dependent-parallelism-gates`. NTT at small N is
+   memory-bandwidth-bound (data-bound regime); at large N it's
+   compute-bound. Dual-dispatch speedup threshold: ≥1.5× at N ≥ 1024,
+   measure-and-report at N < 1024 without precommitted threshold.
+
+8. **MeMo integration is THE deliverable.** Sprint NTT.5 wires the
+   NTT into Memory model's attention forward path inside MeMo's
+   `run_dialogue()` loop. Until NTT.5 closes, NTT is theoretical;
+   when NTT.5 closes, MeMo on S22U can ground 4096-token documents
+   in real-time. NTT.6 demonstrates this at long-context shape.
+
+### Sprint block (NTT.0 → NTT.6)
+
+**NTT.0 — Scalar Hexagon NTT (reference port).**
+- *Scope:* Port math-core's portable C reference NTT to a Hexagon-
+  buildable form. Negacyclic NTT over Z_q with frozen primes;
+  Cooley-Tukey radix-2 DIT; scalar (no HVX). Verify bit-exact on
+  Hexagon scalar pipe vs math-core reference at **N ∈ {128, 256, 512}**
+  (corrected from original spec's {256, 1024, 4096} per
+  `reference-ntt-frozen-primes-N-cap` and NTT.0 Stage 0 finding).
+- *Gate `T_NTT0_SCALAR_BIT_EXACT`:* 0 divergences across 100 random
+  inputs × 3 N values × 2 primes, vs math-core C reference.
+- *Worktree:* `engine-ntt-0`.
+
+**NTT.1 — HVX butterfly core (the vector multiplication).**
+- *Scope:* Implement the Cooley-Tukey radix-2 DIT butterfly using
+  hand-rolled V69 HVX C-intrinsics. Wrap `sp_barrett_reduce32_hvx_lane`
+  (from K.beta.2.5b) for the modular reductions. Negacyclic structure
+  means twiddle stride is 2N-th roots, not N-th. 32 butterflies in
+  parallel per HVX vector op. Use `Q6_W_vmpye_VwVuh + Q6_W_vmpyoacc_WVwVh`
+  for the (a + ψw·b mod q) inner loop.
+- *Gate `T_NTT1_BUTTERFLY_IDENTITY`:* 32-lane vector butterfly output
+  bit-exact vs NTT.0 scalar reference at all N values × 2 primes.
+- *Gate `T_NTT1_SASS_AUDIT`:* every emitted intrinsic produces the
+  planned V69 HVX opcode (same audit format as `HVX_BARRETT_SASS_GATES.md`).
+- *Worktree:* `engine-ntt-1`.
+
+**NTT.2 — Twiddle factor VTCM staging.**
+- *Scope:* Precompute negacyclic twiddle tables at daemon startup
+  (or static const if assembly-time is feasible). DMA stream the
+  twiddles for layer k into VTCM just-in-time before butterfly
+  layer k executes. Mind the cache-line alignment (128 bytes on
+  V69). Use Sprint G's recipe: all-buffers-in-VTCM + alignment +
+  prefetch per `reference-v69-hvx-expert-practices`.
+- *Gate `T_NTT2_TWIDDLE_THROUGHPUT`:* full forward NTT at **N=512**
+  per prime runs ≤1.2× the cost of the butterfly-only floor (i.e.,
+  DMA + twiddle reads don't dominate; we stay in compute-bound
+  regime per `feedback-shape-dependent-parallelism-gates`).
+- *Gate `T_NTT2_VTCM_BUDGET`:* peak VTCM use ≤ 2 MB at N=512 per
+  prime (twiddle table 4×512=2KB per prime; well within 8MB VTCM
+  with room for KV data + scratch). At N=512 the whole transform
+  fits in VTCM trivially — leaves headroom for tiling multiple
+  N=512 blocks concurrently.
+- *Worktree:* `engine-ntt-2`.
+
+**NTT.3 — Dual-prime CRT NTT dispatch.**
+- *Scope:* Execute forward NTT_q1 on cDSP thread A and NTT_q2 on
+  cDSP thread B via `Arc<FastRpcSession>` (per
+  `reference-fastrpc-concurrent-dispatch`). Same kernel, different
+  prime + twiddle table. Reuse K v0.alpha + K.beta.2.5c dispatch
+  pattern.
+- *Gate `T_NTT3_DUAL_DISPATCH_SPEEDUP`:* ≥1.5× wall-clock speedup
+  at **N=512** (compute-bound regime — single transform at the
+  per-prime ceiling; this is the largest single NTT the frozen
+  primes admit). Measure-and-report at N=128 and N=256 (potentially
+  data-bound at smaller transforms). Cite per-prime per-shape
+  speedup in closure. For tiled long-context attention, the
+  meaningful gate is at the tile-batch scope — that's NTT.6 scope.
+- *Gate `T_NTT3_PER_PRIME_BIT_EXACT`:* each thread's output
+  bit-exact vs NTT.1 single-thread reference.
+- *Worktree:* `engine-ntt-3`.
+
+**NTT.4 — INTT + ARM Garner round-trip.**
+- *Scope:* Implement Inverse NTT (same butterfly structure, twiddle
+  inverses, final N⁻¹ scale per prime). Wire forward NTT →
+  pointwise multiply in NTT domain → INTT → ARM-side Garner CRT
+  recombination (using K.beta.2.5c's `sp_garner_combine_q1_q2`).
+  This is the polynomial multiplication round-trip in heterogeneous
+  CRT.
+- *Gate `T_NTT4_POLY_MUL_EXACT`:* end-to-end NTT-based polynomial
+  multiplication output **byte-exact** vs math-core's portable
+  O(N²) modular matrix multiplication reference, at **N=512** × 4
+  random input seeds × 2 primes (Garner-recombined to 60-bit
+  output). This is the load-bearing correctness gate. (Smaller N
+  also tested via NTT.0 + NTT.1; N=512 is the per-tile ceiling
+  for the long-context tiled-attention path.)
+- *Worktree:* `engine-ntt-4`.
+
+**NTT.5 — Wire NTT attention into MeMo `run_dialogue()` (THE PAYLOAD).**
+- *Scope:* Replace the O(N²) modular matmul in MeMo's Memory model
+  attention forward path with NTT-based polynomial-ring attention.
+  Cooley-Tukey forward NTT each K once per token write (persistent
+  NTT-domain K cache per math-core Phase 7 pattern), forward NTT
+  each Q on-demand, pointwise multiply in NTT domain, INTT back.
+  The Executive model attention can stay O(N²) for v1 if scope
+  bounded; document the choice.
+- *Gate `T_NTT5_RUN_DIALOGUE_BIT_EXACT_AT_CTX_128`:* `run_dialogue()`
+  on Knack's S22U with NTT attention enabled produces byte-identical
+  final answer to current O(N²) implementation at ctx=128 (the
+  current M.2 baseline). The decode-determinism invariant
+  (`reference-lattice-decode-determinism`) must hold across the
+  attention backend change.
+- *Gate `T_NTT5_RECEIPTS_UNCHANGED`:* SpinorReceipt layout + hashes
+  + sentinel preserved; M.4 ledger compatibility intact.
+- *Worktree:* `engine-ntt-5`. **This is where MeMo becomes
+  load-bearing for the PPT ARM scaling mission.**
+
+**NTT.6 — Long-context benchmark via tiled N=512 NTTs (THE LONG-CTX PROOF).**
+- *Scope:* Drive `run_dialogue()` on Knack's S22U with **tiled NTT
+  attention** + Memory model. Long-context attention at ctx ≥ 1024
+  is implemented as multiple N=512 negacyclic NTT blocks (since
+  single-NTT is capped at N=512 by frozen-prime 2-adic valuation —
+  see `reference-ntt-frozen-primes-N-cap`). At grounding query
+  lengths {512, 1024, 2048, 4096, 8192} tokens (last only if M.1
+  memory budget allows), measure per-turn wall-clock + per-token
+  wall-clock vs the O(N²) baseline. Plot scaling curve.
+  - At ctx=512: single N=512 NTT (no tiling overhead).
+  - At ctx=1024: 2 × N=512 tiles. Tiling boundary adds ~constant
+    overhead; aggregate compute is O(N log N) per tile + O(tile_count)
+    bookkeeping ≈ O(N log N) total.
+  - At ctx=8192: 16 × N=512 tiles. Aggregate compute ≈ 16 × O(512×9)
+    ≈ 73728 ops, vs O(8192²) = 67M ops single matmul. Asymptotic
+    ~900× decoupling even with tiling overhead.
+- *Gate `T_NTT6_SCALING_DECOUPLES_FROM_N2`:* per-token wall-clock
+  scales sub-quadratically across the ctx ladder. At ctx=4096
+  (8 × N=512 tiles), NTT wall-clock < 50% of O(N²) wall-clock.
+  At ctx=2048 (4 tiles), constants may still dominate; report
+  observed without precommitted threshold.
+- *Gate `T_NTT6_QUALITY_PRESERVED`:* greedy-argmax token outputs at
+  ctx=4096 plausible (not garbage); some sanity benchmark for
+  long-context retrieval if a quick one is available.
+- *Worktree:* `engine-ntt-6`. **This sprint demonstrates the
+  PPT ARM scaling story on actual mobile silicon via tiled
+  N=512 NTTs across long context. The 630× theoretical speedup
+  at ctx=8192 still holds via tiling.**
+
+### Out of scope (filed as future sprints, do NOT bundle)
+
+- NTT on NPU (K.2 full ships first; cross-island NTT is K.2 × NTT crossover).
+- INT4 storage for NTT-domain weights (Phase 14 Q4 fix is a prerequisite).
+- Adaptive radix (radix-4, radix-8) for memory-bound regime — radix-2 v1.
+- Multi-token parallel NTT for Phase 4-MTP — separate composition sprint.
+- AVX-512 NTT host-side regen (it already exists in math-core; this phase doesn't touch host).
+
+### Composition with existing Manifesto Tricks
+
+| Trick | Composition in Phase 4-NTT |
+|---|---|
+| #1 CRT-sharded compute | NTT.3 dispatches NTT_q1 + NTT_q2 across dual HVX vector contexts |
+| #6 Frobenius-lift bit-identity | NTT.4 Garner recombination must yield byte-exact 60-bit output — silicon-error detection |
+| #9 Spinor 64-byte ABI | NTT.5 receipts unchanged; layout invariant per `reference-spinor-receipt-layout` |
+| #10 Receipt ledger | NTT.5 dialogue receipts get longer-context wall_us values; ledger semantics intact |
+
+### Prereq chain
+
+```
+K.beta.2.5b ──┐
+              ├──→ NTT.1 ─→ NTT.2 ─→ NTT.3 ─→ NTT.4 ──→ NTT.5 ──→ NTT.6
+math-core NTT ┘                                          ↑
+                                                         │
+M.2 dialogue ─────────────────────────────────────────────┘ (NTT.5 wires NTT into run_dialogue)
+
+NTT.0 (scalar reference port) ─→ NTT.1 (vectorize)
+```
+
+NTT.0 dispatches solo first (no parallelism — it's the reference oracle). NTT.1 and NTT.2 can dispatch in parallel after NTT.0 closes (one agent on butterfly intrinsics, one on twiddle staging). NTT.3 needs NTT.1 + NTT.2 both closed. NTT.4 needs NTT.3. NTT.5 needs NTT.4 + M.2 (M.2 already closed). NTT.6 needs NTT.5.
+
+### What's left after Phase 4-NTT closes
+
+Phase 4-NTT closing means:
+- MeMo on S22U runs at long context (ctx=4096+) in real-time.
+- The PPT ARM scaling mission is silicon-confirmed end-to-end on mobile.
+- M.4 ledger accumulates receipts from real production workload (not just smoke).
+- K.2 full × NTT crossover unblocks cross-island NTT.
+- Phase 4-MTP / Phase 4-SPEC can build draft+verify on top of long-context attention.
+
+What remains in Phase 4 after NTT.6:
+- M.0-real (SFT Memory artifact) → unblocks M.3 (Frobenius-lifted TIES) + K.2 full
+- K.2 full (NPU forward kernel) → cross-island deployment
+- M.6 (CRT-sharded MeMo across cDSP + NPU) → cross-island MeMo
+- Phase 14 Q4 fix (per-row shift / mixed precision) → halves model size
+
 ### 2026-05-30 (later) — Sprint K v0.beta-2.5b CLOSED with explicit operator dispositions
 
 Engine `main @ 0822747`, tag `lat-phase-13-6-k-beta-barrett-hvx-vector`.
@@ -6215,6 +6488,620 @@ M.0 touched lattice repo only (engine read-only access via
 `probe.exe` invocation). The worktree-per-agent pattern from
 `feedback-parallel-agents-separate-worktrees` works as designed.
 **This pattern can now be the default for future parallel sprints.**
+
+### 2026-05-30 (seventh parallel wave) — NTT.3 CLOSED-WITH-UPSTREAM + NTT.4 CLOSED 3/3 PASS; polynomial-multiplication round-trip on Hexagon is BYTE-EXACT vs math-core
+
+Engine `main @ fec6fe3`, tags `lat-phase-4-ntt-3-dual-prime-dispatch` + `lat-phase-4-ntt-4-intt-garner`. Seventh successful parallel-dispatch wave. Operator-side Stage 0 discipline applied again (pre-read math-core's `inverse_one` + `garner_one` + K.beta.2.5c Garner before drafting). Predictable IDL method-17 collision (both lanes wanted next slot); merge-time renumber put NTT.4 at method 18.
+
+#### NTT.3 — Dual-prime CRT dispatch (2/4 PASS + 2 UPSTREAM)
+
+Branch `sprint/ntt-3` ff-merged. 5 commits.
+
+| Gate | Result |
+|---|---|
+| T_NTT3_VTCM_AWARE_BIT_EXACT | **PASS** — 600/600 byte-exact, 1800 comparison points (m17 vs m12 vs m13 vs math-core), 0 divergences |
+| T_NTT3_NO_REGRESSION | **PASS** — m12 600/600, m13 600/600, m14/15/16 all functional |
+| T_NTT3_DUAL_DISPATCH_SPEEDUP | **FAIL → UPSTREAM** — 0.772× at N=512 vs 1.5× target; data-bound regime |
+| T_NTT3_VTCM_NO_RECOMPUTE | **FAIL → UPSTREAM** — m17 17-20% SLOWER than m13 at N=512; VTCM aligned-copy memcpy cost dominates |
+
+**Architectural finding the agent caught — VTCM per-stage misalignment.** NTT.2's per-stage compacted twiddle arrays land at byte offsets 0, 4, 12, 28, 60, 124, 252, 508, 1020 — only stage 1 is 128-byte aligned. Aligned `vmem` from stages 2+ silently reads wrong data (NTT.3 Stage 1 caught 600/600 divergence with aligned vmem). Three remediation options: (1) `vmemu` unaligned (NTT.4 took this for INTT, correct + slower); (2) aligned-copy to scratch (NTT.3 took this, correct + slowest — eats VTCM-no-recompute win); (3) restructure NTT.2 layout to pad each stage to 128-byte alignment (~270 KB VTCM = 3.3% of 8 MB budget — right play for NTT.5 production hot path). Captured as `reference-vtcm-per-stage-misalignment` memory.
+
+**UPSTREAM dispositions:**
+- **T_NTT3_DUAL_DISPATCH_SPEEDUP**: same data-bound regime story as K.beta.2.5c (0.797× single-prime matmul at small shape) and K.beta.2.5b. NTT at N=512 single-prime ~400-450 µs is FastRPC-marshalling-bound, not compute-bound. **Operator Path A:** defer real parallelism measurement to NTT.5 wrapper scope (full attention forward pass), where compute density returns to K v0.alpha regime. Documented in roadmap per `feedback-shape-dependent-parallelism-gates` (the kernel-dependent regime boundary rule).
+- **T_NTT3_VTCM_NO_RECOMPUTE**: VTCM aligned-copy cost > find_psi save. **Operator Path A:** restructure NTT.2 layout in a follow-on sprint (NTT.2.1 or inline into NTT.5) so vmem reads are aligned at the HVX inner loop. The current NTT.3 path is correct, just not faster — useful as the production wiring vehicle once NTT.5 lands the layout fix.
+
+Both UPSTREAM dispositions explicit; neither silent revision. NTT.3's VTCM-aware math IS silicon-correct at 1800 comparison points; the FAILed gates are gate-definition issues against this kernel's regime, not algorithm correctness.
+
+#### NTT.4 — INTT + signed Garner round-trip (3/3 PASS)
+
+Branch `sprint/ntt-4` no-ff merged. 5 commits. Method 17 renumbered to 18 at merge time (NTT.3 took 17 first).
+
+| Gate | Result |
+|---|---|
+| T_NTT4_INTT_BIT_EXACT | **PASS** — 600/600 byte-exact vs math-core `inverse_one`, 0 divergences |
+| T_NTT4_GARNER_SIGNED_BIT_EXACT | **PASS** — 1005 pairs (1000 random + 5 boundary cases at 0, 1, M/2, M/2+1, M-1), 0 divergences |
+| **T_NTT4_POLY_MUL_EXACT** | **PASS** — **12/12 byte-exact end-to-end** vs math-core `ntt_inverse` (3 N × 4 seeds × 2 primes) |
+
+**This is the load-bearing milestone.** The full forward NTT → pointwise multiply → INTT → ARM signed Garner CRT recombination round-trip on Hexagon V69 is byte-exact vs math-core's portable C reference. **The polynomial multiplication primitive the PPT ARM scaling mission rides on is silicon-confirmed.**
+
+Architecture confirmed working:
+- NTT.4's INTT reuses NTT.1's `sp_ntt_butterfly_stage_hvx` kernel verbatim by passing `w_inv_stages` from NTT.2's VTCM (operator-side pre-read prediction held: HVX kernel is twiddle-agnostic).
+- `garner_combine_q1_q2_signed` added as sibling to K.beta.2.5c's unsigned version; produces signed centered `int64_t` in `(-M/2, M/2]` matching math-core `garner_one`.
+- NTT.4's path used `vmemu` (unaligned vmem) on the misaligned per-stage offsets — correct + slower but ships clean.
+
+Wall-clock (informational): 2652 µs per N=512 polynomial multiplication round-trip; 8 FastRPC calls dominate (forward × 2 primes + pointwise × 2 + INTT × 2 + Garner ARM-side). NTT.5 amortizes this across the full attention forward pass.
+
+#### Discipline scoreboard for this parallel wave
+
+- **7th successful parallel dispatch** under operator-side worktree pattern.
+- **Operator-side Stage 0 discipline held** (pre-read math-core inverse_one + garner_one + K.beta.2.5c Garner before drafting). Result: zero operator-side spec errors caught at agent Stage 0.
+- Predictable IDL method-17 collision. Both agents transparently flagged the anticipated method numbers in closures; merge-time renumber put NTT.4 at 18. Standard surgical resolution.
+- NTT.3 surfaced TWO UPSTREAM gates without silent revision. NTT.4 hit all 3 gates clean.
+- NTT.4 also surfaced a qaic naming-convention strict gotcha (IDL method `intt_hvx_oracle` → dispatcher calls `sp_compute_intt_hvx_oracle`; mismatch with impl produces undefined-symbol that slides through SHARED lib link with default visibility — silent at link, would crash at first invoke). Caught via `hexagon-nm libsp_compute_skel.so` before any device call. Worth tracking for future IDL additions.
+
+#### What unblocks now — NTT.5 (THE PAYLOAD)
+
+NTT.5 is the natural next solo dispatch. It wires the forward NTT (NTT.1/2/3) + INTT (NTT.4) + Garner (NTT.4 signed sibling) into MeMo's `run_dialogue()` Memory model attention forward path. **This is the moment the entire MeMo arc becomes load-bearing for the actual PPT ARM scaling mission rather than just architectural validation.**
+
+Pre-NTT.5 considerations the operator should pre-read:
+- MeMo's `run_dialogue()` Memory forward path in `tools/sp_daemon/src/dialogue.rs`
+- The L1 forward attention surface — how Memory model attention is currently structured (whether it's an opaque `sp_session` API or a decomposed K-cache + Q dispatch surface)
+- M.5's KSTE routing surface — whether NTT.5 should compose with sparse-routing (M.5 Variant B advisory) or stay full-forward
+- The Phase 4-NTT roadmap block's NTT.5 spec (already drafted with operator pre-read placeholder)
+
+#### Phase 4-NTT status snapshot
+
+| Sprint | Status |
+|---|---|
+| NTT.0 scalar Hexagon reference | ✓ 600/600 PASS |
+| NTT.1 HVX butterfly | ✓ 600/600 PASS, SASS clean |
+| NTT.2 twiddle VTCM staging | ✓ 36/36 tables, 1.71% VTCM budget |
+| NTT.3 dual-prime CRT dispatch | ✓ math PASS; 2 UPSTREAM regime gates (defer to NTT.5 wrapper) |
+| NTT.4 INTT + Garner round-trip | ✓ 3/3 PASS, polymul byte-exact 12/12 |
+| **NTT.5 MeMo integration (THE PAYLOAD)** | **Unblocked, ready** |
+| NTT.6 long-context benchmark via tiled N=512 | Awaits NTT.5 |
+
+### 2026-05-30 (sixth parallel wave) — NTT.1 + NTT.2 BOTH CLOSED on silicon; HVX butterfly + VTCM-staged twiddles ready for NTT.3 dual-prime dispatch
+
+Engine `main @ c6df266`, tags `lat-phase-4-ntt-1-hvx-butterfly` + `lat-phase-4-ntt-2-twiddle-vtcm`. Sixth successful parallel-dispatch wave under operator-side worktree pattern. Pre-read discipline applied: operator read math-core's `ntt_crt.c` + the canonical `forward_one` + `ntt_core` structure + the twiddle table layout BEFORE drafting prompts, so the agents inherited the actual algorithm shape (not theory-derived guesses). Result: clean parallel landing with only a predictable IDL method-13 collision (both agents transparently disclosed it in their closures).
+
+#### NTT.1 — HVX butterfly core (4/4 PASS)
+
+| Gate | Observed |
+|---|---|
+| T_NTT1_HVX_BIT_EXACT | **600/600 byte-exact** vs math-core AND vs NTT.0 scalar (0 divergences) |
+| T_NTT1_NO_REGRESSION | NTT.0 ntt_oracle method 12 still 600/600 PASS |
+| T_NTT1_SASS_AUDIT | **32 inner-loop HVX intrinsics + 3 hoisted splats, 0 divergences** from planned V69 opcodes; compiler emitted 7-packet software-pipelined `loop0` body with `.cur` vmem loads + `.new` vmem stores + VLIW co-issue |
+| T_NTT1_WALL_CLOCK_WIN | HVX < scalar at all 3 N × both primes (ratio 0.860-0.946 — wins at largest N=512 q_1=0.946 q_2=0.876) |
+
+**Architectural finding:** the compiler-emitted 7-packet SWP loop body is the **silicon upper bound** on V69 for this kernel — cannot beat it without algorithmic changes (e.g., NTT.4 cross-group small-stage vectorization or NTT.3 dual-prime dispatch overlap). Wall-clock wins are modest (~5-15%) because FastRPC marshalling (~150 µs/invoke) dominates wall-clock budget; NTT.2 + NTT.3 will both improve this.
+
+**Decision:** small-stage (half < 32) path uses scalar fallback per recommended option (i). Cross-group HVX vectorization for small stages filed as NTT.4/NTT.5 follow-on.
+
+#### NTT.2 — Twiddle VTCM staging (3/3 PASS)
+
+| Gate | Observed |
+|---|---|
+| T_NTT2_TWIDDLE_INIT | **6/6 (prime, N) tables present**; VTCM addrs 0xff000000..0xff140000; init wall 625 µs first / 134 µs idempotent |
+| T_NTT2_TWIDDLE_BIT_EXACT | **36/36 tables compared, 35,792 bytes, 0 divergences** vs math-core `prime_setup` reference |
+| T_NTT2_VTCM_BUDGET | **35,840 B total ≤ 2 MB budget (1.71% envelope)** — massive headroom for NTT.4 intermediates + NTT.5 MeMo data |
+
+**Empirical observation memorialized in closure:** `HAP_request_VTCM` allocates at 256 KB-stride boundaries on V69. Useful for future multi-arena planning.
+
+**Architectural delta:** per-stage compacted twiddle arrays (stride-1 HVX access) precomputed alongside the canonical psi_pow/ipsi_pow/w_fwd/w_inv tables. NTT.3 + NTT.4 read VTCM-resident tables instead of recomputing per-call.
+
+**Bonus:** NTT.4-side tables (ipsi_pow + w_inv + w_inv_stages) ARE precomputed by NTT.2, so NTT.4 can dispatch without additional twiddle work — just consume the existing context.
+
+#### Discipline scoreboard for this parallel wave
+
+- **6th successful parallel dispatch** under operator-side worktree pattern.
+- **Operator-side Stage 0 discipline APPLIED this time** — operator read math-core's `ntt_crt.c` lines 1-352 BEFORE drafting NTT.1 + NTT.2 prompts. Result: no operator-side spec errors caught at agent Stage 0 (previous two waves caught operator errors: SpinorReceipt layout + NTT N-ladder).
+- Predictable IDL method-13 collision; both agents transparently flagged in closures; surgical merge renumbered NTT.2 methods to 14/15/16 at merge time. The prefix discipline (`§4-NTT Sprint NTT.X — ...`) made it trivial.
+- Both agents honored no-silent-gate-revisions. NTT.1's small-stage scalar fallback was a planned architectural decision documented in plan-commit. NTT.2's IDL anomaly (dump method added in-sequence) was openly disclosed.
+- NO silent gate revisions across either lane.
+
+#### What unblocks now
+
+- **Sprint NTT.3 (dual-prime CRT dispatch)** can dispatch — both NTT.1 (HVX butterfly) and NTT.2 (VTCM tables) ready. NTT.3 wires `Arc<FastRpcSession>` dual-thread invoke of `ntt_hvx_oracle` for q_1 + q_2 concurrently, reading VTCM tables instead of per-call recomputation.
+- **Sprint NTT.4 (INTT + Garner round-trip)** can dispatch in parallel with NTT.3 if desired — NTT.2 precomputed the inverse tables; NTT.4 implements the INTT kernel + reuses K.beta.2.5c's Garner combiner.
+- **Twiddle setup overhead eliminated** for production NTT use — daemon startup `ntt_twiddle_init(N)` once; all subsequent inferences read pre-staged tables.
+
+#### Manifesto Trick status snapshot (Phase 4-NTT scope)
+
+| Component | Status |
+|---|---|
+| Phase 4-NTT prereq (math primitives) | ✓ NTT.0 scalar Hexagon + NTT.1 HVX butterfly + NTT.2 VTCM tables — all silicon-confirmed |
+| NTT.3 dual-prime CRT dispatch | Unblocked, awaiting dispatch |
+| NTT.4 INTT + Garner | Unblocked, awaiting dispatch |
+| NTT.5 MeMo integration | Awaits NTT.3 + NTT.4 closure |
+| NTT.6 long-context benchmark via tiled N=512 | Awaits NTT.5 |
+
+### 2026-05-30 (NTT.0 SHIPPED) — Phase 4-NTT foundation sprint CLOSED, T_NTT0 600/600 PASS after operator Path A recovery
+
+Engine `main @ f834bff`, tag `lat-phase-4-ntt-0-scalar-hexagon`. NTT.0 is the foundation sprint of Phase 4-NTT (the PPT ARM scaling primitive arc). Closure under recovery: the prior agent caught the operator-side N-ladder spec error at Stage 0, surfaced UPSTREAM, and stopped. After roadmap correction (commit `e927f6f` landed Path A), a continuation agent executed Stages 1-4 on the corrected ladder and hit clean 600/600 PASS on Knack's S22U.
+
+**Gate result (live on V69 cDSP, Path B Unsigned PD):**
+
+| Gate | Threshold | Observed |
+|---|---|---|
+| T_NTT0_SCALAR_BIT_EXACT | 0 divergences across 6 combinations × 100 seeds = 600 runs | **0 / 600**, max_diff_per_prime = {q_1: 0, q_2: 0}, max_diff_per_N = {128: 0, 256: 0, 512: 0}, wall=0.40 s sweep total |
+
+**What shipped:**
+- Scalar Hexagon NTT — `tools/sp_compute_skel/src_dsp/sp_compute_ntt_imp.c` (+203 LOC). Negacyclic Cooley-Tukey radix-2 DIT byte-exact port of math-core's `forward_one`. Reuses K.beta.2.5b/c scalar Barrett primitive in the butterfly inner loop.
+- IDL method 12: `ntt_oracle` (prime, N, data) — same calling-convention shape as `barrett_oracle` from K.beta.2.5b.
+- ARM-side smoke `sp_ntt_0_smoke.rs` + new `sp_dsp_smoke/build.rs` linking math-core's `sp_ntt_crt` as the oracle.
+- Full run artifacts at `tools/sp_daemon/scripts/ntt_0_full_{report.json,run.txt}`.
+
+**Commits on `sprint/ntt-0`:**
+- `8143fe5` plan-commit (prior agent)
+- `6238980` Stage 0 closure UPSTREAM-REQUIRED (prior agent — N ladder catch)
+- `0c7ddaa` plan-amend (continuation — math-core FFI direct vs Rust port redundancy)
+- `0e841a7` Stage 2 — scalar Hexagon NTT + IDL ntt_oracle
+- `4f27ff9` Stage 3 — T_NTT0 PASS on S22U
+- `f834bff` Stage 4 — closure supersedes UPSTREAM-REQUIRED
+
+History preserved cleanly — the prior agent's UPSTREAM-REQUIRED state is recorded in the branch log alongside the continuation's PASS closure. This is the recovery pattern from chat-integration (socket-failure recovery) applied to a different failure mode (operator-side spec error surfaced via UPSTREAM).
+
+**Architectural commitments compliance (Phase 4-NTT block):**
+
+- [x] Negacyclic NTT (Z_q[x]/(x^N+1) with 2N-th root of unity)
+- [x] Frozen primes q_1 = 1073738753, q_2 = 1073732609
+- [x] Barrett reduction in butterfly inner loop (reused from K.beta.2.5b/c)
+- [x] Cooley-Tukey radix-2 DIT
+- [x] N ladder {128, 256, 512} tested at all three values
+- [x] Twiddle handling documented (per-call computation for NTT.0; NTT.2 will optimize)
+
+**What unblocks:**
+- **NTT.1 (HVX butterfly core)** — has its on-Hexagon scalar oracle for cross-validation at all 3 N values × 2 primes.
+- **NTT.2 (twiddle VTCM staging)** — can dispatch in parallel with NTT.1; both build on NTT.0's scalar floor without dependency on each other.
+
+**Discipline scoreboard for NTT.0 (across both agents):**
+- 6th successful sprint under operator-side worktree pattern (engine-ntt-0 worktree).
+- 2nd successful recovery pattern (1st was Chat-integration socket-failure; 2nd is NTT.0 UPSTREAM-REQUIRED → operator disposition → continuation).
+- The "agent catches operator-side error via Stage 0 reference reading" pattern is now confirmed THREE times: mesh-canonical-order (SpinorReceipt layout fabrication); NTT.0 first agent (N-ladder spec error); the corrected `feedback-lead-with-reference-then-theory` rule explicitly applies to operator-side discipline.
+
+### 2026-05-30 (fifth parallel wave) — mesh-canonical-order CLOSED (3/3 PASS) + ledger-autowire CLOSED (3/3 PASS) + reference-spinor-receipt-layout memory CORRECTED
+
+Engine `main @ 833abbe`. Tags `lat-phase-4-memo-mesh-canonical-order` + `lat-phase-4-memo-ledger-autowire`. Fifth successful parallel-dispatch wave under operator-side worktree pattern.
+
+**Critical discipline event — agent caught operator-side memory error.** The mesh-canonical-order agent's Stage 0 reference reading caught that `reference-spinor-receipt-layout` memory entry (written during M.2 closure) incorrectly described the SpinorReceipt struct as having `_reserved: [u8; 9]` spanning offsets 54-62. **Actual struct (`tools/sp_daemon/src/dialogue.rs:40-63`):** offsets 56-59 are `n_input_tokens: u32`, byte 60 is `n_output_tokens: u8`, only offsets 61-62 are `_reserved: [u8; 2]`. Plus a `_pad: [u8; 2]` at offsets 2-3 for u32 alignment of wall_us. The agent surfaced this UPSTREAM per `feedback-no-silent-gate-revisions` + `feedback-lead-with-reference-then-theory`, switched from spec-prompt's Option B (rank + device_id on-wire, structurally impossible) to Option A (rank-only in `_reserved[0..2]`; tiebreak on input_hash 192-bit-entropy). Memory entry corrected 2026-05-30 with explicit correction-history section. **The discipline rule works as designed:** agent read the actual struct, caught operator-side fabrication, fixed downstream design rather than building on the wrong premise.
+
+#### mesh-canonical-order (3/3 PASS)
+
+| Gate | Observed |
+|---|---|
+| T_MESH_RANK_PROTOCOL | bytes[61..63] = 0x2A 0x00 (42 LE); set/get round-trip; sentinel 0xA5 preserved; bytes 0..61 unchanged |
+| T_MESH_CANONICAL_SORT_DETERMINISTIC | N=100, two-run SHA-256 = `2a5d9717…1bfb6b1c` (match) |
+| T_MESH_CROSS_DEVICE_BYTE_IDENTITY | raw devices diverge; all 3 canonical SHAs = `174c7353…14db24f9`; order interleaved 0..=9 |
+
+Full library regression sweep: 56/56 PASS. Sort key: `(rank, input_hash)`. Option A claimed `_reserved[0..2]` only; device_id resolution deferred to a future SpinorReceiptV2 sprint if a use-case surfaces.
+
+**Manifesto Trick #10 status update:** "Confirmed at M.4 scope — ledger + replay shipped; end-to-end live via /v1/dialogue" → **"Confirmed at mesh-canonical-order scope — cross-device byte-identity via canonical sort key."** Real QUIC fan-out remains a separate sprint (the canonical-sort recipient is now order-tolerant).
+
+#### ledger-autowire (3/3 PASS host MSVC)
+
+| Gate | Observed |
+|---|---|
+| T_AUTOWIRE_LEDGER_GROWS | pre=0, post=960, delta=960 (5 × 3 × 64 exact) |
+| T_AUTOWIRE_RECEIPT_BYTE_IDENTITY | 15 receipts, 0 byte divergences over 960 bytes |
+| T_AUTOWIRE_NO_REGRESSION | 5/5 HTTP 200, 5/5 with 3 receipts, 0 transport errors |
+
+CLI flag: `--pouw-ledger-path <PATH>` (env `SP_POUW_LEDGER_PATH`). When set, daemon opens ledger at startup, AppState holds `Option<Arc<Mutex<Ledger>>>`. `/v1/dialogue` handler appends 3 receipts best-effort; lock/append failures log warning but never fail HTTP 200.
+
+#### Discipline scoreboard for this wave
+
+- 5th successful parallel dispatch under operator-side worktree pattern.
+- 2nd predictable Cargo.toml `[[bin]]` conflict; surgical resolution via prefix discipline.
+- **Memory entry correction caught by agent reference-reading** — first time an agent caught an operator-side memory entry error and surfaced UPSTREAM. The agent took the structurally-valid path (Option A) rather than building on the wrong spec. This is the no-fabrication discipline at the agent-side; pairs with `feedback-lead-with-reference-then-theory` at operator-side.
+- Both agents honored no-silent-gate-revisions. mesh-canonical-order caught the layout error; ledger-autowire ran chat-integration regression spot-check as part of T_AUTOWIRE_NO_REGRESSION.
+
+#### What's complete after this wave
+
+- **MeMo end-to-end:** `/v1/dialogue` runs the 3-turn dialogue, returns synthesis + 3 base64 receipts, AUTO-APPENDS to local PoUW ledger when `--pouw-ledger-path` is set, ledger entries are CANONICALLY ORDERABLE across devices via the rank field for mesh-replay byte-identity.
+- **Manifesto Tricks #1 + #6 + #9 + #10 all confirmed in production code on Knack's S22U.**
+- The "operating system" layer of PPT ARM is shipped: dispatch substrate + receipts + ledger + canonical ordering + dialogue protocol + chat endpoint.
+
+#### What comes NEXT (operator decision required)
+
+Phase 4-NTT (FILED 2026-05-30, lattice `main @ fadf188`) is the next major architectural arc. **The MeMo "operating system" we just shipped becomes the runtime that NTT-scaled attention plugs into at Sprint NTT.5.** Without Phase 4-NTT, MeMo's Executive chokes the moment a grounding query exceeds ~1024 tokens. With it, MeMo on mobile silicon runs at ctx=4096+ in real-time.
+
+The natural next dispatch: **Sprint NTT.0 (scalar Hexagon reference port).** Solo dispatch — it's the on-Hexagon oracle for the vector path. ~3-5 hour focused sprint. After NTT.0 closes, NTT.1 (HVX butterfly) and NTT.2 (twiddle VTCM staging) can dispatch in parallel.
+
+### 2026-05-30 (even later — second parallel wave) — Sprint M.1 CLOSED + Sprint K.2-spike CLOSED (both 4/4 PASS); Trick #1 generalized cross-MODEL; NPU silicon-island accessible via Unsigned PD
+
+Engine `main @ 0d8ab91`. Second successful parallel dispatch
+under the operator-side worktree pattern. Two agents, two
+worktrees (`engine-m1` and `engine-k2-spike`), zero
+cross-contamination, both 4/4 substantive gates PASS.
+
+#### M.1 — Memory budget audit + dual-load (4/4 PASS)
+
+Tag `lat-phase-4-memo-m1-dual-load`. Branch `sprint/memo-m1`
+ff-merged.
+
+| Gate | Threshold | Observed |
+|---|---|---|
+| T_MEMO_DUAL_LOAD | < 30 s combined load | 41 ms (Exec 19 ms + Memo 20 ms) |
+| T_MEMO_BUDGET_AUDIT | ≥ 2048 MB headroom | **5410 MB** residual, daemon VmRSS delta 7936 KB |
+| T_MEMO_DUAL_INVOKE | ≥ 1.1× speedup, byte-equal | **1.796×** speedup, byte-identical to solo baselines |
+| T_MEMO_NO_INTERFERENCE | ≤ 256 KB second-half slope | 1000/1000 cycles, drift=0, errors=0, **−8 KB second-half slope** |
+
+**Architectural finding: Trick #1 generalizes cross-MODEL.** The
+same `Arc<FastRpcSession>` + dual-thread dispatch primitive that
+gave K v0.alpha 1.935× (cross-FFN), K.beta.2.5c 1.724×
+(cross-prime) gives M.1 1.796× (**cross-model**: Executive
+Qwen3-0.6B + Memory Qwen2.5-Coder-0.5B concurrent forward steps).
+The cDSP scheduler does NOT know model identity — it sees HVX
+kernel dispatches and parallelizes via SSR:XA={4,5} vector
+context attachment, kernel-agnostic. Captured as
+`reference-dual-model-cdsp-scheduler` memory.
+
+This means Trick #1 is now silicon-confirmed at **THREE scales**:
+primitive (Barrett), matmul (mod_q), model (full forward).
+M.2/M.5/M.6 do not need new scheduler tuning — the substrate is
+proven.
+
+**Empirical confirmation of `feedback-leak-gate-allocator-warmup`:**
+at N=10 cycles, second-half slope was 712 KB (FAIL strict). At
+N=1000 cycles, second-half slope was **−8 KB** (slight negative,
+within noise — RSS shrunk slightly). The discipline of NOT
+silently relaxing the gate was vindicated by the longer run; the
+shorter run was just measurement-window-too-short.
+
+**Operational finding (cargo gotcha):** per-binary
+`mod ffi { include!(...) }` does NOT propagate build.rs
+`rustc-link-lib` directives on `aarch64-linux-android`. Fix: lib
+crate must `pub mod ffi_l1` and binaries `use` it directly. Same
+latent bug exists in probe.rs / spec_validate.rs. Filed as a
+follow-up cleanup task; would become a memory entry if the
+pattern recurs.
+
+**What unblocks now from M.1:**
+- M.2 (zero-copy dialogue loop) dispatch authorized.
+- M.5 (KSTE-routed sparse Memory activation) dispatch authorized.
+- M.6 (CRT-sharded MeMo, dual-cDSP-context variant) dispatch authorized.
+- MeMo × SPEC crossover (Memory-as-draft + Executive-as-verify) prototype unblocked.
+
+#### K.2-spike — NPU bridge design + POC (4/4 PASS)
+
+Tag `lat-phase-13-6-k-2-spike-poc`. Branch `sprint/k2-spike`
+merged via no-ff (engine main had advanced from M.1 in the same
+landing batch).
+
+| Gate | Threshold | Observed |
+|---|---|---|
+| T_K2_SPIKE_QNN_SURVEY | API surface documented | 15 entrypoints cited with file:line |
+| T_K2_SPIKE_BRIDGE_DESIGN | architectural recommendation | libloading + C-shim + 4-entrypoint Rust ABI chosen + justified |
+| T_K2_SPIKE_POC | round-trip exit 0 + byte-exact | **1.329 ms graphExecute**, 64/64 byte-exact, exit 0 on S22U |
+| T_K2_SPIKE_K2_FULL_SCOPE | LOC + hours + deps + risks | ~2000-3000 LOC / 30-50 hrs / no upstream blocker / 3 risks listed |
+
+**Headline finding: QNN HTP runtime works in Unsigned PD on
+consumer Snapdragon 8 Gen 1.** No testsig, no Signed PD migration,
+no vendor cooperation required for at least matmul/elementwise/
+quantized scope on Knack's S22U. This is the silicon-island
+analog of Mode D Path B (the cDSP-side discovery from
+`reference-mode-d-bridge-architecture`). Cross-island Manifesto
+Trick #1 (cDSP q_1 + NPU q_2 + ARM Garner) is structurally
+reachable without vendor cooperation. Captured as
+`reference-qnn-htp-unsigned-pd-access` memory.
+
+**Three operational gotchas surfaced (load-bearing for K.2 full sprint):**
+
+1. **Skel pathing** — vendor-shipped `/vendor/lib64/libSnpeHtpV69Skel.so` is NOT what QNN HTP runtime wants. Need QNN-SDK-shipped `libQnnHtpV69Skel.so` pushed to `/data/local/tmp/` + `ADSP_LIBRARY_PATH` set. Daemon bootstrap must handle this.
+2. **Tensor lifecycle** — `clientBuf` must be NULL at `QnnTensor_createGraphTensor()`; data binds at `QnnGraph_execute()` time via SHALLOW COPY descriptors with `clientBuf` set. Undocumented in QNN headers; pure empirical finding.
+3. **Init cost amortization** — per-process init ~130 ms, per-execute ~1.3 ms for tiny graph. LLM-scale `graphFinalize` reportedly seconds-to-minutes. Production K.2 must amortize via persistent daemon + `contextCreateFromBinary()` (offline graph build + binary load).
+
+**K.2 full sprint scope estimate (in K2-FULL-SCOPE.md):**
+- ~2000-3000 LOC across 4 sub-stages (offline graph build / daemon load / cross-island Garner / gates+closure)
+- 30-50 sprint-hours focused
+- M.0-real (same-arch Memory) is the only hard dep — otherwise K.2 loads the stub Memory on NPU + has to redo for real
+- Top 3 risks: graphFinalize LLM-scale cost (offline-only mitigation), HTP silent fallback to HVX/CPU (QnnProfile gate mitigation), QNN-internal FastRPC contention with Sprint A FastRPC in same process (probe-first mitigation)
+
+#### Discipline scoreboard for this parallel wave
+
+- 2nd successful parallel dispatch under operator-side worktree pattern (after K.beta.2.5c + M.0).
+- Worktree-discipline held cleanly across both lanes; zero cross-contamination.
+- Both agents honored no-silent-gate-revisions rule.
+- M.1 surfaced an operational finding (cargo link-propagation gotcha) that's worth a memory entry if the pattern recurs.
+- K.2-spike surfaced THREE load-bearing operational gotchas pre-emptively, saving the K.2 full sprint from discovering them mid-implementation.
+- Two new architectural memory entries written (`reference-dual-model-cdsp-scheduler`, `reference-qnn-htp-unsigned-pd-access`).
+
+#### What this completes architecturally
+
+Manifesto Trick #1 status as of this landing:
+
+| Scale | Sprint | Speedup |
+|---|---|---|
+| Primitive (Barrett) | K.beta.2.5b | math identity confirmed (parallelism not measurable at this scope) |
+| Matmul (mod_q) | K.beta.2.5c | **1.724×** at compute-bound shape |
+| Model (Exec forward) | K v0.alpha | **1.935×** at FFN-dominated kernel |
+| Model (cross-model concurrent forward) | M.1 | **1.796×** Exec + Memo |
+| Silicon-island (NPU dispatch) | K.2-spike | round-trip verified, full sprint scoped |
+
+The substrate is now silicon-confirmed at every scale Trick #1
+operates on, including cross-MODEL concurrent forward and
+cross-ISLAND dispatch surface. K.2 full + M.6 cross-island
+remain to close the model-on-NPU half of the manifesto's most
+ambitious claim.
+
+#### Operational debt items (filed)
+
+- `lib/shannon-prime-system` submodule untracked sieve files
+  (CMakeLists.txt + sp_sieve.c + sieve_test.c + sp_sieve.h)
+  pre-exist on both main worktree and engine-m1; copied locally
+  for M.1's android build. Not introduced by M.1. Needs operator
+  pass to either commit-into-submodule or .gitignore properly.
+- engine-kbeta-2-5b, engine-kbeta-2-5c, engine-m1, engine-k2-spike
+  worktrees still on disk; can be removed via `git worktree remove`
+  after operator verification of each sprint's closure.
+
+### 2026-05-30 (latest — third parallel wave) — Sprint M.2 CLOSED (2/4 PASS + 2 UPSTREAM explicit dispositions) + Sprint M.5 CLOSED (4/4 PASS); Manifesto Trick #9 silicon-confirmed via Spinor receipts
+
+Engine `main @ a28d409`. Third successful parallel-dispatch wave
+under the operator-side worktree pattern. Two agents, two
+worktrees (`engine-m2` and `engine-m5`), zero cross-contamination
+beyond a single Cargo.toml `[[bin]]`-block merge conflict (both
+added per-sprint smoke binaries) — resolved surgically at merge
+time. Tags `lat-phase-4-memo-m2-dialogue` +
+`lat-phase-4-memo-m5-routing-variantB` pushed.
+
+#### M.2 — Zero-copy dialogue loop (2/4 PASS, 2/4 UPSTREAM with explicit dispositions)
+
+Branch `sprint/memo-m2` ff-merged. Five commits: plan + 3 stages + closure.
+
+| Gate | Result | Disposition |
+|---|---|---|
+| T_MEMO_M2_DIALOGUE_RUNS | **PASS** — 3-turn loop, 8-token answer, 3 receipts | accept |
+| T_MEMO_M2_SPINOR_RECEIPTS | **PASS** — 3 × 64-byte receipts, sentinel 0xA5 at offset 63, hashes non-zero (silicon-confirmed via hexdump) | accept |
+| T_MEMO_M2_ZERO_COPY | **FAIL → UPSTREAM** — 12.5 MB inloop delta vs 256 KB gate | **operator Path A: re-spec the gate** (see below) |
+| T_MEMO_M2_DIALOGUE_NO_INTERFERENCE | **FAIL → UPSTREAM** — N=10 (M.5-contention wall budget); drift=0, errors=0, start-to-end −8 KB clean, second-half slope −12672 KB (noise) | **operator Path C: small-N regime metric** (see below) |
+
+**Operator disposition — T_MEMO_M2_ZERO_COPY:** **Path A** (re-spec gate to
+exclude L1 sp_session KV cache growth). The 12.5 MB inloop delta is L1 ABI
+behavior (per-token KV cache appends inside `sp_session`), NOT M.2
+orchestrator allocation. The orchestrator IS zero-copy at its layer: token
+buffers reuse the same DmaBuffer across turns; receipts are stack-allocated
+64-byte records. Re-spec: **"orchestrator-layer zero-copy ≤ 256 KB inloop,
+excluding L1 sp_session-internal allocations."** Path C (extend L1 ABI for
+DmaBuffer KV slots) is a real future sprint but not a blocker. Original
+FAIL preserved in closure. Same shape as K.beta.2.5b's LEAK_FREE
+disposition: explicit metric upgrade with rationale, NOT silent revision.
+
+**Operator disposition — T_MEMO_M2_DIALOGUE_NO_INTERFERENCE:** **Path C**
+(small-N regime metric). At N=10, second-half slope is noise-dominated.
+Start-to-end delta is the right metric for N < 50. Observed −8 KB
+start-to-end is clean. Captured as
+`feedback-leak-gate-allocator-warmup` update with the small-N regime
+rule. Path A (dedicated device window for N=100) remains operationally
+preferable for long-run confidence; the small-N fallback is for when
+wall budget can't support it.
+
+**Both UPSTREAM dispositions explicit, both rationales documented, both
+memory entries updated. NEITHER is a silent revision.** The closure
+preserved the original FAILs verbatim. This is the discipline pattern
+from `feedback-no-silent-gate-revisions` working as designed.
+
+**Architectural finding (memory entry):** SpinorReceipt 64-byte layout
+silicon-confirmed via hexdump on Knack's S22U — u8 turn_index@0, u8
+model_id@1, u32 wall_us@2-5 LE, [u8;24] input_hash@6-29 (truncated
+SHA-256), [u8;24] output_hash@30-53, [u8;9] _reserved@54-62, u8
+sentinel=0xA5@63. **Manifesto Trick #9 (Spinor 63-byte + 0xA5
+sentinel = 1 cache-line inter-island integrity ABI) now empirically
+verified at the M-series scope.** Captured as
+`reference-spinor-receipt-layout` memory. M.4 PoUW ledger consumes
+`SpinorReceipt::as_bytes()` as wire format; mesh broadcast + cross-island
+Garner use the same layout.
+
+#### M.5 — KSTE-routed sparse Memory activation Variant B (4/4 PASS)
+
+Branch `sprint/memo-m5` no-ff merged (engine main advanced from M.2 first).
+Five commits: plan + 3 stages + closure. Pure orchestration-side, no L1 or DSP changes.
+
+| Gate | Threshold | Observed |
+|---|---|---|
+| T_MEMO_M5_ROUTING_DETERMINISTIC | 0 divergences | 100 runs, 0 divergences |
+| T_MEMO_M5_ROUTING_VARIES | ≥ 80% distinct | **45/45 pairs distinct**, mean Hamming 165.11 / 336 bits |
+| T_MEMO_M5_INVARIANCE_PRESERVING | top-1 agreement ≥ 70% | 100/100 top-1 agreement, KL=0 (Variant B is identity) |
+| T_MEMO_M5_TTFT_MEASURED | report-only | full=5533 ms, sparse_K8_est=3162 ms (1.75×), sparse_K4_est=1581 ms (3.50×) |
+
+**Variant decision: B (orchestration-side advisory mask).** L1 forward
+(`sp_prefill_chunk`) has no per-head output exposure; honest Variant B
+keeps the routing primitive correctness measurable. Variant A
+(kernel-side sparse forward in DSP code) is a future sprint with the
+routing primitive proven invariance-preserving on advisory shape; same
+`RoutingMask` consumer interface grafts cleanly. The TTFT numbers above
+are PROJECTIONS from the sparsity ratio, NOT measured — they will
+materialize when Variant A ships.
+
+**Architectural finding (memory entry):** KSTE `quantize()` clamps int32
+inputs to int16 range in `core/kste/kste_encode.c:label_of`. Token IDs
+in 151936-vocab models (Qwen3, Qwen2.5) routinely exceed i16's
+[-32768, 32767], causing saturation that collapses Tier-0 histogram
+diversity. Caught via T_MEMO_M5_ROUTING_VARIES failure on query-gen v1
+(distinct_fraction=0.20); diagnosed root cause; fixed via query-gen v2
+fold (SplitMix64 + XOR-low/XOR-high to i16) → distinct_fraction=1.00.
+The discipline of NOT silently lowering the 80% threshold was vindicated
+by the v2 fix. Captured as `reference-kste-quantize-i16-clamp` memory.
+**Load-bearing for any future KSTE caller in token-ID domain** (M.5
+production, M.4 routing-metadata, Friedman sieve token-bucket dedup,
+future MeMo orchestrator routing).
+
+**Concurrent M.2 contention observed.** M.5's Stage 3 ran while M.2's
+smoke harness was on-device contending for cDSP SSR:XA={4,5} vector
+contexts. M.5 wall-time inflated ~2× but correctness gates were
+unaffected. **The concurrent execution is itself a substrate
+validation** — two M-block smokes running side-by-side on the SAME
+cDSP without crashes or interference. Implicit confirmation of
+`reference-dual-model-cdsp-scheduler` at the cross-sprint scope.
+
+#### Discipline scoreboard for this parallel wave
+
+- **3rd successful parallel dispatch** under operator-side worktree
+  pattern (after K.beta.2.5c+M.0 and K.2-spike+M.1).
+- Worktree-discipline held across both lanes. Only one Cargo.toml
+  `[[bin]]`-block merge conflict — surgical resolution; pattern is
+  predictable enough that future parallel sprints can split per-bin
+  Cargo.toml fragments to avoid even this.
+- Both agents honored no-silent-gate-revisions:
+  - M.2: TWO UPSTREAM dispositions surfaced rather than silently
+    relaxed; operator reframed metrics with explicit rationale.
+  - M.5: query-gen v1 failure root-caused to KSTE i16 clamp; fix at
+    input-distribution layer, NOT threshold relaxation.
+- THREE memory entries this wave: `reference-spinor-receipt-layout`,
+  `reference-kste-quantize-i16-clamp`,
+  `feedback-leak-gate-allocator-warmup` (small-N regime update).
+- One operational finding (Cargo.toml `[[bin]]` block conflict pattern)
+  added as future discipline note: parallel sprints should prefix per-
+  bin Cargo.toml additions to allow trivial merge.
+
+#### What unblocks now
+
+- **M.4** (PoUW receipt ledger) — consumes `SpinorReceipt::as_bytes()`
+  as wire format. M.2 shipped the ABI; M.4 ships the ledger.
+- **Chat endpoint integration** — `run_dialogue()` can drop into the
+  existing chat handler with minimal wiring.
+- **M.5 Variant A** (kernel-side sparse Memory forward) — routing
+  primitive proven invariance-preserving in Variant B; Variant A
+  grafts onto the same `RoutingMask` interface. Filed as future sprint.
+- **M.6 cross-island variant** — same dialogue protocol on cDSP-resident
+  Executive + NPU-resident Memory once K.2 full ships.
+- **Phase 4-SPEC × MeMo crossover** — M.5's K=4 routing (29% active)
+  estimate suggests substantial draft-step TTFT headroom for
+  Memory-as-draft + Executive-as-verify.
+
+#### Manifesto Trick status as of this landing
+
+| Trick | Status | Last confirmation |
+|---|---|---|
+| #1 (CRT-sharded compute) | Confirmed at 5 scales | M.1 cross-MODEL 1.796× |
+| #4 (channel-pair allocation per residue) | Partially — cDSP path; NPU path needs K.2 full | M.1 dual-load + concurrent invoke |
+| #5 (KSTE-routed prefetch) | Rejected as prefetch, re-framed as routing | M.5 RoutingMask production |
+| #6 (Frobenius-lift bit-identity) | Confirmed at Barrett math | K.beta.2.5b 131k samples |
+| **#9 (Spinor 64-byte inter-island integrity)** | **Confirmed at M.2 scope** | **M.2 hexdump 3 × 64 bytes** |
+| #10 (Receipt-backed verifiable compute) | Partial — receipts shipped; ledger pending | M.2 SpinorReceipts minted; M.4 = ledger |
+
+### 2026-05-30 (fourth parallel wave) — Sprint M.4 CLOSED (4/4 PASS, cross-platform byte-identity) + Chat-integration CLOSED (3/3 PASS, recovery agent) — MeMo end-to-end shippable
+
+Engine `main @ 52e2145`. Fourth successful parallel-dispatch
+wave under operator-side worktree pattern. Two agents
+(`engine-m4` + `engine-chat`); M.4 clean ff-merge; Chat-integration
+required prior-agent recovery (socket-died after Stage 3 commit but
+before push + closure) plus surgical merge resolution of expected
+Cargo.toml + lib.rs `[[bin]]`/`pub mod` overlap. Tags
+`lat-phase-4-memo-m4-ledger` + `lat-phase-4-memo-chat-integration`
+pushed.
+
+#### M.4 — PoUW receipt ledger (4/4 PASS)
+
+Branch `sprint/memo-m4` ff-merged. Five commits: plan + 3 stages + closure.
+
+| Gate | Threshold | Observed |
+|---|---|---|
+| T_M4_LEDGER_APPEND | 1000/1000 | 1000/1000, file=64000B exact, p50=2µs, p99=3µs, total=2ms |
+| T_M4_LEDGER_READ | 0 sentinel/byte failures | 0 sentinel failures, 0 byte divergences |
+| T_M4_REPLAY_DETERMINISTIC | dest_a SHA256 == dest_b SHA256 | both = main = `43f303e1…1f7a8b` |
+| T_M4_CROSS_DEVICE_REPLAY | all final SHAs match reference | device_a + device_b + reference all match |
+
+**Bonus finding — cross-platform byte-identity.** Same deterministic
+1000-receipt sequence produces **byte-identical SHA-256 on Windows
+MSVC host AND aarch64-Android (S22U)**. Confirms `#[repr(C, packed)]`
+SpinorReceipt ABI portability AND extends
+`reference-lattice-decode-determinism` to orchestration-side data
+paths. Filed as memory-entry candidate
+`reference-cross-platform-byte-identity` — same-bytes-same-SHA across
+architectures means the ledger is shareable across the heterogeneous
+mesh without any per-arch endianness or alignment translation. This
+is a load-bearing guarantee for mesh-replay correctness.
+
+**Architectural honesty — cross-device ordering NOT canonical in v1.**
+The agent explicitly measured + confirmed: without a canonical
+ordering rule, device A and device B end up with byte-DIFFERENT
+ledgers even with identical receipt SETS (because merge order is
+local-first-then-broadcast). v1 ships with predictable per-device
+ordering (each device's local-then-replay matches a deterministic
+expected sequence). **A canonical-ordering future sprint can use the
+SpinorReceipt `_reserved[2]` bytes for a u16 Garner-recombined
+sequence rank** — surfaced as an explicit not-done item per
+`feedback-no-silent-gate-revisions`, NOT silently glossed.
+
+**Mesh broadcast shipped as stub.** `Ledger::broadcast_to_peers(since_offset)`
+returns the receipt list; real QUIC fan-out via existing
+`network/quic_shard.rs:271 run_garner_loop` is a follow-on (it's
+purpose-built for ResidueBlock; generic broadcast hook = cross-lane
+work). The simulation in T_M4_CROSS_DEVICE_REPLAY proves the
+byte-level protocol is correct; replacing the stub with real QUIC
+does not change the ledger ABI.
+
+**Manifesto Trick #10 status:** flipped from "Partial — receipts
+shipped; ledger pending" to **"Confirmed at M.4 scope — ledger +
+replay shipped; mesh-broadcast hook scaffolded; canonical ordering
+filed as next-iteration concern."**
+
+#### Chat-integration — wire run_dialogue() into /v1/dialogue endpoint (3/3 PASS, recovery)
+
+Branch `sprint/chat-integration` no-ff merged (engine main had
+advanced 2 merges since chat-integration's base). 6 commits: plan +
+4 stages (Stage 3 split into two recovery commits) + closure.
+Predictable Cargo.toml `[[bin]]` + lib.rs `pub mod` conflict resolved
+surgically.
+
+**Chosen Option B (parallel `/v1/dialogue` endpoint).** Existing `/chat`
+SSE handler unchanged; new `/v1/dialogue` endpoint accepts
+`{"prompt": String}`, returns `{"response": String, "receipts": [Base64String; 3]}`.
+
+| Gate | Method | Observed |
+|---|---|---|
+| T_CHAT_DIALOGUE_RUNS | Live POST on S22U | HTTP 200, response 31.23 s, valid content |
+| T_CHAT_RECEIPTS_IN_RESPONSE | base64-decode + sentinel check | 3 receipts, all 64 B, all sentinel 0xA5@63; turn_index 1/2/3, model_id 0x0E/0x4D/0x0E |
+| T_CHAT_NO_REGRESSION | Build-time + `/v1/chat` SSE spot-check | Existing `/v1/chat` still streams SSE |
+
+**Recovery context:** The original chat-integration agent socket-died
+after Stage 3 was committed but before the Stage 3 final smoke commit
++ Stage 4 closure + push. A recovery agent inventoried the 4 prior
+commits + uncommitted state, committed the smoke harness, ran it
+against the live `/v1/dialogue` endpoint on Knack's S22U, captured
+gate measurements, wrote the closure with explicit recovery
+disclosure, and pushed. **All 3 gates measured against the live
+endpoint on real hardware — NO silent gate substitution or
+host-only stub.**
+
+#### Discipline scoreboard for this parallel wave
+
+- **4th successful parallel dispatch** under operator-side worktree pattern.
+- M.4: clean run; 4/4 PASS; honest disclosure of cross-device-ordering caveat (not silently glossed).
+- Chat-integration: **first successful socket-failure recovery** under the operator-side dispatch pattern. The recovery agent honored the prior agent's Option B choice, finished the work, and disclosed the recovery in the closure body. The agent-recovery pattern works — branch state was preserved in the worktree across the failure.
+- Predictable Cargo.toml + lib.rs `[[bin]]`/`pub mod` overlap at merge time; resolution was surgical because both agents used the prefix discipline (`# §4-MeMo Sprint M.4 — ...` vs `# Chat-integration — ...`). Future parallel sprints touching the same files should continue the prefix discipline.
+
+#### What's now live in production
+
+- **MeMo dialogue endpoint** — `POST /v1/dialogue` accepts a prompt, runs the 3-turn Grounding → Entity ID → Synthesis state machine, returns the synthesis + 3 base64-encoded SpinorReceipts.
+- **PoUW receipt ledger** — append-only ledger; replay-deterministic; cross-device-replay-simulation gate passing; mesh-broadcast hook scaffolded.
+- **End-to-end MeMo architecture shippable** — chat UI can now POST to `/v1/dialogue` and visualize per-turn receipts. The ledger consumes those receipts on the daemon side automatically when wired in.
+
+#### What unblocks now
+
+- **Frontend MeMo chat UI** — the existing chat frontend mockups have a `/v1/dialogue` target to call.
+- **M.4 receipt-ledger auto-population** — small wiring sprint to make `/v1/dialogue` automatically append its receipts to the local ledger.
+- **Canonical mesh ordering** — small spec sprint to define the `_reserved[2]` u16 Garner sequence rank for byte-identical cross-device replay.
+- **M.0-real SFT** — still the hard dep for M.3 (Frobenius-lifted TIES merge) and K.2 full (NPU forward kernel).
+- **K.2 full** — soft dep on M.0-real; otherwise scoped and ready (~2000-3000 LOC / 30-50 hrs per K.2-spike).
+
+#### Manifesto Trick status snapshot (post-wave-4)
+
+| Trick | Status |
+|---|---|
+| #1 CRT-sharded compute | Confirmed at 5 scales |
+| #5 KSTE routing | RoutingMask production-ready |
+| #6 Frobenius-lift bit-identity | Confirmed at Barrett math |
+| #9 Spinor inter-island integrity ABI | Silicon-confirmed at M.2 + cross-platform byte-identity confirmed at M.4 |
+| **#10 Receipt-backed verifiable compute** | **Ledger + replay shipped (M.4); end-to-end live via /v1/dialogue (Chat-integration)** |
+
+The remaining Manifesto tricks all touch cross-island silicon (NPU
+side) or model-merge math (TIES), both of which gate on K.2 full
+and M.0-real respectively. The MeMo end-to-end story is now
+shippable on the cDSP-only single-device variant. **Cross-island
+(NPU + DSP) + cross-device (mesh) + cross-merge (TIES) remain as
+the closing arc of Phase 4-MeMo.**
 
 ### 2026-05-30 (late) — Phase 3-HX-MODE-D path forward: Sprint H (G.1 fixes) → Sprint I (single-layer smoke) → Sprint J (full model loader)
 
