@@ -1,0 +1,9 @@
+# scratch / run artifacts
+*.sp-model
+*.sp-tokenizer
+*_log.txt
+*_done.txt
+out.*
+# OS
+Thumbs.db
+.DS_Store

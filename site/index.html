@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shannon-Prime — long-context KV memory you can run</title>
+<meta name="description" content="A two-ring memory architecture that retrieves a needle from 32k tokens off an NVMe drive in ~1.8 GB. Receipts-first, reproducible from a command.">
+<style>
+  :root{ --bg:#0b0c0e; --fg:#e8e8ea; --mut:#9aa0a6; --line:#23262b; --card:#121418; --accent:#6ea8ff; --good:#7bd88f; }
+  *{ box-sizing:border-box }
+  body{ margin:0; background:var(--bg); color:var(--fg); font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .wrap{ max-width:860px; margin:0 auto; padding:0 20px; }
+  header{ padding:72px 0 28px; }
+  h1{ font-size:30px; line-height:1.25; font-weight:600; margin:0 0 14px; letter-spacing:-0.01em; }
+  .lede{ font-size:19px; color:var(--fg); margin:0 0 8px; }
+  .sub{ color:var(--mut); margin:0; }
+  h2{ font-size:20px; font-weight:600; margin:40px 0 14px; }
+  code,kbd,pre{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  pre{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow:auto; font-size:13.5px; color:var(--fg); }
+  .run{ position:relative; }
+  .run button{ position:absolute; top:10px; right:10px; background:#1b1e24; color:var(--mut); border:1px solid var(--line); border-radius:7px; padding:5px 10px; font-size:12px; cursor:pointer; }
+  .run button:hover{ color:var(--fg); }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .card .k{ color:var(--mut); font-size:13px; margin:0 0 6px; }
+  .card .v{ font-size:22px; font-weight:600; margin:0 0 6px; }
+  .card .d{ color:var(--mut); font-size:13.5px; margin:0; }
+  table{ width:100%; border-collapse:collapse; font-size:14px; }
+  th,td{ text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th{ color:var(--mut); font-weight:500; }
+  td .c{ color:var(--mut); font-size:12.5px; }
+  .note{ background:#14110c; border:1px solid #3a2f17; border-radius:12px; padding:16px 18px; color:#d9c9a3; font-size:14.5px; }
+  a{ color:var(--accent); text-decoration:none; } a:hover{ text-decoration:underline; }
+  .doors{ display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; }
+  .door{ display:block; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; color:var(--fg); }
+  .door:hover{ border-color:#3a4150; text-decoration:none; }
+  .door .t{ font-weight:600; margin:0 0 4px; } .door .d{ color:var(--mut); font-size:13.5px; margin:0; }
+  footer{ color:var(--mut); font-size:13.5px; border-top:1px solid var(--line); margin-top:48px; padding:24px 0 60px; }
+  .good{ color:var(--good); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Long-context KV memory you can actually run.</h1>
+    <p class="lede">A needle retrieved from <strong>32,000 tokens</strong> of context, with the cold KV cache served <strong>off an NVMe drive</strong>, in <strong>~1.8&nbsp;GB</strong> of RAM. 8× KV sparsification at <strong class="good">+0.69% perplexity</strong>.</p>
+    <p class="sub">A memory architecture that attaches to a frozen pretrained transformer and preserves its outputs. Proof-of-mechanism on one small model — every number reproduces from a command.</p>
+  </header>
+
+  <h2>Run the headline</h2>
+  <div class="run">
+    <pre id="cmd">git clone https://github.com/nihilistau/Position_Is_Arithmetic.git &amp;&amp; cd Position_Is_Arithmetic/papers/01-two-ring-memory/repro
+./run_r9_32k_needle.ps1 -Model Qwen3-0.6B-f16.gguf -Drive F:\ -Corpus wiki.test.raw</pre>
+    <button onclick="navigator.clipboard.writeText(document.getElementById('cmd').innerText)">copy</button>
+  </div>
+  <p class="sub">You'll watch an out-of-distribution secret surface from a context that never fully lived in RAM. Correctness reproduces on any NVMe; the latency figure needs Optane.</p>
+
+  <h2>Three walls, three mechanisms</h2>
+  <div class="grid">
+    <div class="card"><p class="k">Memory wall</p><p class="v">910×</p><p class="d">resident KV cache shrunk (8.3 MB vs 7.5 GB at 32k) via a two-ring offload to byte-addressable storage.</p></div>
+    <div class="card"><p class="k">Intelligence wall</p><p class="v">+0.69%</p><p class="d">perplexity at 8× sparsification — four pinned attention-sink tokens; 2× and 4× go negative.</p></div>
+    <div class="card"><p class="k">Compute wall</p><p class="v">O(N)</p><p class="d">a ±1 projection router + quickselect: directional recall at 32 bytes/token, linear selection.</p></div>
+  </div>
+
+  <h2>The receipts</h2>
+  <table>
+    <tr><th>Claim</th><th>Number</th><th>Caveat</th></tr>
+    <tr><td>Quality at 8× sparsification</td><td>+0.69% PPL <span class="c">(2× −0.71, 4× −0.92)</span></td><td><span class="c">0.6B, 2k, one corpus</span></td></tr>
+    <tr><td>Needle retrieval, no recency bias</td><td>HIT at depth 10 / 50 / 90</td><td><span class="c">one model, one needle type</span></td></tr>
+    <tr><td>KV served off physical Optane</td><td>HIT off NVMe, poison-gated</td><td><span class="c">512 proven; 32k pending</span></td></tr>
+    <tr><td>Random-read latency</td><td>7.57 µs / read</td><td><span class="c">Optane-specific</span></td></tr>
+    <tr><td>KV-RAM footprint</td><td>910× cache · 1.8 GB live</td><td><span class="c">net ~8×, router-index-dominated</span></td></tr>
+    <tr><td>Bit-exact when disabled</td><td>argmax-identical to the stock model</td><td><span class="c">the invariant under everything</span></td></tr>
+  </table>
+
+  <h2>Honest scope</h2>
+  <div class="note">
+    Proof-of-mechanism on <strong>one 0.6B model, one host</strong> — not a scaling study, not independently reproduced yet. The CPU decode is <strong>~1.34× behind</strong> a tuned llama.cpp at the same quantization: the value here is the <strong>memory envelope, not throughput</strong>. We keep the unflattering numbers in the papers on purpose — a result with its caveats attached is one you can trust.
+  </div>
+
+  <h2>Read more</h2>
+  <div class="doors">
+    <a class="door" href="papers/01-two-ring-memory/"><p class="t">The systems paper →</p><p class="d">Every mechanism as idea → receipt → payoff → implementation. The receipts, in full.</p></a>
+    <a class="door" href="COMPANION-THEORY.md"><p class="t">The algebraic companion →</p><p class="d">The elliptic-curve framework that motivated the design. Not required to run or validate anything. A door for the curious.</p></a>
+  </div>
+
+  <h2>Get involved</h2>
+  <p class="sub">The biggest open question is scale: does 8×-at-&lt;2% hold past 0.6B? Other one-person-can't-do-it asks: independent repros on your own drive (the Linux path especially), and compressing the ±1 router index (a sign-packed <code>popcount</code> form should cut its ~950 MB by ~32×). See <a href="CONTRIBUTING.md">CONTRIBUTING</a>.</p>
+
+  <footer>
+    A receipts-first series · part 02 (the reducing loader) and 03 (calibration-free quant) staged. ·
+    Cite: <a href="CITATION.cff">CITATION.cff</a> · License: <a href="LICENSE">MIT</a> · Every number traces to <a href="LEDGER.md">the ledger</a>.
+  </footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use Shannon-Prime, please cite it."
+title: "Shannon-Prime: a two-ring memory architecture for long-context transformers"
+authors:
+  - family-names: Knack
+    given-names: A.
+abstract: >
+  A memory architecture that attaches to a frozen pretrained transformer:
+  query-directed sparse recall (a ±1 Rademacher projection router), attention-sink
+  pinning to preserve quality under sparsification, a two-ring design offloading the
+  cold KV cache to byte-addressable storage, and O(N) selection. Proof-of-mechanism
+  on Qwen3-0.6B; retrieves at 32k context with the resident KV cache held to ~8 MB.
+keywords:
+  - long-context inference
+  - kv cache
+  - sparse attention
+  - retrieval
+  - transformer
+version: 0.1.0
+date-released: 2026-06-03
+license: MIT
+repository-code: "https://github.com/nihilistau/Position_Is_Arithmetic"
