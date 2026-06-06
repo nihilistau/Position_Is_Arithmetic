@@ -31,6 +31,42 @@ Commit chain: `67f4997` → `f8ea920` (+ `a5e9b86`). Honest negatives (must appe
 
 Paper 02's receipts come from earlier measured work; per series rule 4 they are re-gated and a one-command repro is built **before** the paper releases.
 
+## Paper 04 — the Oracle & the Teacher (staged 2026-06-06; gated in engine, repro before release)
+
+| # | Claim | Number | Config | Gate | Caveat | Status |
+|---|---|---|---|---|---|---|
+| 04-R1 | Full variable-geometry forward == oracle | argmax 12/12, max KL 2.663e-10, \|dlogit\| 1.84e-4 | Gemma4-E2B (35L, MatFormer), RTX 2060 vs CPU oracle | E_G4_CU_FULL (f64 log-softmax KL) | one model, one host | gated (engine) |
+| 04-R2 | Autoregressive decode == oracle, teacher-forced | ALL 12 generated tokens oracle-predicted | jagged shared-KV cache, per-step AltUp | E_G4_CU_DEC | greedy only; short stream | gated (engine) |
+| 04-R3 | First-try composition | both live runs green on first attempt; 0 debug sessions on composed code | after 5 staged gates (38/38 cumulative) | the gate trail itself | process claim — receipts are the trail | gated (engine) |
+| 04-R4 | Oracle arithmetic must be enforced, not approximated | per-weight dequant diverges 2.8e-3; inline lift restores the floor | gemm_w_lift vs k_dequant_arena path | L0 staged parity | f32-rounding-order effect, model-agnostic mechanism | gated (engine) |
+
+Engine provenance: `tests/test_gemma4_cuda.c`, tag `stage-eta-phase1-closed-2026-06-06`.
+
+## Paper 05 — the Probe Suite (staged 2026-06-06; every tool live in engine)
+
+| # | Claim | Number | Config | Gate | Caveat | Status |
+|---|---|---|---|---|---|---|
+| 05-R1 | Bisection localizes divergence without debugging | 2.8e-3 → matmul arithmetic in 2 probe runs; sharer seam proven at ao 1.11e-5 abs | truncated-parity harness, 6 boundaries | staged ABS gates, telemetry-then-pin | needs an oracle (paper 04) | gated (engine) |
+| 05-R2 | Norm layers amplify the f32 floor ~×25 | pre-norm 6.3e-5 abs → residual 1.59e-3 (rms(ap)≈0.04) | post_attn_norm, E2B L0 | stage-5 pre-norm probe | gate ABS at floors; never raw rel at norm outputs | gated (engine) |
+| 05-R3 | Cold-start + clock-state manufacture phantom speedups | "12.65×" → ~1.06× real (CUDA lazy-load ≈13×; idle SM 405 vs 2100 MHz; GDDR6 free-running under `-lgc`) | CUDA-graph decode, RTX 2060 | warm + n_gen≥256 + both clocks | GeForce `-lmc` flaky; within-run ratios are the signal | gated (engine) |
+| 05-R4 | Isolated bench ≠ production gate | synthetic-Q4 bench 1.34e-7 PASS while production K-quant-mix path was 0/256 | Q4_K_M-style arena (Q8 head/Q4 body) | bench + E2E decode gate pair | the pairing IS the method | gated (engine) |
+| 05-R5 | Amdahl regime-check before claiming kernel wins | int8/Q4 GEMV ties f32 at 0.6B/full-clock (overhead-bound); ~7× where the bus binds | decode vs isolated sweep | convergence + crossover | bottleneck must be named per claim | gated (engine) |
+
+Engine provenance: `tests/test_gemma4_cuda.c` (harness), `tests/bench_gemv_int8.cu` (sweep), system `CONVENTIONS.md` (the binding benchmark rules).
+
+## Paper 06 — computing on the zip file: the dp4a ladder (staged 2026-06-06)
+
+| # | Claim | Number | Config | Gate | Caveat | Status |
+|---|---|---|---|---|---|---|
+| 06-R1 | f32 GEMV is bus-saturated at scale | ~290 GB/s = 87% of 336 GB/s peak, flat N=3K..16K | RTX 2060, cuBLAS SGEMV, clocks pinned | isolated sweep | one card | gated (engine) |
+| 06-R2 | int8 dp4a ladder rung | ~3.8× f32 at N≥8K (4:1 bytes) | warp-per-row, 128-bit loads, shuffle reduce | sweep + 256/256 top-1 in decode | naive GEMV ≈ cuBLAS absolute at small N | gated (engine) |
+| 06-R3 | Q4 dp4a ladder rung | **~7.06× f32** at N≥12K (8:1 bytes − ~7% nibble-unpack ALU tax) | in-ALU unpack, (n^8)-8 sign-extend | sweep + host-ref 1.34e-7 + 256/256 top-1 | activation int8 quant = top-1-lossless, not byte-exact | gated (engine) |
+| 06-R4 | Dequant-before-GEMM destroys the advantage | ~9 B/weight; 3× slower than f32 | dequant→f32-scratch→SGEMM | same sweep | the anti-pattern, measured | gated (engine) |
+| 06-R5 | Per-tensor precision dispatch for K-quant mixes | 0/256 → 256/256 after `DevTensor.prec` routing | Q8-head/Q4-body arena | production decode gate | required for any Q4_K_M-style artifact | gated (engine) |
+| 06-R6 | 12B end-to-end tok/s (the headline) | *pending — ETA.5b shootout vs llama.cpp* | Gemma4-12B-Q4_K_M, RTX 2060 | clocks pinned, warm, long window | release-blocking | pending |
+
+Engine provenance: `src/backends/cuda/cuda_forward.cu`, `tests/bench_gemv_int8.cu`, `tests/test_qwen3_decode_cuda.c` (28/28).
+
 ## Not claimed (yet) — kept out of every front door
 
 - The transformer *is* a CM-elliptic-curve endomorphism sequence; training *is* BSD analytic-rank maximization. Real research program; no explicit curve, no model trained this way. Companion only.

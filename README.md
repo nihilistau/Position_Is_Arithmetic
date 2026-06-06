@@ -37,6 +37,9 @@ A staggered set of short, independently citable, receipts-first papers — each 
 - **01 — Two-ring memory** — query-directed recall + byte-addressable KV offload (the 32k-needle result above).
 - **02 — The reducing loader** — output-preserving transcode + zero-copy load (the ~50%-smaller, bit-faithful result).
 - **03 — Frobenius calibration-free quantization** *(staged).*
+- **[04 — The Oracle & the Teacher](papers/04-oracle-teacher/)** *(staged)* — oracle-grounded backend verification: a 35-layer variable-geometry GPU port matched to its CPU oracle at KL 2.7e-10, autoregressive decode teacher-forced exact — both live runs first-try.
+- **[05 — The Probe Suite](papers/05-probe-suite/)** *(staged)* — bisection, isolation and benchmark hygiene used **as one set**: the suite that busted a 12.65× phantom speedup, a wrong-arithmetic divergence and a mixed-precision 0/256 — then landed the monolith pre-verified.
+- **[06 — Computing on the Zip File](papers/06-dp4a-bandwidth-ladder/)** *(staged)* — the dp4a bandwidth ladder: direct compute on packed integer codes, **f32 1× → int8 ~3.8× → Q4 ~7.06×** on a consumer GPU, top-1 lossless.
 
 See [`SERIES.md`](SERIES.md) for the manifest and release cadence, [`LEDGER.md`](LEDGER.md) for the master claims ledger (every number traced to a command), and [`METHODOLOGY.md`](METHODOLOGY.md) for the gate vocabulary and the "no number without a command" discipline.
 
