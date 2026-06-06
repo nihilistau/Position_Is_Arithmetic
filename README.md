@@ -27,8 +27,9 @@ Receipts-first: every number reproduces from a single command. Proof-of-mechanis
 | KV sparsification quality | **8× at +0.69% perplexity** | one corpus, 2k context (2× and 4× go negative) |
 | Reducing loader (transcode) | **model → ~50% smaller, bit-faithful forward** | gemma-3 + Qwen3, closure-gated |
 | Bit-exact when disabled | **argmax-identical to the stock model** | the invariant under everything |
+| 12B GPU decode vs llama.cpp-CUDA, same RTX 2060 | **34.2 vs 31.29 tok/s (+9.3%)** | measured (ledger 06-R6); **not citable until the wikitext-PPL gate clears the Q6_K→Q4 squeeze** — kept here with its anchor on purpose |
 
-Honest scope: this is a proof-of-mechanism, not a scaling study and not yet independently reproduced. CPU decode is ~1.34× behind a tuned llama.cpp at the same quantization — the value here is the **memory envelope, not raw throughput**.
+Honest scope: this is a proof-of-mechanism, not a scaling study and not yet independently reproduced. CPU decode is ~1.34× behind a tuned llama.cpp at the same quantization; on GPU the 12B decode measured **ahead** of llama.cpp-CUDA (+9.3%, perplexity verification pending). The memory envelope remains the primary value claim.
 
 ## The paper series
 

@@ -32,7 +32,7 @@ shannon-prime/                  public repo / site root
 | 03 | Frobenius calibration-free quantization | fp8 without QAT, ~zero PPL delta (verify numbers first) | candidate | after 02, if it re-gates clean |
 | 04 | The Oracle & the Teacher: oracle-grounded backend verification | 35-layer variable-geometry GPU port matched at **KL 2.663e-10** (argmax 12/12); decode teacher-forced exact; both live runs first-try, 38/38 | **staged** (gated in engine; repro pending) | after 03; pairs with 05 |
 | 05 | The Probe Suite: bisection, isolation & benchmark hygiene as one set | the suite caught a 12.65× phantom, a 2.8e-3 wrong-arithmetic, a 0/256 K-quant-mix bug, a ×25 norm amplification — then landed the port first-try | **staged** (every tool live in engine; repro pending) | with/just after 04 (methodology pair) |
-| 06 | Computing on the Zip File: the dp4a bandwidth ladder | isolated, clocks pinned: **f32 1× (290 GB/s bus-saturated) → int8 ~3.8× → Q4 ~7.06×**, top-1 lossless | **staged** (gated in engine; headline = the 12B tok/s from ETA.5b before release) | after the ETA.5b shootout |
+| 06 | Computing on the Zip File: the dp4a bandwidth ladder | **the 12B shootout: SP 34.2 tok/s vs llama.cpp-CUDA 31.29 (+9.3%) on an RTX 2060** + the isolated ladder (f32 1× → int8 ~3.8× → Q4 ~7.06×) | **headline MEASURED** (ledger 06-R6); release blocked on ONE named gate: wikitext PPL (the Q6_K→Q4 squeeze must hold vs llama.cpp's mixed K-quants) | after the PPL gate |
 | — | multi-device CRT sharding · MTP rollback | — | not yet (no standalone receipt) | when gated |
 | — | the algebraic framework (CM elliptic curve) | — | companion only, never a receipts paper | — |
 

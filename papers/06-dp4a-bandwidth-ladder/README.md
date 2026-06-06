@@ -1,12 +1,20 @@
-# 06 — Computing on the Zip File: the dp4a bandwidth ladder *(staged — mapped, not yet written)*
+# 06 — Computing on the Zip File: the dp4a bandwidth ladder *(staged — headline measured, release blocked on the PPL gate)*
 
-> **Front-door receipt (already gated in the engine repo):** on a consumer
-> RTX 2060, an isolated single-token GEMV sweep with clocks pinned shows the
-> packed-weight ladder **f32 1× (~290 GB/s, the bus saturated at 87% of peak) →
-> int8 dp4a ~3.8× → Q4 dp4a ~7.06×** at 12B-scale matrix sizes — each halving
-> of bytes-per-weight ~doubling throughput, hugging the 4:1 / 8:1 byte ratios —
-> **top-1 lossless** (256/256 argmax agreement in the production decode; Q4
-> kernel vs host reference: max rel err 1.34e-7).
+> **Front-door receipt (measured 2026-06-07, ledger 06-R6):** on the SAME
+> RTX 2060, same source model (Gemma-4-12B), tg256, SM clock pinned:
+> **llama.cpp-CUDA 31.29 ± 0.20 tok/s · SP engine 34.2 tok/s (+9.3%)** — the
+> SP artifact is a *reducing* 5.56 GB `.sp-model` (source GGUF: 6.62 GB),
+> decoded via CUDA-graph + dp4a directly on the packed integer codes.
+> **Release anchor:** the SP artifact squeezes the source's Q6_K tensors to Q4
+> — the +9.3% is not citable until the wikitext-PPL gate confirms the squeeze
+> didn't cost semantic depth (the one named gate before this paper releases).
+>
+> Underneath it, the isolated single-token GEMV sweep (clocks pinned):
+> **f32 1× (~290 GB/s, 87% of peak) → int8 dp4a ~3.8× → Q4 dp4a ~7.06×**,
+> hugging the 4:1 / 8:1 byte ratios — top-1 lossless in production decode
+> (Q4 kernel vs host reference: max rel err 1.34e-7), plus the measured
+> honest finding 06-R7: per-VECTOR activation quant collapses on
+> outlier-heavy models — per-block scales are mandatory equipment.
 
 ## The claim this paper will make
 
