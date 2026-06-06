@@ -1,5 +1,7 @@
 # R9 — what success looks like
 
+> **Status (2026-06-06):** the reference composed 32k run completed and **MISSed** at the B=512 budget (= 64× selection at 32k; the gated regime was 2×–8×, and the run carried a router-config regression — see the [ledger](../../../../LEDGER.md) row 01-R9). This file describes what a HIT looks like so a reproduction can be scored; the mechanism itself (poison-gated retrieval off the drive) is proven at 512 positions (R3). Until R9 is diagnosed and re-gated, treat the 32k HIT below as the *target output*, not a reproduced result.
+
 Two lines print at startup (config), then — after the I/O-bound prefill — the result.
 
 ## At startup (confirms the memory + storage setup)

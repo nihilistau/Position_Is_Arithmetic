@@ -27,7 +27,7 @@ shannon-prime/                  public repo / site root
 
 | # | Paper | Front-door receipt | Status | Target |
 |---|---|---|---|---|
-| 01 | Two-ring memory: query-directed recall + byte-addressable KV offload | 32k needle off NVMe, 910× resident-cache shrink, 8× sparsification at +0.69% PPL | **draft complete** (pending R9 figures) | release first |
+| 01 | Two-ring memory: query-directed recall + byte-addressable KV offload | needle off NVMe (512-position, poison-gated, 7.57 µs/read), 910× resident-cache shrink, 8× sparsification at +0.69% PPL | **draft complete** — R9 (32k) **MISSed** 2026-06-06 at the 64× budget; the 32k headline is WITHDRAWN from the front door (honest-negative row stays in the ledger); release on the 512-proven claims | release first |
 | 02 | The reducing loader: output-preserving transcode + zero-copy swivel | a model transcoded to a *smaller* artifact that loads zero-copy and runs bit-faithfully | **staged, repro green** (6/6 E_FMT gates; 1,439→720 MB @50%, bit-faithful on gemma-3 + qwen3 — see [EXPECTED.md](papers/02-reducing-loader/repro/EXPECTED.md)) | +2–4 wks after 01 |
 | 03 | Frobenius calibration-free quantization | fp8 without QAT, ~zero PPL delta (verify numbers first) | candidate | after 02, if it re-gates clean |
 | 04 | The Oracle & the Teacher: oracle-grounded backend verification | 35-layer variable-geometry GPU port matched at **KL 2.663e-10** (argmax 12/12); decode teacher-forced exact; both live runs first-try, 38/38 | **staged** (gated in engine; repro pending) | after 03; pairs with 05 |

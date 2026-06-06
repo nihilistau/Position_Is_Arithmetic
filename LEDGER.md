@@ -16,9 +16,9 @@ Single source of truth for the whole series. Rule: nothing appears in any paper,
 | 01-R6 | KV codec | ~3.5×/f32, lossy | Spinor 63 B | 29/31 argmax, KL .023 | not bit-exact | done |
 | 01-R7 | O(N) recall selection | set-equivalent | quickselect | parity + HIT | time win not benchmarked | done |
 | 01-R8 | Bit-exact when disabled | bit-identical | gate-off no-op | argmax parity | methodology, not perf | done |
-| 01-R9 | 32k needle off NVMe @ ~1.8 GB | *pending* | N=32768, B=512, depth 50 | NIAH HIT (poison) | in progress | in progress |
+| 01-R9 | 32k needle off NVMe @ ~1.8 GB | **MISS** (run completed: 16.3 h, zero errors; 67% LRU absorption; 19.6 µs/read at QD; 1.35B device reads/stream) | N=32768, B=512 (= **64× selection** — gated regime was 2×–8×), depth 50, f32 r=16 router (config regression: bits-r64/KVSEL env dropped from the runner) | NIAH HIT (poison) — **not met** | no full-attention 32k control yet; router-dilution vs 0.6B model ceiling unseparated; RAM ladder diagnostic open | **measured MISS — not a claim** |
 
-Commit chain: `67f4997` → `f8ea920` (+ `a5e9b86`). Honest negatives (must appear in the paper): CPU decode ~1.34× behind llama.cpp-Q8 (memory is the play, not tok/s); a magnitude-histogram recall signature was falsified and dropped.
+Commit chain: `67f4997` → `f8ea920` (+ `a5e9b86`). Honest negatives (must appear in the paper): CPU decode ~1.34× behind llama.cpp-Q8 (memory is the play, not tok/s); a magnitude-histogram recall signature was falsified and dropped; **the composed 32k retrieval MISSed at the 64× selection budget (R9)** — the infrastructure half of that run (16.3 h saturated dual-store IOCP, 67% temporal-cache absorption, queue-depth latency measured) is real and reportable as such, the retrieval headline is not. Paper 01 releases on the 512-position-proven R3, not R9.
 
 ## Paper 02 — the reducing loader (staged; re-gate + repro before release)
 

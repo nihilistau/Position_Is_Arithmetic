@@ -121,11 +121,13 @@ The blocks compose cleanly: the router (§3.1) and sinks (§3.2) decide *what* t
 
 ---
 
-## 4. Capstone: retrieval at 32k context off physical storage
+## 4. Capstone attempt: the composed 32k run — what it proved, and the retrieval it did not
 
-The composed system, run end to end: an out-of-distribution needle injected at depth 50% of a 32,768-token context, recall budget 512 (4× sparsification), four pinned sinks, the cold KV served from a physical Optane drive. At launch the resident KV cache is 8.3 MB and the live footprint ~1.8 GB. The needle is retrieved, poison-gated, off the drive — a correct answer is only possible because the value came back from storage that the architecture treats as a memory tier, not from a cache that never held it.
+The composed system, run end to end (2026-06-06): an out-of-distribution needle injected at depth 50% of a 32,768-token context, recall budget 512, four pinned sinks, the cold KV served from physical Optane. The run *completed* — 16.3 hours of saturated dual-store `NO_BUFFERING`+IOCP operation, zero errors, 1.35×10⁹ device reads per stream (K 11.1 TB, V 5.5 TB) at 19.6 µs/read at queue depth, a 2 GB LRU temporal cache absorbing 67% of fetches on both streams, the resident KV window at 15.6 MB versus the dense 7.5 GB — **and the needle was not retrieved.**
 
-> *Editorial note: the final figures of this section — the retrieval confirmation, the total block-read count, the amortized read latency, and the wall-clock — are filled from the reference run on completion. The reproduction in §6 is the artifact that matters here; a reader watches the secret surface from a 32k context that never fully resided in RAM.*
+We report that plainly, because the number teaches: B=512 at 32k positions is a **64× selection budget**, and every retrieval-quality gate in §3 was measured at 2×–8× (N=2048). The miss is an extrapolation failure we should not have been surprised by — compounded by a run-config regression (the as-run router was the lowest-resolution f32 r=16 configuration, not the bit-packed r=64 selector the run was designed around), and unguarded by any full-attention 32k control for a 0.6B model, so router dilution and the model's own long-context ceiling are not yet separated. The storage thesis — that a physical drive can serve as a live KV memory tier at single-digit-to-QD microsecond latency — is *strengthened* by this run; the retrieval-at-64×-budget claim is withdrawn until diagnosed. The poison-gated retrieval off the drive stands as proven at 512 positions (R3).
+
+> *Editorial note: an earlier draft of this section described the 32k retrieval in the present tense ahead of the reference run, with figures to be filled on completion. The run completed and missed. Per this series' own rule — no number anywhere that is not a ledger row — the section now reports what was measured. The reproduction in §6 demonstrates the storage-retrieval mechanism itself; the 32k-budget regime is an open diagnostic (ledger row R9).*
 
 ## 5. Limitations and honest negatives
 
@@ -135,6 +137,7 @@ We state these plainly: for a receipts-first paper the negatives are part of the
 - **Speed.** The CPU decode at Q8 (~39.5 tok/s) is ~1.34× *behind* a tuned llama.cpp at the same quantization (52.8 tok/s) on the same model. The value proposition is the memory envelope, not raw throughput; we do not claim a speed win.
 - **A falsified competitor.** An order-statistic, magnitude-histogram recall signature was direction-blind on the adversarial decoy test and was discarded in favor of the ±1 projection. We report it because a falsified hypothesis demonstrates the gates discriminate.
 - **Partial coverage.** Perplexity deflection is measured on one corpus at 2k context; 8k and 32k deflection are pending. Net RAM is router-index-dominated, and index compression is unimplemented.
+- **The composed 32k retrieval missed (§4).** At a 64× selection budget — 8× past the gated regime — the needle was not retrieved, and the run carried a router-config regression. The infrastructure receipts from that run are real and quoted; the retrieval headline is not claimed. Diagnosis (budget-ratio ladder in RAM, full-attention control) is open work.
 
 ## 6. Reproduction
 

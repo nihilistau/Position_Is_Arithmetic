@@ -23,7 +23,7 @@ Receipts-first: every number reproduces from a single command. Proof-of-mechanis
 | Result | Number | Scope / caveat |
 |---|---|---|
 | Resident KV-cache shrink @ 32k context | **910×** (7.5 GB → 8.3 MB) | two-ring offload to byte-addressable storage |
-| Needle retrieved from a 32k-token context | **HIT, served off a physical NVMe drive** | poison-gated; latency figure is Optane-specific |
+| Needle retrieved off a physical NVMe drive | **HIT at 512 positions** (7.57 µs/read) | poison-gated; latency figure is Optane-specific. **At 32k the composed run completed but MISSed** (B=512 = a 64× selection budget, far past the gated 2×–8× regime; under diagnosis) — kept here on purpose |
 | KV sparsification quality | **8× at +0.69% perplexity** | one corpus, 2k context (2× and 4× go negative) |
 | Reducing loader (transcode) | **model → ~50% smaller, bit-faithful forward** | gemma-3 + Qwen3, closure-gated |
 | Bit-exact when disabled | **argmax-identical to the stock model** | the invariant under everything |
@@ -34,7 +34,7 @@ Honest scope: this is a proof-of-mechanism, not a scaling study and not yet inde
 
 A staggered set of short, independently citable, receipts-first papers — each carries its own one-command reproduction.
 
-- **01 — Two-ring memory** — query-directed recall + byte-addressable KV offload (the 32k-needle result above).
+- **01 — Two-ring memory** — query-directed recall + byte-addressable KV offload (the needle-off-NVMe result above).
 - **02 — The reducing loader** — output-preserving transcode + zero-copy load (the ~50%-smaller, bit-faithful result).
 - **03 — Frobenius calibration-free quantization** *(staged).*
 - **[04 — The Oracle & the Teacher](papers/04-oracle-teacher/)** *(staged)* — oracle-grounded backend verification: a 35-layer variable-geometry GPU port matched to its CPU oracle at KL 2.7e-10, autoregressive decode teacher-forced exact — both live runs first-try.
