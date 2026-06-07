@@ -27,9 +27,10 @@ Receipts-first: every number reproduces from a single command. Proof-of-mechanis
 | KV sparsification quality | **8× at +0.69% perplexity** | one corpus, 2k context (2× and 4× go negative) |
 | Reducing loader (transcode) | **model → ~50% smaller, bit-faithful forward** | gemma-3 + Qwen3, closure-gated |
 | Bit-exact when disabled | **argmax-identical to the stock model** | the invariant under everything |
-| 12B GPU decode vs llama.cpp-CUDA, same RTX 2060 | **34.2 vs 31.29 tok/s (+9.3%)** | measured (ledger 06-R6); **not citable until the wikitext-PPL gate clears the Q6_K→Q4 squeeze** — kept here with its anchor on purpose |
+| 12B GPU decode + quality, same RTX 2060 12GB | **26.1 tok/s at wikitext PPL 5.12** (graph EXACT, 256/256 top-1, 24/24 gates) | gated + citable (ledger 06-R10). llama.cpp-CUDA: 31.29 tok/s **at PPL 192–506** — every gemma-4 GGUF measurable in June 2026, incl. the post-fix rebuilds, carries broken weights (06-R8). SP engine bandwidth 245 vs 207 GB/s (+18%); the earlier 34.2 (+9.3%) headline is **retired** — its artifact failed the PPL gate (the series' own rule caught it) |
+| The gemma-4 ecosystem finding | true full-precision PPL **4.68** (hand-written reference forward) vs GGUFs **192–506** | engine-independent conviction (06-R8); verification + fix tutorial: [GEMMA4-QUANT-FIX.md](GEMMA4-QUANT-FIX.md) |
 
-Honest scope: this is a proof-of-mechanism, not a scaling study and not yet independently reproduced. CPU decode is ~1.34× behind a tuned llama.cpp at the same quantization; on GPU the 12B decode measured **ahead** of llama.cpp-CUDA (+9.3%, perplexity verification pending). The memory envelope remains the primary value claim.
+Honest scope: this is a proof-of-mechanism, not a scaling study and not yet independently reproduced. CPU decode is ~1.34× behind a tuned llama.cpp at the same quantization. On GPU the citable point is the speed/quality PAIR: 26.1 tok/s at PPL 5.12 — a point no other stack currently occupies on this model at any speed, because their artifacts are broken. The memory envelope remains the primary value claim.
 
 ## The paper series
 
@@ -38,9 +39,10 @@ A staggered set of short, independently citable, receipts-first papers — each 
 - **01 — Two-ring memory** — query-directed recall + byte-addressable KV offload (the needle-off-NVMe result above).
 - **02 — The reducing loader** — output-preserving transcode + zero-copy load (the ~50%-smaller, bit-faithful result).
 - **03 — Frobenius calibration-free quantization** *(staged).*
-- **[04 — The Oracle & the Teacher](papers/04-oracle-teacher/)** *(staged)* — oracle-grounded backend verification: a 35-layer variable-geometry GPU port matched to its CPU oracle at KL 2.7e-10, autoregressive decode teacher-forced exact — both live runs first-try.
-- **[05 — The Probe Suite](papers/05-probe-suite/)** *(staged)* — bisection, isolation and benchmark hygiene used **as one set**: the suite that busted a 12.65× phantom speedup, a wrong-arithmetic divergence and a mixed-precision 0/256 — then landed the monolith pre-verified.
-- **[06 — Computing on the Zip File](papers/06-dp4a-bandwidth-ladder/)** *(staged)* — the dp4a bandwidth ladder: direct compute on packed integer codes, **f32 1× → int8 ~3.8× → Q4 ~7.06×** on a consumer GPU, top-1 lossless.
+- **[04 — The Oracle & the Teacher](papers/04-oracle-teacher/)** *(written)* — oracle-grounded backend verification: KL 2.7e-10 port, teacher-forced decode — plus the case study where a hand-written oracle measured gemma-4's true PPL at **4.68** and convicted the GGUF ecosystem (192–506) while exonerating llama.cpp's forward.
+- **[05 — The Probe Suite](papers/05-probe-suite/)** *(written)* — bisection, isolation and benchmark hygiene **as one set** — from the 12.65× phantom and the 0/256 K-quant bug to ecosystem-scale forensics and simulate-before-build (artifact matched the simulator to four decimals).
+- **[06 — Computing on the Zip File](papers/06-dp4a-bandwidth-ladder/)** *(complete, citable)* — the dp4a bandwidth ladder (f32 1× → int8 ~3.8× → Q4 ~7.06×), the OK_Q4B block-scaled kernel, the sovereign quantization pipeline, and the gated headline: **26.1 tok/s at PPL 5.12 on an RTX 2060 12GB**.
+- **[GEMMA4-QUANT-FIX.md](GEMMA4-QUANT-FIX.md)** — community tutorial: verify the gemma-4 GGUF breakage yourself (engine-independent, ~30 min) and the working fix recipe. Ready-to-post issue text: [GEMMA4-ISSUE-POST.md](GEMMA4-ISSUE-POST.md).
 
 See [`SERIES.md`](SERIES.md) for the manifest and release cadence, [`LEDGER.md`](LEDGER.md) for the master claims ledger (every number traced to a command), and [`METHODOLOGY.md`](METHODOLOGY.md) for the gate vocabulary and the "no number without a command" discipline.
 
