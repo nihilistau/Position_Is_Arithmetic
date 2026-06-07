@@ -72,6 +72,14 @@ Engine provenance: `tests/test_gemma4_cuda.c` (harness), `tests/bench_gemv_int8.
 
 Engine provenance: `src/backends/cuda/cuda_forward.cu`, `tests/bench_gemv_int8.cu`, `tests/test_qwen3_decode_cuda.c` (28/28); gold instruments: lattice `tests/gemma4_gold/`.
 
+## XBAR — the auditable latent crossbar (probe P1, closed 2026-06-08)
+
+| # | Claim | Number | Config | Gate | Caveat | Status |
+|---|---|---|---|---|---|---|
+| X-R1 | Zero-copy latent crossbar: a 12B's generation is steered by direct KV-cache transplant, no tokens involved | **15/15 trials (5 prompts × 3 concepts) lexically incorporate the injected concept**; selectivity 15/15 (own-family logit-rank geomean 11×–880×, always > cross-family; 2×2 double dissociation); max single-token pull **3.69 orders** (' violin' rank 4910→1); dose-response: 1 row (~4% attn mass) bends ranks ≤22×, 6 contiguous rows breach the lexical surface | gemma-4-12B B1 artifact (06-R10), RTX 2060, per-step decode + dp4a; 6-row donor KV minted at identical absolute positions (RoPE-phase-exact), chat-template prompts; SP_XBAR_* harness, XBP1 payloads | G0 self-transplant bit-identical 7/7 across all campaigns (instrumentation null); rank telemetry every step; G2v1 divergence 11/15 ≤1.5× (4 at 1.55–1.58 = strongest steering, kept as a steering-magnitude measure); **G2v2 gold-instrument coherence: steered text PPL 1.70–4.10, 15/15 inside the healthy band** (wikitext gold = 4.68) | distinct-token diagnostic flags 3/15 dragon-payload trials as repetition-degenerate (9.4% distinct; low PPL *because* repetitive — why PPL alone can't certify coherence); raw KV splice is a blunt instrument — the learned-adapter phase (P2) exists to fix exactly this | **measured + gated — citable** |
+
+Provenance: lattice `papers/CONTRACT-XBAR-P1-inception-probe.md` (spec, amendments, all run records) + `papers/RFC-XBAR-auditable-latent-crossbar.md`; engine `tests/test_xbar_p1_cuda.c` + SP_XBAR_* knobs in `cuda_forward.cu`; receipts `_xbar\` (97 runs total).
+
 ## Not claimed (yet) — kept out of every front door
 
 - The transformer *is* a CM-elliptic-curve endomorphism sequence; training *is* BSD analytic-rank maximization. Real research program; no explicit curve, no model trained this way. Companion only.
