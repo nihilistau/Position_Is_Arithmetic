@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Shannon-Prime — long-context KV memory you can run</title>
-<meta name="description" content="A two-ring memory architecture that retrieves a needle from 32k tokens off an NVMe drive in ~1.8 GB. Receipts-first, reproducible from a command.">
+<meta name="description" content="A four-tier auditable memory hierarchy for frozen transformers (Ring 1/2/2&#8242;/3) plus XBAR, a token-free latent crossbar. Receipts-first: every number reproduces from a command, honest negatives kept attached.">
 <style>
   :root{ --bg:#0b0c0e; --fg:#e8e8ea; --mut:#9aa0a6; --line:#23262b; --card:#121418; --accent:#6ea8ff; --good:#7bd88f; }
   *{ box-sizing:border-box }
@@ -43,18 +43,18 @@
 <div class="wrap">
 
   <header>
-    <h1>Long-context KV memory you can actually run.</h1>
-    <p class="lede">A needle retrieved from <strong>32,000 tokens</strong> of context, with the cold KV cache served <strong>off an NVMe drive</strong>, in <strong>~1.8&nbsp;GB</strong> of RAM. 8× KV sparsification at <strong class="good">+0.69% perplexity</strong>.</p>
-    <p class="sub">A memory architecture that attaches to a frozen pretrained transformer and preserves its outputs. Proof-of-mechanism on one small model — every number reproduces from a command.</p>
+    <h1>Auditable memory for a frozen transformer — and a latent crossbar between models.</h1>
+    <p class="lede">A needle retrieved <strong>off a physical NVMe drive</strong>, poison-gated, at <strong>7.57&nbsp;µs/read</strong>. Resident KV cache shrunk <strong>910×</strong> at 32k context. 8× KV sparsification at <strong class="good">+0.69% perplexity</strong>. A 12B steered by <strong>direct KV-cache transplant, no tokens</strong> — 15/15, receipted.</p>
+    <p class="sub">A memory architecture that attaches to a frozen pretrained transformer and preserves its outputs — bit-exact when disabled. Proof-of-mechanism on small models, one host — every number reproduces from a command, and the misses stay published (the composed 32k retrieval MISSed; ledger 01-R9).</p>
   </header>
 
-  <h2>Run the headline</h2>
+  <h2>Run the composed pipeline</h2>
   <div class="run">
     <pre id="cmd">git clone https://github.com/nihilistau/Position_Is_Arithmetic.git &amp;&amp; cd Position_Is_Arithmetic/papers/01-two-ring-memory/repro
 ./run_r9_32k_needle.ps1 -Model Qwen3-0.6B-f16.gguf -Drive F:\ -Corpus wiki.test.raw</pre>
     <button onclick="navigator.clipboard.writeText(document.getElementById('cmd').innerText)">copy</button>
   </div>
-  <p class="sub">You'll watch an out-of-distribution secret surface from a context that never fully lived in RAM. Correctness reproduces on any NVMe; the latency figure needs Optane.</p>
+  <p class="sub">You'll watch the cold KV path serve a 32k context off a drive, in ~1.8&nbsp;GB of RAM. Honest scope: at the full composed 32k budget (64× selection) the retrieval itself <strong>MISSed</strong> (ledger 01-R9, kept on purpose) — the <strong>512-position retrieval is the proven claim</strong>, and the off-drive machinery (poison-gated, zero silent fallbacks over 16.3&nbsp;h) is real either way. Correctness reproduces on any NVMe; the latency figure needs Optane.</p>
 
   <h2>Three walls, three mechanisms</h2>
   <div class="grid">
@@ -68,11 +68,27 @@
     <tr><th>Claim</th><th>Number</th><th>Caveat</th></tr>
     <tr><td>Quality at 8× sparsification</td><td>+0.69% PPL <span class="c">(2× −0.71, 4× −0.92)</span></td><td><span class="c">0.6B, 2k, one corpus</span></td></tr>
     <tr><td>Needle retrieval, no recency bias</td><td>HIT at depth 10 / 50 / 90</td><td><span class="c">one model, one needle type</span></td></tr>
-    <tr><td>KV served off physical Optane</td><td>HIT off NVMe, poison-gated</td><td><span class="c">512 proven; 32k pending</span></td></tr>
+    <tr><td>KV served off physical Optane</td><td>HIT off NVMe, poison-gated</td><td><span class="c">512 proven; composed 32k MISSed at the 64× budget (01-R9)</span></td></tr>
     <tr><td>Random-read latency</td><td>7.57 µs / read</td><td><span class="c">Optane-specific</span></td></tr>
     <tr><td>KV-RAM footprint</td><td>910× cache · 1.8 GB live</td><td><span class="c">net ~8×, router-index-dominated</span></td></tr>
     <tr><td>Bit-exact when disabled</td><td>argmax-identical to the stock model</td><td><span class="c">the invariant under everything</span></td></tr>
+    <tr><td>12B GPU decode + quality, RTX 2060 12GB</td><td>26.1 tok/s at wikitext PPL 5.12</td><td><span class="c">gated + citable (06-R10); llama.cpp 31.29 tok/s at PPL 192–506 — broken artifacts (06-R8)</span></td></tr>
+    <tr><td>gemma-4 ecosystem finding</td><td>true PPL 4.68 vs GGUFs 192–506</td><td><span class="c">engine-independent (06-R8); fix tutorial in-repo</span></td></tr>
+    <tr><td>Latent crossbar probe (XBAR P1)</td><td>15/15 incorporation, 15/15 selectivity, 3.69 orders max rank pull</td><td><span class="c">12B steered by direct KV transplant, no tokens; gold-instrument coherence (X-R1)</span></td></tr>
   </table>
+
+  <h2>The system: four tiers and a crossbar</h2>
+  <p class="sub">The two-ring design grew into a four-tier hierarchy with an inter-model lane on top — each component carries its status:</p>
+  <table>
+    <tr><th>Component</th><th>What it is</th><th>Status</th></tr>
+    <tr><td><strong>Ring 1</strong></td><td>working KV window — the live turn</td><td><span class="good">PROVEN</span> <span class="c">(the stock model path)</span></td></tr>
+    <tr><td><strong>Ring 2</strong></td><td>verbatim episodic store on byte-addressable storage — the "hippocampus"</td><td><span class="good">PROVEN</span> <span class="c">(on Optane, poison-gated; bounded — the 64×-budget 32k MISS is why)</span></td></tr>
+    <tr><td><strong>Ring 2&#8242;</strong> (shadow)</td><td>transient staging: the curator proposes, a coherence gate promotes or rewinds — the audit mechanism</td><td>WIRED <span class="c">(C1-lite curator, exercised on real recall)</span></td></tr>
+    <tr><td><strong>Ring 3</strong></td><td>adapter-compressed consolidated store — the "neocortex"</td><td>DESIGN <span class="c">(under the irreversible-aware G-R3-LOSS gate)</span></td></tr>
+    <tr><td><strong>XBAR</strong></td><td>the Auditable Latent Crossbar: Exec + Memo share memory through latent state, no tokens — every write receipted, gated, rewindable</td><td><span class="good">PROVEN</span> <span class="c">(probe P1, ledger X-R1)</span> <span class="c">· lanes beyond the probe in design</span></td></tr>
+    <tr><td><strong>NIGHTSHIFT</strong></td><td>offline idle-time consolidation: Ring 2 → adapter → Ring 2&#8242; → gate → Ring 3 — a synthetic subconscious whose dreams are auditable</td><td>DESIGN</td></tr>
+  </table>
+  <p class="sub">Full map with the architecture diagram: <a href="https://github.com/nihilistau/Position_Is_Arithmetic#the-system-a-four-tier-memory-hierarchy-plus-a-latent-crossbar">README — The system</a>.</p>
 
   <h2>Honest scope</h2>
   <div class="note">
@@ -89,7 +105,7 @@
   <p class="sub">The biggest open question is scale: does 8×-at-&lt;2% hold past 0.6B? Other one-person-can't-do-it asks: independent repros on your own drive (the Linux path especially), and compressing the ±1 router index (a sign-packed <code>popcount</code> form should cut its ~950 MB by ~32×). See <a href="https://github.com/nihilistau/Position_Is_Arithmetic/blob/main/CONTRIBUTING.md">CONTRIBUTING</a>.</p>
 
   <footer>
-    A receipts-first series · part 02 (the reducing loader) and 03 (calibration-free quant) staged. ·
+    A receipts-first series · 06 (computing on the zip file) complete + citable; 04/05 written; 02/03 staged; XBAR ledger row X-R1 citable. ·
     Cite: <a href="https://github.com/nihilistau/Position_Is_Arithmetic/blob/main/CITATION.cff">CITATION.cff</a> · License: <a href="https://github.com/nihilistau/Position_Is_Arithmetic/blob/main/LICENSE">MIT</a> · Every number traces to <a href="https://github.com/nihilistau/Position_Is_Arithmetic/blob/main/LEDGER.md">the ledger</a>.
   </footer>
 
