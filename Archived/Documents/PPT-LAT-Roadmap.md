@@ -3,9 +3,27 @@
 **Project:** shannon-prime-lattice
 **Document role:** Operational roadmap. Read by every future session before doing work.
 **Status:** Living document. Mutable. Papers are scaffolding, not artefacts.
-**Last rewrite:** 2026-05-21 · **Last amended:** 2026-06-03 (C2.1 + public-launch amendments below)
+**Last rewrite:** 2026-05-21 · **Last amended:** 2026-06-10 (XBAR status refresh; prior C2.1 + public-launch + XBAR-opening amendments below)
 **Authors:** Knack + Claude + Gemini (Shannon-Prime team)
 **Public front door:** [Position Is Arithmetic](https://github.com/nihilistau/Position_Is_Arithmetic) · [live site](https://nihilistau.github.io/Position_Is_Arithmetic/) — receipts-first paper series. **License: MIT (all repos).**
+
+---
+
+## AGENT NAVIGATION / CURRENT PHASE (added 2026-06-10 — read this box, then jump; do NOT read this 8,500-line file top-to-bottom)
+
+**Today's forward edge (2026-06-10):**
+- **XBAR P2.b capacity arm IN FLIGHT** (4 configs × 3 seeds, CONTRACT-XBAR-P2b §3j) — no verdict yet; do not pre-claim.
+- **P3 ring-on-gemma4-CUDA** next (G-P3-GEOM substrate landed, core `64b698c`; remaining: decode.c wiring + G-P3-SHARED).
+- **NIGHTSHIFT v0** (schtasks over the C1-lite loop) · **GNA Stage 3** HW bring-up in reserve (kit staged).
+
+**Where current truth lives — supersession order: STATE > contract run records > the amendment blocks below > this file's body.**
+- `PPT-LAT-STATE.md` — the PROVEN ledger. §5.07 stage taxonomy (Alpha…Eta, Omicron ο, Holon ⬢⃝) · §5.13 gemma-4 campaign (citable 06-R10) · §5.14 XBAR (X-R1, P2.b, C1-lite).
+- Contract run records: `CONTRACT-XBAR-P2b` (the live lane) · `CONTRACT-XBAR-C1-lite` (complete, P3 pre-flight §3b) · `CONTRACT-SPEED` (06-R10) · `CONTRACT-C2` (two-ring; honest 32k MISS in §C2.4-CLOSURE).
+- `RFC-XBAR-auditable-latent-crossbar.md` — the current architecture: §3 diagram · §3.1 four-tier hierarchy (Ring 1/2/2′/3) · §5 roadmap · §7 NIGHTSHIFT.
+- **The amendment blocks immediately below** (2026-06-02 → 2026-06-10) are the real current state of THIS file; the latest XBAR STATUS REFRESH supersedes earlier NEXT lines.
+- In the body: §2 phase summary table (~line 135) · §19 Stage Eta / §20 Omicron ο / §21 Stage Beta (~lines 8490–8600) · Phase log (~line 4410).
+
+**Warning:** the body below the amendment blocks is largely HISTORICAL (planned 2026-05-21; many phases since closed or superseded). Use it for per-phase gate definitions and context, never as current state.
 
 ---
 
@@ -16,6 +34,10 @@
 > **C2.1 SIGNED OFF (2026-06-03) — modes + fusion + release prep.** Three decode modes shipped (streaming / decode-only `a5e9b86` / compact-and-spill fusion `7896bc4`), all parity-exact when off. Fusion verified N=512 + timed N=8192 (51.4 min, buffer freed, HIT off Optane); 32k *headline* runs the streaming path (always-low-RAM) since dense-exact fusion prefill is O(N²) (~18 h @32k, the stock cost of exact attention). **R9 (streaming 32k) in flight** — last open item is cosmetic (drop its numbers into paper-01 §4 + abstract + EXPECTED + hero). Publishing track: paper-02 repro green (6/6 E_FMT, EXPECTED.md), license MIT wired, `shannon-prime-papers` repo set up. Record in **STATE §5.055**. C2.1 is closed bar the R9 number; next lead per §5.1 is **P1 SPEED/WIRE** (close the ~33× tok/s gap) or **P2 C4 MTP**. *(R9 outcome 2026-06-06: the completed v5 finale MISSed — see the C2.1 note above; the 32k headline is withdrawn pending diagnosis.)*
 >
 > **PUBLIC LAUNCH + DOCS ALIGNED (2026-06-03).** Public front door is live: **`Position_Is_Arithmetic`** (repo + GitHub-Pages site) carries the receipts-first paper series — 01 two-ring memory, 02 reducing loader (repro green). **All four repos relicensed AGPL-3.0 → MIT** (copyright Ray Daniels). The three code-repo READMEs + the `PPT-LAT-Systems-v1` master were rebalanced off the phone/Hexagon-era framing onto the current memory-envelope strategy (Hexagon is now one of four backends; the CPU two-ring memory + WIRE-CPU 47× are the realized-envelope story). **Next P1 step filed:** `PLAN-SPEED-WIRE-CPU-V3-memory-layout.md` — Stage 0 (profile: is the last 1.34× vs llama.cpp Q8 bytes, passes, or activation-side?) gates the block-Q8 layout; it is armed to auto-fire when the R9 box frees. The 0.6B dense dot is "match the tuned ceiling"; the real speed differentiator is the 35B-A3B MoE envelope (`SPEED_NORTHSTAR`).
+>
+> **XBAR LANE OPENED (2026-06-09) — the auditable latent crossbar (STATE §5.14, `RFC-XBAR` v1.1).** Atop the proven engine, a token-free inter-model memory architecture: Exec + a small Memo curator share the cyclotomic rings; every write receipted/gated/rewindable. **P1 CITABLE (public LEDGER X-R1):** a 12B steered by direct KV-cache transplant, no tokens — 15/15 incorporation (5×3 matrix), double-dissociation selectivity, 3.69-orders max pull, dose-response, gold-PPL coherence. **P2.b Phase 0 (cloud A6000):** k=2 compresses a 6-token span on the real bf16 12B (Pareto: F ~94–96% off-manifold / H ~64–73% on-manifold, two regimes); operating point = training-time λ-selection (recall-invariant primary) — the free-gen parity gate was convicted unusable (greedy loops). **C1-lite (local immune system, qwen3 CPU ring):** C1L.1 transactional shadow ring + C1L.0a episode-persistence/router-re-projection, both gated green (`tools/curator/*`). **Architecture:** Ring 3 consolidated "neocortical" tier under the irreversible G-R3-LOSS gate. **NEXT:** C1L.0b replay-decode surgery (`decode.c` untouched, opens clean) → C1L.2 cold-evict → P2.b training. Cloud mechanism documented (`RUNBOOK-cloud-compute.md`). This lane runs in parallel with the SPEED/NORTHSTAR track; it does not reprioritize it.
+>
+> **XBAR STATUS REFRESH (2026-06-10) — supersedes the NEXT line above.** **C1-lite COMPLETE** (tag `xbar-c1-lite-complete`: C1L.0a persistence/re-projection + C1L.0b replay (`SP_REPLAY`, `T_GENKV_REPLAY_NULL` 34/34) + C1L.1 transaction + C1L.2 cold-evict (45/45) — the curator's full propose→gate→promote/rewind loop proven on real recall; CONTRACT-XBAR-C1-lite §2). **P2.b Fork-2 WORKS:** the through-model readback-CE loss made the Curator's recall invariant reproducible — 3 seeds at 80–84/100 vs the 58≈chance no-readback baseline, recovery held; λ_read band **[0.25, 0.5]**; **Fork-1 k-sweep in flight** (k∈{1,3,4,6}; k=6 = the no-compression control separating compression-limit from adapter-limit; CONTRACT-XBAR-P2b §3i). **P3 pre-flight audited** against the real `gemma4.c` (CONTRACT-C1-lite §3b): two genuine port gaps, G-P3-GEOM (per-layer-class NKV/HD in projk+select) + G-P3-SHARED (owner-indirect spill/recall); replay seam + episode layout transfer as-is. **GNA 2.0 lane live in SW-emu** (RFC-XBAR §3.2): FiLM-native/1D-conv/i8-i16/224 MB envelope pinned on real libGNA; local bring-up kit staged (Win+Linux drivers, Kaldi reference models, aclnet int8 CNN) — HW bring-up (Stage 3) no longer driver-blocked. Public LEDGER carries 06-R10 + X-R1.
 
 ---
 
