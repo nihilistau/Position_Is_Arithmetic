@@ -85,7 +85,7 @@ Provenance: lattice `papers/CONTRACT-XBAR-P1-inception-probe.md` + `papers/CONTR
 - The transformer *is* a CM-elliptic-curve endomorphism sequence; training *is* BSD analytic-rank maximization. Real research program; no explicit curve, no model trained this way. Companion only.
 - Anything on models larger than the references, multi-model generality, or independent reproduction. Until those exist, the phrase is "proof-of-mechanism."
 
-## KAIROS — the resident kernel (KAI-1, closed 2026-06-14)  `[DRAFT — pending operator wording sign-off]`
+## KAIROS — the resident kernel (KAI-1, closed 2026-06-14)
 
 | # | Claim | Number | Config | Gate | Caveat | Status |
 |---|---|---|---|---|---|---|
