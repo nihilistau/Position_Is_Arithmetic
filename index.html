@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Shannon-Prime — long-context KV memory you can run</title>
-<meta name="description" content="A four-tier auditable memory hierarchy for frozen transformers (Ring 1/2/2&#8242;/3) plus XBAR, a token-free latent crossbar. Receipts-first: every number reproduces from a command, honest negatives kept attached.">
+<meta name="description" content="A four-tier auditable memory hierarchy for frozen transformers (Ring 1/2/2&#8242;/3), XBAR (a token-free latent crossbar with an O(1)-in-context KV cache), and KAIROS (a resident 12B daemon that rewinds at the metal). Receipts-first: every number reproduces from a command, honest negatives kept attached.">
 <style>
   :root{ --bg:#0b0c0e; --fg:#e8e8ea; --mut:#9aa0a6; --line:#23262b; --card:#121418; --accent:#6ea8ff; --good:#7bd88f; }
   *{ box-sizing:border-box }
@@ -43,9 +43,9 @@
 <div class="wrap">
 
   <header>
-    <h1>Auditable memory for a frozen transformer — and a latent crossbar between models.</h1>
-    <p class="lede">A needle retrieved <strong>off a physical NVMe drive</strong>, poison-gated, at <strong>7.57&nbsp;µs/read</strong>. Resident KV cache shrunk <strong>910×</strong> at 32k context. 8× KV sparsification at <strong class="good">+0.69% perplexity</strong>. A 12B steered by <strong>direct KV-cache transplant, no tokens</strong> — 15/15, receipted.</p>
-    <p class="sub">A memory architecture that attaches to a frozen pretrained transformer and preserves its outputs — bit-exact when disabled. Proof-of-mechanism on small models, one host — every number reproduces from a command, and the misses stay published (the composed 32k retrieval MISSed; ledger 01-R9).</p>
+    <h1>Auditable memory for a frozen transformer — a latent crossbar between models, and a resident daemon that rewinds at the metal.</h1>
+    <p class="lede">A 12B's KV cache made <strong class="good">O(1) in context</strong> — <strong>8k↔16k flat within ~50&nbsp;MiB</strong>, the needle surviving at every depth. A 12B steered by <strong>direct KV-cache transplant, no tokens</strong> — 15/15, receipted. A resident 12B daemon that holds <strong>disciplined silence</strong> and shears its cache by an <strong>O(1) byte-exact rewind</strong> (48 layers, diffs&nbsp;=&nbsp;0).</p>
+    <p class="sub">A memory-and-agency architecture that attaches to a frozen pretrained transformer and preserves its outputs — bit-exact when disabled. Proof-of-mechanism on one dev host: the <strong>0.6B</strong> carries the memory ladder, the <strong>12B</strong> (Gemma-3-12B QAT 4-bit) carries the XBAR and KAIROS results. Every number reproduces from a command, and the misses stay published (the composed 32k retrieval MISSed; ledger 01-R9).</p>
   </header>
 
   <h2>Run the composed pipeline</h2>
@@ -75,6 +75,8 @@
     <tr><td>12B GPU decode + quality, RTX 2060 12GB</td><td>26.1 tok/s at wikitext PPL 5.12</td><td><span class="c">gated + citable (06-R10); llama.cpp 31.29 tok/s at PPL 192–506 — broken artifacts (06-R8)</span></td></tr>
     <tr><td>gemma-4 ecosystem finding</td><td>true PPL 4.68 vs GGUFs 192–506</td><td><span class="c">engine-independent (06-R8); fix tutorial in-repo</span></td></tr>
     <tr><td>Latent crossbar probe (XBAR P1)</td><td>15/15 incorporation, 15/15 selectivity, 3.69 orders max rank pull</td><td><span class="c">12B steered by direct KV transplant, no tokens; gold-instrument coherence (X-R1)</span></td></tr>
+    <tr><td>O(1) KV decoupled from context (12B)</td><td>learned 512×32 LSH router <span class="good">+0.47% PPL @8×</span>; VRAM 8k↔16k flat ~50 MiB; needle survives 10/50/90%</td><td><span class="c">oracle −0.08%, frozen +4.17%; frozen-router control MISSES; KV term is O(1) (X-R2)</span></td></tr>
+    <tr><td>Resident 12B daemon: silence + O(1) rewind</td><td>24-tick crucible perfect (0 false / 0 missed / 0 drift); rewind byte-identical 48 layers; metal 0.0073 vs grow 0.924 s/action</td><td><span class="c">scripted tape; 0.6B control collapses; ≥24 h soak IN-FLIGHT, no verdict yet (KAIROS-01/02)</span></td></tr>
   </table>
 
   <h2>The system: four tiers and a crossbar</h2>
@@ -85,14 +87,15 @@
     <tr><td><strong>Ring 2</strong></td><td>verbatim episodic store on byte-addressable storage — the "hippocampus"</td><td><span class="good">PROVEN</span> <span class="c">(on Optane, poison-gated; bounded — the 64×-budget 32k MISS is why)</span></td></tr>
     <tr><td><strong>Ring 2&#8242;</strong> (shadow)</td><td>transient staging: the curator proposes, a coherence gate promotes or rewinds — the audit mechanism</td><td>WIRED <span class="c">(C1-lite curator, exercised on real recall)</span></td></tr>
     <tr><td><strong>Ring 3</strong></td><td>adapter-compressed consolidated store — the "neocortex"</td><td>DESIGN <span class="c">(under the irreversible-aware G-R3-LOSS gate)</span></td></tr>
-    <tr><td><strong>XBAR</strong></td><td>the Auditable Latent Crossbar: Exec + Memo share memory through latent state, no tokens — every write receipted, gated, rewindable</td><td><span class="good">PROVEN</span> <span class="c">(probe P1, ledger X-R1)</span> <span class="c">· lanes beyond the probe in design</span></td></tr>
+    <tr><td><strong>XBAR</strong></td><td>the Auditable Latent Crossbar: Exec + Memo share memory through latent state, no tokens — every write receipted, gated, rewindable; the cache itself <strong class="good">O(1) in context</strong></td><td><span class="good">PROVEN</span> <span class="c">(probe P1 X-R1; O(1) KV + learned router X-R2)</span></td></tr>
+    <tr><td><strong>KAIROS</strong></td><td>the time / agency axis: a resident 12B daemon — disciplined silence (NO_OP) + coherent action, with an O(1) byte-exact cache rewind to cold-evict idle thoughts</td><td><span class="good">PROVEN</span> <span class="c">(crucible KAIROS-01; metal rewind KAIROS-02; ≥24 h soak IN-FLIGHT)</span></td></tr>
     <tr><td><strong>NIGHTSHIFT</strong></td><td>offline idle-time consolidation: Ring 2 → adapter → Ring 2&#8242; → gate → Ring 3 — a synthetic subconscious whose dreams are auditable</td><td>DESIGN</td></tr>
   </table>
   <p class="sub">Full map with the architecture diagram: <a href="https://github.com/nihilistau/Position_Is_Arithmetic#the-system-a-four-tier-memory-hierarchy-plus-a-latent-crossbar">README — The system</a>.</p>
 
   <h2>Honest scope</h2>
   <div class="note">
-    Proof-of-mechanism on <strong>one 0.6B model, one host</strong> — not a scaling study, not independently reproduced yet. The CPU decode is <strong>~1.34× behind</strong> a tuned llama.cpp at the same quantization: the value here is the <strong>memory envelope, not throughput</strong>. We keep the unflattering numbers in the papers on purpose — a result with its caveats attached is one you can trust.
+    Proof-of-mechanism on <strong>one dev host</strong> (RTX 2060, 12 GB) — not a scaling study, not multi-model, not independently reproduced yet. The <strong>0.6B</strong> (Qwen3-0.6B) carries the two-ring memory ladder; the <strong>12B</strong> (Gemma-3-12B, QAT 4-bit) carries the XBAR and KAIROS results. The CPU decode is <strong>~1.34× behind</strong> a tuned llama.cpp at the same quantization: the value here is the <strong>memory-and-agency envelope, not raw throughput</strong>. The <strong>≥24 h KAIROS endurance soak is in-flight, not passed</strong> — we do not call a verdict from a mid-run log. We keep the unflattering numbers in the papers on purpose — a result with its caveats attached is one you can trust.
   </div>
 
   <h2>Read more</h2>
@@ -102,10 +105,10 @@
   </div>
 
   <h2>Get involved</h2>
-  <p class="sub">The biggest open question is scale: does 8×-at-&lt;2% hold past 0.6B? Other one-person-can't-do-it asks: independent repros on your own drive (the Linux path especially), and compressing the ±1 router index (a sign-packed <code>popcount</code> form should cut its ~950 MB by ~32×). See <a href="https://github.com/nihilistau/Position_Is_Arithmetic/blob/main/CONTRIBUTING.md">CONTRIBUTING</a>.</p>
+  <p class="sub">The biggest open question is scale: the O(1) KV result holds 8× at +0.47% PPL on the 12B (X-R2) — does it hold past 12B, and on other architectures? Other one-person-can't-do-it asks: independent repros on your own drive (the Linux path especially), and the ≥24 h KAIROS soak reproduced on a card that <em>can</em> lock its memory clock (ours can't — see the methodology). See <a href="https://github.com/nihilistau/Position_Is_Arithmetic/blob/main/CONTRIBUTING.md">CONTRIBUTING</a>.</p>
 
   <footer>
-    A receipts-first series · 06 (computing on the zip file) complete + citable; 04/05 written; 02/03 staged; XBAR ledger row X-R1 citable. ·
+    A receipts-first series · 06 (computing on the zip file) complete + citable; 04/05 written; 02/03 staged; 07/08/10 staged drafts; 09 (KAIROS) staged — release gated on the in-flight ≥24 h soak. Citable ledger rows now include XBAR X-R1 (latent write) + X-R2 (O(1) KV) and KAIROS-01/02 (resident daemon + O(1) rewind). ·
     Cite: <a href="https://github.com/nihilistau/Position_Is_Arithmetic/blob/main/CITATION.cff">CITATION.cff</a> · License: <a href="https://github.com/nihilistau/Position_Is_Arithmetic/blob/main/LICENSE">MIT</a> · Every number traces to <a href="https://github.com/nihilistau/Position_Is_Arithmetic/blob/main/LEDGER.md">the ledger</a>.
   </footer>
 
