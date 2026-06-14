@@ -83,7 +83,11 @@ passed; this paper's release waits on its receipt.**
 
 ## Status
 
-Staged draft, **release-blocked on the in-flight soak**. Front-door receipts
+**Paper written/complete for the MECHANISM** ([`paper.md`](paper.md), with its
+Reproduction section) — citable via ledger **KAIROS-01 / KAIROS-02**. The
+**endurance claim and the full release are HELD on the in-flight ≥24 h soak**
+(`G-KAIROS-1`): that run is executing, and per this series' discipline no
+verdict is read from a mid-run log. Front-door receipts
 measured + gated in
 [shannon-prime-system-engine](https://github.com/nihilistau/shannon-prime-system-engine)
 (`tests/test_gemma4_cuda.c` `SP_G4_KAIROS`, persistent-KV `gemma4_kv_*`,

@@ -1,8 +1,12 @@
-# 08 — O(1) KV: a context-decoupled cache via a learned router *(staged draft)*
+# 08 — O(1) KV: a context-decoupled cache via a learned router *(written — front-door gated, X-R2)*
 
-> **STATUS: staged draft** — outline mapped; the front-door receipt is already
-> measured + gated (ledger **X-R2**). Per series rule 4: re-gate + one-command
-> repro before release.
+> **STATUS: written, citable via X-R2** — the full paper is
+> [`paper.md`](paper.md); the gate lines + commands are
+> [`repro/EXPECTED.md`](repro/EXPECTED.md). The front-door receipt is measured +
+> gated (ledger **X-R2**) from the cited commits against the cited receipt logs.
+> Per series rule 4, the standalone one-command re-gate is the pre-release step
+> (this module reproduces from `<commit>` via `<command>` against `<log>`; it
+> does not claim a fresh re-run).
 
 > **Front-door receipt (measured + gated, ledger X-R2):** the KV cache of a
 > frozen **Gemma-4-12B** is decoupled **O(1) from context length**, with the
@@ -64,9 +68,15 @@ Proof-of-mechanism: **one model (Gemma-4-12B), one host (RTX 2060 12 GB)**. The
 backend-direct harness still carries the resident model — arena-streamed weights
 are a separate gate. Not scale-validated, not independently reproduced.
 
+## Module
+
+[`paper.md`](paper.md) — the full paper (8 sections + Reproduction + Receipts).
+[`repro/EXPECTED.md`](repro/EXPECTED.md) — the expected gate lines for the three
+reproductions (`_run_g2_lsh.bat`, `_run_g2_cb2_vram.bat`, `_run_niah_cc.bat`).
+
 ## Status
 
-Staged draft. Front-door receipt already measured + gated in
+Written; citable via X-R2. Front-door receipt measured + gated in
 [shannon-prime-system-engine](https://github.com/nihilistau/shannon-prime-system-engine)
 (`tests/test_gemma4_cuda.c` `SP_G4_NIAH` + `SP_ARM_*` knobs in
 `cuda_forward.cu`; trainer `tools/xbar_lsh/train_lsh.py`); architecture in

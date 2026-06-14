@@ -1,8 +1,10 @@
-# 07 — The Auditable Latent Crossbar: steering a frozen 12B through its KV cache *(staged draft)*
+# 07 — The Auditable Latent Crossbar: steering a frozen 12B through its KV cache *(complete — gated, citable)*
 
-> **STATUS: staged draft** — outline mapped; the front-door receipt is already
-> measured + gated (ledger **X-R1**). Per series rule 4: re-gate + one-command
-> repro before release.
+> **STATUS: written, complete — citable via ledger X-R1.** The full paper is
+> [`paper.md`](paper.md); the front-door receipt is measured + gated (ledger
+> **X-R1**). Per series rule 4, two items remain before public release: a
+> one-command standalone repro (`EXPECTED.md` capture) and the closing commit
+> hash pinned from the engine `git log`. See `paper.md` §7.
 
 > **Front-door receipt (measured + gated 2026-06-08, ledger X-R1):** a frozen
 > **Gemma-4-12B**'s generation is steered by **direct KV-cache transplant — no
@@ -60,13 +62,16 @@ runtime ownership of the cache — a deployment-isolation property, recorded as
 motivation (a verifiable, gated latent substrate is a defense direction the
 field lacks), not a project pivot.
 
-## Status
+## Module
 
-Staged draft. Front-door receipt already measured + gated in
+[`paper.md`](paper.md) — the full paper (abstract, the six-section argument,
+Reproduction, limitations). Front-door receipt measured + gated in
 [shannon-prime-system-engine](https://github.com/nihilistau/shannon-prime-system-engine)
-(`tests/test_xbar_p1_cuda.c`, `SP_XBAR_*` harness, XBP1 payloads); architecture
-ground truth in lattice `papers/RFC-XBAR-auditable-latent-crossbar.md` and
-`papers/CONTRACT-XBAR-P1-inception-probe.md`. Ledger row in
-[`LEDGER.md`](../../LEDGER.md) §XBAR (**X-R1**). Companions: 08 (the O(1) KV +
-learned router that the crossbar pages over), 04 (the oracle that grades the
-coherence numbers), 06 (the B1 12B artifact every XBAR run rides on).
+(`tests/test_xbar_p1_cuda.c`, `SP_XBAR_*` harness in
+`src/backends/cuda/cuda_forward.cu`, XBP1 payloads); architecture ground truth
+in lattice `papers/RFC-XBAR-auditable-latent-crossbar.md` and
+`papers/CONTRACT-XBAR-P1-inception-probe.md` (§7–9 run records). Ledger row in
+[`LEDGER.md`](../../LEDGER.md) §XBAR (**X-R1**). Companions: 06 (the B1 12B
+artifact every XBAR run rides on — paper 07 is the first thing built on it),
+04 (the gold instrument that grades the coherence numbers), 08 (the O(1) KV +
+learned router the crossbar later pages over).

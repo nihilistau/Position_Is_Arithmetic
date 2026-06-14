@@ -1,8 +1,9 @@
-# 10 — Receipts or it didn't happen: bit-exact-or-bounded as the contribution *(staged draft)*
+# 10 — Receipts or it didn't happen: bit-exact-or-bounded as the contribution *(written / complete)*
 
-> **STATUS: staged draft** — outline mapped; this paper's "receipts" are the
-> series' own gates and four documented self-corrections, all already in
-> [`LEDGER.md`](../../LEDGER.md) and [`METHODOLOGY.md`](../../METHODOLOGY.md).
+> **STATUS: written / complete** — full paper at [`paper.md`](paper.md). This
+> paper's "receipts" are the series' own gates and four documented self-
+> corrections, all already in [`LEDGER.md`](../../LEDGER.md) and
+> [`METHODOLOGY.md`](../../METHODOLOGY.md); no new engine run is required.
 
 > **Front-door claim:** the methodology is the moat. Every result in this series
 > is held to one of two standards — it is either **bit-exact** (byte-for-byte
@@ -60,11 +61,22 @@ floating-point, text-bus agent stack cannot offer.
    what lets the whole tower of results (space ⊗ time ⊗ cognition) stay standing
    as each layer is added.
 
-## Status
+## Module
 
-Staged draft. No new engine receipts — this paper's evidence is the existing
-ledger rows and the four documented self-corrections (01-R9, 06-R6→R10, the
-small-N illusion behind X-R2, the oracle-ceiling call behind X-R2). Ground truth:
-[`METHODOLOGY.md`](../../METHODOLOGY.md) (the gate vocabulary) and
-[`LEDGER.md`](../../LEDGER.md) (every number, every caveat). Companions: every
-other paper in the series — this one is the discipline they all cite.
+[`paper.md`](paper.md) — the full paper. No new engine receipts: this paper's
+evidence is the existing ledger rows and the four documented self-corrections,
+each cited with both the wrong call and its correction so a reader can verify the
+discipline actually operated —
+
+- **34.2 retired by its own PPL rule** — 06-R6 (gate-pending) → 06-R10 (citable).
+- **32k MISS kept public** — 01-R9 (measured MISS, not a claim).
+- **Small-N deflection illusion** — −3.21% @ ~42-pos → +4.17% @ ~3072-pos (X-R2 /
+  `CONTRACT-XBAR-P3-ring-on-exec.md`).
+- **Oracle ceiling flips "concede 4×" → "train 8×"** — proxy 92.3% mass vs oracle
+  PPL −0.08%, then learned router +0.47% (X-R2 / the §3q oracle record).
+
+Ground truth: [`METHODOLOGY.md`](../../METHODOLOGY.md) (the gate vocabulary this
+paper promotes to a capstone), [`LEDGER.md`](../../LEDGER.md) (every number,
+every caveat), and lattice `CURRENT-STATE-OF-PROJECT.md` §6 ("why the results can
+be trusted"). Companions: every other paper in the series — this one is the
+discipline they all cite.
