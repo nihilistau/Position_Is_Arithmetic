@@ -1,8 +1,9 @@
 # 09 — KAIROS: a resident 12B daemon that stays silent and rewinds at the metal *(staged draft — release gated on the in-flight soak)*
 
-> **STATUS: staged draft.** Outline mapped; front-door receipts measured +
-> gated (ledger **KAIROS-01 / KAIROS-02**). **Release is held pending the
-> ≥24 h endurance soak receipt — that run is IN-FLIGHT, not passed.** Per our
+> **STATUS: written (mechanism) — `paper.md` complete.** Front-door receipts
+> measured + gated (ledger **KAIROS-01 / KAIROS-02 / KAIROS-03**). **Full release
+> is held pending the ≥24 h endurance soak receipt — that run is IN-FLIGHT, not
+> passed.** Per our
 > own discipline we do not call a verdict from a mid-run log; this paper does
 > not ship until the soak closes with a receipt.
 

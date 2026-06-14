@@ -4,7 +4,9 @@
 Every number below is a row in [LEDGER.md](../../LEDGER.md) with a command behind it.*
 
 > **Release status.** The *mechanism* of this paper is measured and gated —
-> ledger rows **KAIROS-01** and **KAIROS-02**, both CLOSED. The paper's
+> ledger rows **KAIROS-01**, **KAIROS-02**, and **KAIROS-03** (the §5 wrap-aware
+> journaled ring + §6 O(1) telemetry + the `run_kairos_metal` semantic loop), all
+> CLOSED. The paper's
 > **endurance** claim is a separate, pre-registered gate (`G-KAIROS-1` soak),
 > and the **≥24 h unattended run is IN-FLIGHT at the time of writing — no
 > verdict.** Per this series' own discipline (no number from a mid-run log),
