@@ -454,3 +454,148 @@ clobbered_owners=40, diffs=0); semantic correctness is proven here on the faithf
 orthogonal and each tested cleanly. **KAI-1c CLOSED. The crossbar substrate (time ⊗ space ⊗ cognition)
 is a unified whole — ready for the ≥24h soak (G-KAIROS-1).** Remaining hygiene: #220 cudaEvent tax,
 #222 kv_decode boundary, compact-slab globals wrap-rewind.
+
+## 6. KAI-2 — THE LATENT INTERRUPT (opener; pre-registered 2026-06-15, code next)
+
+**Why.** KAI-1 gave the resident daemon a *heartbeat* — it ticks, reads a TEXT frame, decides. But a true
+resident must be **interruptible**: an event must be deliverable *now*, mid-idle, without waiting for the
+next polled text tick, and ideally as a *compact latent packet* rather than a verbose prompt. This is the
+X-R1 latent-write mechanism (15/15 incorporation, 15/15 selectivity, self-null 7/7 bit-identical — ledger
+X-R1) **promoted from a probe into a delivery path**: an event written directly into the resident KV
+stream. The roadmap names this KAI-2 (ROADMAP-KAIROS §5 row).
+
+**The seam (surveyed `cuda_forward.cu`).** The clean delivery is **residual-entry injection**, the proven
+`SP_XBAR_EMB` path (cuda_forward.cu:2673-2675 in the one-shot decode): overwrite the device residual
+`s->dx` (E floats, f32) *after* `k_embed_scale` and *before* the layer stack, at the live `dpos`. Because
+the position is the live `dpos`, **RoPE phase is correct by construction** and the forward mints the
+event's K/V natively — no phase-mismatch risk (unlike the KV-splice path, which needs `SP_XBAR_POSFREE`).
+The new ABI surface is **`gemma4_kv_inject(s, emb, n_rows)`** wired into `g4_kv_step` at the post-embed /
+pre-layer point (cuda_forward.cu ~3337-3351): for the injected step(s) the residual is taken from the
+supplied packet instead of the token-embedding lookup, then the normal step writes K/V into the resident
+ring/cache and the daemon decodes its response. The one-shot `gemma4_decode_cuda` AND `gemma4_kv_decode`
+stay **byte-untouched** (inject is an additive, off-by-default entry — the null floor holds).
+
+**Phase scope (honest).** Phase 1 proves the **delivery mechanism**, not compression: the latent packet is
+the event's *real* token embeddings (from the model's embedding table), delivered via residual-entry vs
+the text-append baseline. The **k≈2 compressed pseudo-token packet** (§2.5 format, the P2.b adapter) is a
+separate, harder claim — P2.b recognition rested sub-usable (top-1 0.462) — and is **deferred to KAI-2
+phase 2**; we do not gate compression here, only that latent delivery works and is no worse than text.
+
+**G-KAIROS-2 (PRE-REGISTERED gate).** A/B on the resident 12B (`run_kairos_metal` lineage): the SAME salient
+event delivered as **(A) latent** — `gemma4_kv_inject` of the event embeddings mid-idle — vs **(B) text** —
+the event appended as a `<start_of_turn>` frame (today's path). Three sub-gates, reusing the X-R1 rank
+instrument (`SP_XBAR_RANKS`/`SP_XBAR_TOKENS`, cuda_forward.cu:3096-3117):
+- **Incorporation latency (steps-to-pivot):** the gen-step at which the decoded response's argmax pivots to
+  the correct `<ACTION>` (rank of the action token → 1). **PASS = latent latency ≤ text latency** (the
+  interrupt is at least as fast); the headline is *fewer steps* for latent.
+- **Selectivity:** the pivot is to the **right** action for the injected event and **not** triggered by a
+  null/idle packet — a 2×2 (salient-vs-idle packet × pivot-vs-NO_OP), the X-R1 double-dissociation reused.
+  **PASS = salient→ACTION, idle→NO_OP, both clean (no false-fire from the injection itself).**
+- **Self-injection null (bit-exact):** capture the resident residual at `dpos` (`SP_XBAR_EMB_CAPTURE`) and
+  re-inject it — the decode must be **byte-identical** to no injection (the instrument-is-inert proof, the
+  X-R1 G0 analog on the persistent ABI). **PASS = diffs=0 + identical tokens.**
+- **Falsification (pre-stated):** if latent delivery is **slower or less selective** than text on the 12B,
+  the latent-interrupt thesis is falsified for this substrate and ships as an honest negative (the roadmap's
+  named fallback: re-test the mechanism, do not retreat silently). The self-null is a hard gate — any nonzero
+  diff means the injection seam perturbs the resident state and KAI-2 does not open until it's exact.
+
+**Next-session first action:** wire `gemma4_kv_inject` (residual-entry, null-floor additive) into `g4_kv_step`;
+add the `SP_G4_KAIROS_INTERRUPT` A/B harness mode (latent vs text, rank-telemetry on the action token);
+run **G-KAIROS-2 self-null FIRST** (bit-exact) before any latency/selectivity claim.
+
+**§6.1 SELF-NULL GREEN (2026-06-15, engine `8f3caa0`).** `gemma4_kv_inject`/`gemma4_kv_capture` wired at the
+post-embed/pre-layer point in `g4_kv_step` (off-by-default flags; one-shot `gemma4_decode_cuda` AND
+`gemma4_kv_decode` BYTE-UNTOUCHED = null floor). **G-KAIROS-2 self-null GREEN** (`SP_G4_KV_INJECT_NULL`):
+capture the model's own post-embed residual at a position, rewind, re-inject it → decode **byte-identical**
+(genA==genB == 258882, KV diffs=0 across all owners) — the inject seam is bit-exact inert when fed identity.
+**Non-vacuous:** a perturbed residual changes **all 48 owner layers' KV** (the seam is live, not skipped).
+The instrument-is-inert prerequisite is met.
+
+**§6.2 LATENT-VS-TEXT A/B — HONEST NEGATIVE on untrained compression (2026-06-15, engine `bbf85a5`,
+`SP_G4_KAIROS_INTERRUPT`).** Crux first: the self-null proved `inject(token-embedding) == text`, so a
+raw-embedding latent arm is **provably identical to text** (vacuous). A latency win can therefore come
+**only from compression** (fewer vectors than tokens). With the trained adapter deferred (phase 2), the
+honest non-vacuous baseline is **untrained mean-pool**. Result on the 12B (event = a 44-token salience
+frame): **Arm A (text)** pivots — reads the 44-token frame, emits `ACTION` in 1 decode step ⇒ **total 45
+steps**. **Arm B (untrained k=1 mean-pool, injected in 1 step)** does **NOT** pivot — the pooled vector
+produced incoherent output (`" <start_of_turn>user <EVENT"`), no action. **Verdict: the latent interrupt
+SEAM works (§6.1), but naive mean-pool compression destroys the event structure the model needs to
+recognise salience and act.** This is the roadmap's pre-stated outcome (latent-not-better-than-text on the
+naive packet ⇒ the trained packet is required). **The prize is now quantified:** text spends **44 delivery
+steps before the model can decide**; a working compressed packet collapses that to ~1 — a ~44× delivery-
+latency reduction is the phase-2 target. **NEXT (KAI-2 phase 2):** resurrect the P2.b adapter line with a
+*concrete* target — train a k≈1–2 event→residual packet (contrastive on action-pivot, not generation) so
+the injected vector pivots the resident in ≤2 steps; the seam + instrument are ready, only the packet is
+missing. Exploratory harness `run_kairos_interrupt` (returns 0 — measurement, not pass/fail).
+
+## 6.3 KAI-2 PHASE-2 CODEC — grounded on the NATIVE AUDIO port (opener; pre-registered 2026-06-15, code next)
+
+**The find (verified against `google/gemma-4-12B` repo card + `config.json`, not blogs).** Our frozen artifact
+is **Gemma 4 12B "Unified"** — `model_type: gemma4_unified`, class `Gemma4UnifiedForConditionalGeneration`,
+the 5th Gemma-4 size (the generic core model card lists only four and omits it). It is **encoder-free and
+natively multimodal incl. AUDIO**: per the repo card it *"projects raw image patches and audio waveforms
+directly into the LLM's embedding space through lightweight linear layers."* This corrects an earlier
+working assumption (Gemma-3 / SigLIP vision) — **wrong model; the real one has a native audio path**, and it
+lands at exactly the port `gemma4_kv_inject` writes to (post-embed residual). The operator's "inject in the
+audio format" instinct is therefore not an analogy — it is *how the frozen model already ingests events.*
+
+**The native audio injection protocol (from `config.json`, tensor-level):**
+- `audio_config`: `model_type gemma4_unified_audio`, `audio_embed_dim = hidden_size = output_proj_dims = 640`,
+  **no transformer layers** (the thin encoder-free projector; the ~300M USM encoder is the E2B/E4B path only).
+- `audio_samples_per_token = 640` ⇒ at 16 kHz, **40 ms/frame ≈ 25 audio tokens/sec** (≤30 s audio max).
+- **Injection = soft-token substitution** (identical to vision): placeholder `audio_token_id = 258881` whose
+  embedding is REPLACED by the projected audio-frame vector, bracketed by `boa = 256000` / `eoa = 258883`.
+  Audio module emits 640-dim frames → a projector lifts to the text residual width `hidden_size = 3840`.
+- Text geometry confirms our artifact == this model: E=3840, 48 layers, 16 heads, hd 256, KV 8 / global-KV 1,
+  SWA-1024 with every 6th layer global, p-RoPE θ 1e6 (global) / 1e4 (SWA), softcap 30, `attention_k_eq_v`.
+
+**Caveat that sets the work (verified locally).** Our `.sp-model` is **text-only**: `sp_transcode --st`
+captured **no audio/vision projection tensors** (grep: only the text `embedding_length_per_layer_input`). So
+the audio-projector linears live in the HF safetensors, **not** in our artifact. Using the native path
+requires extracting them + the exact waveform→640→3840 front-end. This is the real cost; pre-registered below.
+
+**TENSOR-VERIFIED (2026-06-15, local bf16 `gemma-4-12b-bucket/model.safetensors`, 677 tensors):**
+the native audio projector is a **single linear** `model.embed_audio.embedding_projection.weight`
+bf16 **[3840, 640]** (weight only, **no bias**); `processor_config.json`: `audio_samples_per_token=640`,
+`audio_ms_per_token=40`, `sampling_rate=16000`, `feature_size=640`, `audio_seq_length=750` (=30 s @
+25 tok/s). So 640 raw samples (40 ms) → `nn.Linear(640→3840)` → residual. No pooler, no middleman.
+**Consequence (adopted, supersedes the Perceiver):** the KAI-2 codec is a **single `nn.Linear`**
+mapping a fixed-width raw-event vector → `k·3840` → reshape to k soft vectors at the inject seam —
+mirroring the native projector exactly; the Perceiver `event_resampler.py` is demoted to fallback.
+The native [3840,640] tensor is **extractable** (warm-start option). Runner (built + logic-verified:
+byte front-end, k×H reshape, KAI2 packet format `'KAI2'|u32 k|u32 hidden|k·H f32`=61452B@k4, fwd-KL
+all pass in pure-Python; the torch teacher loop runs on the cloud lane): `engine/tools/kai2_codec/
+train_kai2_codec.py` (`--smoke` CPU sanity; `--model <id|bucket>` real; `--export` writes packets).
+
+**Two grounded routes (Route A is the operator's direction; B is now a SINGLE-LINEAR codec, not a Perceiver):**
+- **Route A — native-audio mimic (strongest; leverages joint training, possibly ZERO training).** Extract the
+  audio module + audio→text projector from `google/gemma-4-12B` safetensors; deliver the event AS audio —
+  either TTS the event text (≤30 s) through the real front-end, or synthesize 640-sample frames — to obtain
+  *real* audio-soft-token vectors, inject them at `audio_token_id` positions via `gemma4_kv_inject`. The frozen
+  model natively "hears" the event; no LLM training, and (TTS route) possibly no adapter training at all.
+- **Route B — trained resampler distill (no audio weights needed).** Perceiver `EventResampler` (k≤4 soft
+  vectors) trained by forward-KL distillation from the working text path (`tools/kai2_codec/event_resampler.py`,
+  the won-LSH recipe). Simpler; does not exploit native audio, but the audio path PROVES the target manifold
+  exists and is natively injectable.
+
+**The decisive cheap first experiment (no-regret, serves A and informs B) — `G-KAIROS-2-NATIVE`:**
+run the HF bf16 12B *once* (cloud, P2.b lane) on a real ≤30 s wav of the event (e.g. *"build complete, all
+tests passed"*) through its processor; **dump the projected audio-soft-token embedding vectors** at the
+`audio_token_id` slots; transfer that `.bin`; on our engine inject those exact vectors via `gemma4_kv_inject`
+and free-decode. If the resident pivots to the correct `<ACTION>` with **no training**, native audio delivery
+is proven end-to-end and Route A is the path. The HF model is needed only to *generate* the embeddings once —
+inference stays on our engine.
+
+**PRE-REGISTERED GATE G-KAIROS-2 (phase 2), thresholds BEFORE code:**
+1. **Null floor preserved** — one-shot `gemma4_decode_cuda` AND `gemma4_kv_decode` BYTE-UNTOUCHED; all phase-2
+   work behind off-by-default flags (any non-zero diff on the null path = hard fail).
+2. **Pivot latency** — the injected event packet (native dump, Route A; or trained k≤4, Route B) pivots the
+   resident to the correct `<ACTION>` in **≤2 decode steps** (vs the §6.2 measured 44 text-delivery steps).
+3. **Selectivity held** — an idle / low-salience event packet must NOT pivot (emit `NO_OP`); a salient one
+   must. Report the 2×2 (salient/idle × action/no-op); both off-diagonals must be empty.
+4. Latency timing obeys the clock-pin discipline (interleaved or cudaEvent; never difference two wall series).
+
+**OPEN — operator route call (cloud spend gate):** (a) `G-KAIROS-2-NATIVE` dump-and-inject probe [cheapest,
+most decisive, training-free], (b) full Route-A audio-projector extraction + engine wiring, or (c) Route-B
+resampler training. Recommendation: **(a) first** — it is the smallest experiment that can falsify or confirm
+the entire native-audio thesis before any extraction or training spend.
