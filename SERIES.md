@@ -29,9 +29,12 @@ shannon-prime/                  public repo / site root
     13-speculate-and-undo/         (written 2026-06-17 — paper.md + README complete; O(1) bit-exact rewind, X-222)
     14-parameter-free-neocortex/   (written 2026-06-17 — paper.md + README complete; VSA/HRR Ring-3 consolidation, X-R3VSA)
     15-the-organism-breathes/      (written 2026-06-17 — paper.md + README complete; real audio → episodic memory, X-ORG)
+    16-the-unification/            (written 2026-06-18 — paper.md + README complete; the bind re-carried onto exact-integer O_K, X-OK-BIND)
+    17-frobenius-integer-store/    (written 2026-06-18 — paper.md + README complete; integer episode codec + the boundary of the algebra, X-OK-FROB)
+    18-organism-on-silicon/        (written 2026-06-18 — paper.md + README complete; the full cross-modal loop on the integer substrate, X-OK-ORG)
 ```
 
-*(Numbering: paper 11 is reserved; the orchestration-tier set above the closed P3 substrate is published as 12–15, matching the operator's release plan.)*
+*(Numbering: paper 11 is reserved; the orchestration-tier set above the closed P3 substrate is published as 12–15, matching the operator's release plan; the discrete-container set — the crossbar re-carried onto the exact-integer O_K substrate — is 16–18.)*
 
 **To slot a release in:** drop its `papers/NN-*/` folder (self-contained — paper, its receipts, its repro), flip its row in the manifest below to `released`, surface it on the landing index, tag the repo. Nothing else moves. That's the whole point of the module shape.
 
@@ -54,6 +57,9 @@ shannon-prime/                  public repo / site root
 | 13 | [Speculate and Undo](papers/13-speculate-and-undo/): O(1) bit-exact rewind of latent memory | replay into the resident cache is load-bearing (zeroed reads back all-zero) + rewind resets the prefix byte-identical (G-222, 12B+E2B; G-222-WRAP across an SWA-ring wrap) — the §4-trap guarantee made mechanical | **written, citable — X-222** (`paper.md` + README 2026-06-17) | with 12, 14, 15 |
 | 14 | [A parameter-free neocortex](papers/14-parameter-free-neocortex/): VSA/HRR Ring-3 consolidation | the gist tier from discrete NTT, zero training; retrieve-and-verify (P2.b top-5 honored) — G-R3-BIND (recall@1=1.0 to N=32), G-R3-LOSS (step function: hit +0.000% / miss +8.04% caught), G-R3-DUALROUTE (decoy scan), G-R3-NIGHTSHIFT (349.8 MB → 16.3 KB) | **written, citable — X-R3VSA** (`paper.md` + README 2026-06-17) | with 12, 13, 15 |
 | 15 | [The organism breathes](papers/15-the-organism-breathes/): real audio to episodic memory | real speech → EAR on physical GNA 2.0 (0.877, KAIROS-04) → 12B pivots 7/8 → audio-conditioned KV serialized as a canonical Ring-2 episode; signature separates (self 211/256, margin +79); round-trip clean (the +1989% is foreign-by-design) | **written, citable (step 1) — X-ORG** (`paper.md` + README 2026-06-17) | with 12–14 |
+| 16 | [The Unification](papers/16-the-unification/): the latent crossbar re-carried onto the exact-integer O_K substrate | the Ring-3 bind re-carried onto the engine-native dual-prime negacyclic CRT-NTT: **256/256 bit-identical** to native `sp_pr_mul` + **reduction-order-immune** (int byte-identical / float 4.44e-15); live loop on native `sp_pr_mul` (CAP=32 unregressed); Leg B `χ_d` carrier lowers coherence but is **inert** (the first negative) | **written, citable — X-OK-BIND** (`paper.md` + README 2026-06-18) | with 17, 18 |
+| 17 | [The Frobenius integer episode store](papers/17-frobenius-integer-store/): and the boundary of the algebra | rank-2 O_K codec `a·s_a+b·s_b` **sub-ULP at 24 bits** (`a16b8` relL2 1.2e-7, 0.76× store); losslessness = reconstruction fidelity, **not** a fake +0.000% (the n=42 PPL gate is blind below ~1%); three boundary negatives (entropy 1.02×, Möbius sheds memories, T2-on-weights ≈ random) | **written, citable — X-OK-FROB** (`paper.md` + README 2026-06-18) | with 16, 18 |
+| 18 | [The organism breathes (full loop)](papers/18-organism-on-silicon/): a cross-modal continuous→discrete→continuous loop on silicon | the full audio-cue loop on the integer substrate — sig (audio 256 / decoys 147,129) → integer bind → retrieve top-1 (cos +0.47) → C2 cross-modal verify (accept audio / reject text) → Frobenius land (relL2 ~9e-8) → metal `SP_REPLAY` clean; + the period-8→6 rebase (separation cleaner, decoy 154→129) | **written, citable — X-OK-ORG** (`paper.md` + README 2026-06-18) | with 16, 17 |
 | — | multi-device CRT sharding · MTP rollback | — | not yet (no standalone receipt) | when gated |
 | — | the algebraic framework (CM elliptic curve) | — | companion only, never a receipts paper | — |
 
