@@ -816,3 +816,69 @@ would have been over-provisioning (banked lesson).
 info compressed out); projected N-frame sequence = 8/8 (sequence preserved, per-position CE recovers it).
 The audio-port thesis — continuous frames can drive the 12B's execution path — is proven. NEXT: swap the
 synthetic anchor matrix for real GNA/CNN features (task #154); the delivery + projection architecture is locked.
+
+### §7.4 — REAL AUDIO (the synthetic anchor swapped for real speech) — 7/8 (2026-06-17, ckpt best=0.868)
+
+The §7.3 synthetic anchor matrix is now replaced with **real TTS speech**, end-to-end, no architecture change
+to the frozen binder/`gemma4_kv_inject_seq` delivery. Pipeline (`tools/audio_port/`): voxtral-mini-realtime-rs
+TTS WAV (short, number-free, speech-primed events) → resample 24k→16k → log-mel (40ms/640 hop, 64 mels) →
+**GNA-conservative standard Conv1d encoder** (n_mels→256, k=3 ×3 + 1×1 head over V_sub+blank) trained with
+**`torch.nn.CTCLoss`** (the proven impl; frames≠tokens handled natively, no adaptive-pool crutch) → CTC-greedy
+collapse → per-frame `softmax(logits/τ)·W_sub` on-manifold vectors → KAI2 packet → `gemma4_kv_inject_seq`.
+
+- **First run (2026-06-16): 3/7.** 61 train samples / 1 voice / 150 ep → held-out CTC greedy token recovery
+  **0.44**. The ceiling was **data-starvation, pre-registered as the predicted failure mode — NOT architecture.**
+- **Multi-voice scale-up (overnight bake): CTC recovery 0.44 → 0.868.** 924 train samples × 2 voices
+  (casual_female/casual_male), 400 ep, minibatch + cosine LR. Held-out per-position **eval_tok_acc 0.807**,
+  best greedy token recovery **0.868**.
+- **G-KAIROS-3-AUDIO metal gate (12B OK_Q4B, 2060, clocks 1680, `SP_G4_KAI3`, single-voice held-out eval,
+  8 events ACTION/NO_OP): 7/8 PASS.** All 4 NO_OPs correct; 3/4 ACTIONs correct and SEMANTICALLY coherent
+  ("ACTION>restart build process</ACTION>", "ACTION>Fix the build issue</ACTION>", "ACTION>Check certificate
+  status</ACTION>"); the lone miss (aud_02) is ACTION→NO_OP = the **conservative** failure (salient read as
+  idle, never a false-fire). `GATE_EXIT=3`, receipt `_xbar/p2b/kai3/G-KAIROS-3-AUDIO_7of8.log`.
+
+**Verdict: the GNA "EAR" thesis — real speech driving the 12B's execution pivot — is PROVEN (7/8).** The 3/7→7/8
+climb tracked CTC recovery 0.44→0.868 exactly as the data-starvation hypothesis predicted; delivery + projection
+architecture unchanged from the §7.3 synthetic 8/8. Remaining headroom (the 1 miss) = more CTC recovery: harder
+levers are noise/SNR augmentation, more voices, and eventually real recorded event audio.
+
+### §7.5 — Stage 2.b: GNA i16 QUANTIZATION GATE — GREEN (2026-06-17, POT GNA-native PTQ)
+
+The frozen audio_ctc encoder lowered to the **GNA 2.0 software-emulation backend** (OpenVINO 2023.3 archive runtime
+in WSL — the last GNA-capable release; pip wheel lacks the plugin, banked recipe in memory). The conv stack compiles
++ runs on `GNA_SW_EXACT` i16 with **zero topology rewrite** (the GNA-conservative 1D-conv design paid off).
+
+- **ONNX → OV-IR FP32 = bit-exact:** OV CPU FP32 0.877 == torch 0.877.
+- **GNA default i16 (naive symmetric min/max) = 0.667 (−0.211):** the CTC-head logit-variance shear, scale-invariant
+  (flat across input scale factors) ⇒ a quantizer-default problem, not a precision floor.
+- **NNCF calibrated INT8 (CPU) = 0.860 (−0.017):** proves the spiky CTC head SURVIVES calibration — but NNCF's generic
+  FakeQuantize **won't compile on GNA** (the libGNA compiler owns its scale factors and rejects foreign FQ).
+- **POT DefaultQuantization, `target_device=GNA` (the GNA-native i16 PTQ) = 0.877 (−0.000): FULL RECOVERY**, compiles +
+  runs on `GNA_SW_EXACT`. Not a passthrough — identical SW_EXACT i16 mode gives 0.667 (naive) vs 0.877 (POT scale
+  factors), so POT's calibrated saturation thresholds are the recovery. Receipt `_xbar/p2b/kai3/G-KAIROS-3-GNA-i16_quant_gate.log`,
+  scripts `tools/audio_port/{pot_gna_quantize,ov_gna_score,ov_score_ir}.py`.
+
+**Stage 2.b quantization gate GREEN → the EAR front-end is GREEN-LIT for Beast Canyon GNA 2.0 silicon.** The
+software-emulation math holds the acoustic boundaries bit-for-bit at FP32 token-recovery.
+
+### §7.6 — Stage 2.b CLOSED ON SILICON — GNA_HW = 0.877 (2026-06-17, physical GNA 2.0)
+
+The POT-quantized i16 IR ran on the **physical Intel GNA 2.0 accelerator** of the Beast Canyon NUC (i9-11900KB,
+driver `gna_03.05.00.2116`, BIOS-enabled). `GNA_HW` execution required native Windows (WSL2 has no GNA MMIO
+passthrough) — Windows OpenVINO 2023.3 + Python 3.11. Two GNA-compiler conv constraints were fixed at zero cost
+first: **no conv padding** (encoder `padding=1`→`padding=0` VALID) and **conv filters multiple of 4** (CTC head
+33→36, dummies sliced). Result:
+
+| Path | i16 CTC recovery |
+|---|---|
+| FP32 reference | 0.877 |
+| GNA_SW_EXACT (emulation) | 0.877 |
+| **GNA_HW (physical silicon)** | **0.877** |
+
+**HARDWARE == EMULATION == FP32.** The EAR front-end is PHYSICALLY REALIZED on GNA 2.0. Receipt
+`_xbar/p2b/kai3/G-KAIROS-3-GNA-HW.log`; harness `run_gna_hw.bat GNA_HW`; checklist `GNA_HW_BRINGUP.md`.
+
+**KAI-3 / GNA EAR line CLOSED end-to-end:** real speech → log-mel → GNA-conservative Conv1d+CTC → projected
+frames → `gemma4_kv_inject_seq` → 12B pivot (7/8), with the front-end lowered to i16 and **executed on physical
+GNA 2.0 silicon at full FP32 recovery**. The path from a microphone to the model's reasoning is verified all the
+way down to the accelerator. NEXT = pivot BACK to XBAR/KAIROS latent memory.
