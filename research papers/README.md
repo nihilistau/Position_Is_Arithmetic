@@ -49,9 +49,9 @@ research papers/
 | ID | Title (working) | Source bites (`papers/`) | Status |
 |----|-----------------|--------------------------|--------|
 | **R1** | Reduction-Order-Immune Inference: an exact-integer, deterministic Gemma-4-12B forward pass | 19, 20, 21 | **first draft — this folder** |
-| R2 | The Auditable Latent Crossbar: token-free, receipted KV memory on an exact-integer substrate | 07, 12 | planned |
+| **R2** | The Boundary Thesis: algebra rules the container, statistics rule the payload — a falsification register for number-theoretic structure in trained transformers | 16, 17, 21 | **first draft — this folder** |
 | R3 | O(1) KV at Long Context: a learned router over a compact slab, gated by needle-in-a-haystack | 06, 08 | planned |
-| R4 | One Substrate, Every Backend: a universal exact-integer reference and the discrete-O_K memory rings | 14, 15, 16, 17, 18 | planned |
+| **R4** | Exact-Integer Holographic Reduced Representations via the Dual-Prime Negacyclic Number-Theoretic Transform | 14, 16, 18 | **first draft — this folder** |
 | R5 | Receipts or It Didn't Happen: a falsification-first methodology for systems-ML claims | 04, 05, 10 | planned |
 
 (R2–R5 are scoped here so later agents can pick one up and match the R1 template. The "Source
