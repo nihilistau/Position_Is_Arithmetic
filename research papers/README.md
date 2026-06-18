@@ -1,4 +1,20 @@
+---
+type: index
+title: "Research papers (full-length preprints) — folder guide"
+description: Orientation for the research papers bundle — what it is, how it differs from the papers/ bite series, the per-paper template, and the planned-drafts table. The machine-readable bundle map is index.md.
+resource: ./index.md
+tags: [index, research-paper, preprints, guide]
+timestamp: 2026-06-18T00:00:00Z
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: a6858ce
+sp_repro: none
+---
+
 # Research papers (full-length preprints)
+
+> **Bundle map:** the SP-OKF progressive-disclosure map for this bundle is [index.md](./index.md);
+> chronological history is [log.md](./log.md). This README is the human folder guide.
 
 This folder holds **full-length, arXiv-style research preprints** — real papers, written for
 external review and (eventually) submission. It is deliberately separate from the `papers/`

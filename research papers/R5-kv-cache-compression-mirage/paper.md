@@ -1,3 +1,16 @@
+---
+type: research-paper
+title: "The KV-Cache Compression Mirage: extreme quantization ratios collapse beyond perplexity, and the engineered 3-4.5x standard that holds"
+description: A respectful rebuttal preprint arguing extreme-ratio KV-cache quantization is validated mostly on perplexity and short contexts and falls off beyond PPL (retrieval / long context), plus an engineered 3-4.5x standard.
+resource: ./provenance.md
+tags: [research-paper, kv-cache, quantization, niah, vht2, rebuttal]
+timestamp: 2026-06-18T00:00:00Z
+sp_status: DRAFT
+sp_gate: G-P3-R2.b-2c-NIAH
+sp_commit: 8e35877, 3218d73, 222463a, 587c8d7
+sp_repro: see Appendix: Reproduction (engine NIAH + VHT2 receipts)
+---
+
 # The KV-Cache Compression Mirage: extreme quantization ratios collapse beyond perplexity, and the engineered 3–4.5× standard that holds
 
 **Authors:** [Shannon-Prime — author list TBD]

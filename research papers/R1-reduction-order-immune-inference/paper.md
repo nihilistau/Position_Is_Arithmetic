@@ -1,3 +1,16 @@
+---
+type: research-paper
+title: "Reduction-Order-Immune Inference: an exact-integer, deterministic Gemma-4-12B forward pass"
+description: A full-length preprint making the entire Gemma-4-12B forward pass exact-integer so its output is reduction-order-immune (cross-hardware deterministic) by construction, vs order-pinned float determinism.
+resource: ./provenance.md
+tags: [research-paper, determinism, exact-integer, byte-exact, gemma4, inference]
+timestamp: 2026-06-18T00:00:00Z
+sp_status: DRAFT
+sp_gate: G-BYTEEXACT-FORWARD-12B
+sp_commit: 69c0588, d9d96f3
+sp_repro: ninja -C build-cuda test_gemma4_ppl_cuda (see Appendix: Reproduction)
+---
+
 # Reduction-Order-Immune Inference: an exact-integer, deterministic Gemma-4-12B forward pass
 
 **Authors:** [Shannon-Prime — author list TBD]

@@ -1,3 +1,16 @@
+---
+type: research-paper
+title: "O(1) Episodic Memory by KV-Tensor Replay: bypassing token re-computation in agentic recall"
+description: A proof-of-mechanism preprint storing physical KV tensors and injecting them into the resident cache on recall (no token re-computation), gated by a 256-bit content signature with an O(1) Hamming verify, on a real Gemma-4-12B.
+resource: ./provenance.md
+tags: [research-paper, episodic-memory, kv-injection, cross-modal, hamming, gemma4]
+timestamp: 2026-06-18T00:00:00Z
+sp_status: DRAFT
+sp_gate: G-XBAR-ORGANISM-FULL
+sp_commit: 15e7051, 6600cf4, d2d7ceb
+sp_repro: see Appendix: Reproduction (engine tests/fixtures/xbar_organism/)
+---
+
 # O(1) Episodic Memory by KV-Tensor Replay: bypassing token re-computation in agentic recall
 
 **Authors:** [Shannon-Prime — author list TBD]

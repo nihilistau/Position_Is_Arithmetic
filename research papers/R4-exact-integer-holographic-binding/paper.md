@@ -1,3 +1,16 @@
+---
+type: research-paper
+title: "Exact-Integer Holographic Reduced Representations via the Dual-Prime Negacyclic Number-Theoretic Transform"
+description: A preprint instantiating HRR/VSA binding as an exact-integer negacyclic convolution over a dual-prime CRT-NTT — bit-identical to native ring primitives and reduction-order-immune, vs order-dependent float-FFT VSA.
+resource: ./provenance.md
+tags: [research-paper, hrr, vsa, ntt, exact-integer, holographic-binding]
+timestamp: 2026-06-18T00:00:00Z
+sp_status: DRAFT
+sp_gate: G-R3-BIND-on-OK
+sp_commit: 0019b86, 1f0f6be
+sp_repro: SP_R3_LIB=... python3 tools/ring3/g_r3_bind_ok.py (see Appendix: Reproduction)
+---
+
 # Exact-Integer Holographic Reduced Representations via the Dual-Prime Negacyclic Number-Theoretic Transform
 
 **Authors:** [Shannon-Prime — author list TBD]

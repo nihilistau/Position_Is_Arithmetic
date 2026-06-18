@@ -1,3 +1,16 @@
+---
+type: research-paper
+title: "The Boundary Thesis: algebra rules the container, statistics rule the payload"
+description: A negative-results preprint reporting a sustained falsification of usable number-theoretic structure in trained Gemma-4-12B content, vs the algebra winning decisively on the exact-arithmetic container.
+resource: ./provenance.md
+tags: [research-paper, boundary-thesis, negative-results, mobius, falsification, gemma4]
+timestamp: 2026-06-18T00:00:00Z
+sp_status: DRAFT
+sp_gate: G-T2-WEIGHTS
+sp_commit: ac76c8e, d7d96fe, 1e70763, e6d17bb
+sp_repro: SP_R3_LIB=... python3 tools/ring3/g_t2_weights_probe.py (see Appendix: Reproduction)
+---
+
 # The Boundary Thesis: algebra rules the container, statistics rule the payload — a falsification register for number-theoretic structure in trained transformers
 
 **Authors:** [Shannon-Prime — author list TBD]
