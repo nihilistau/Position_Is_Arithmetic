@@ -50,9 +50,9 @@ research papers/
 |----|-----------------|--------------------------|--------|
 | **R1** | Reduction-Order-Immune Inference: an exact-integer, deterministic Gemma-4-12B forward pass | 19, 20, 21 | **first draft — this folder** |
 | **R2** | The Boundary Thesis: algebra rules the container, statistics rule the payload — a falsification register for number-theoretic structure in trained transformers | 16, 17, 21 | **first draft — this folder** |
-| R3 | O(1) KV at Long Context: a learned router over a compact slab, gated by needle-in-a-haystack | 06, 08 | planned |
+| **R3** | O(1) Episodic Memory by KV-Tensor Replay: bypassing token re-computation in agentic recall | 07, 13, 15 | **first draft — this folder** |
 | **R4** | Exact-Integer Holographic Reduced Representations via the Dual-Prime Negacyclic Number-Theoretic Transform | 14, 16, 18 | **first draft — this folder** |
-| R5 | Receipts or It Didn't Happen: a falsification-first methodology for systems-ML claims | 04, 05, 10 | planned |
+| **R5** | The KV-Cache Compression Mirage: extreme quantization ratios collapse beyond perplexity, and the engineered 3–4.5× standard that holds | 06, 08 | **first draft — this folder** |
 
 (R2–R5 are scoped here so later agents can pick one up and match the R1 template. The "Source
 bites" column points at the short `papers/` modules the full draft consolidates and expands;
