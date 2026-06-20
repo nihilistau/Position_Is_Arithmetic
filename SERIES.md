@@ -83,3 +83,9 @@ shannon-prime/                  public repo / site root
 - `CLAIMS-LEDGER.md` → `LEDGER.md` (paper-tag the rows: R1–R9 = `[01]`)
 - `repro/` → `papers/01-two-ring-memory/repro/`
 - `repo-skeleton/README.md` → split: the series-level intro becomes root `README.md`; paper-01 front-door becomes `papers/01-two-ring-memory/README.md`
+
+## Papers 22–24 — the autonomous librarian (X-B3-*, 2026-06-20)
+
+- **22 — The honest-negatives wall** (`X-B3-NEGATIVES`): nine hand-designed recall signals, all refuted open-world. The negatives that justify the learned head.
+- **23 — Parametric steel & the teacher-forced ablation knockout** (`X-B3-ABLATION`): novel-needle causal ablation makes episodic dependency measurable (−33.56 vs −0.15); the oracle that is also the labeler.
+- **24 — The learned librarian** (`X-B3-WC`): a W_c head, diversity (34%→100%), logsumexp-mean (int16==f32), 360/361 recall + 50/50 reject, DEPLOYED LIVE on the 12B.
