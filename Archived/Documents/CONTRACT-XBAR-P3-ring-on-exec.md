@@ -1,6 +1,18 @@
+---
+type: contract
+title: "CONTRACT XBAR-P3 — ring-on-Exec: the two-ring + recall router + episode replay on the gemma4 CUDA decode"
+description: "Parent: RFC-XBAR v1 §3/§3.1 (ring hierarchy + design rules) + §5 (P3 row); CONTRACT-XBAR-C1-lite §3b (the P3 pre-flight audit; gates G-P3-GEOM / G-P3-SHARED / G-P3-WIN named there) + its run-record (g"
+tags: [contract, xbar]
+timestamp: 2026-06-18T05:55:34Z
+resource: shannon-prime-lattice/papers/CONTRACT-XBAR-P3-ring-on-exec.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
 # CONTRACT XBAR-P3 — ring-on-Exec: the two-ring + recall router + episode replay on the gemma4 CUDA decode
 
-**Parent:** RFC-XBAR v1 §3/§3.1 (ring hierarchy + design rules) + §5 (P3 row); CONTRACT-XBAR-C1-lite §3b (the P3 pre-flight audit; gates G-P3-GEOM / G-P3-SHARED / G-P3-WIN named there) + its run-record (geom substrate landed, core `64b698c`, T_ARM_GEOM 26/26); CONTRACT-C2 §C2.1 (the gate vocabulary: parity-when-off, NIAH G1, PPL-deflection G2). **Status:** **RATIFIED (operator, 2026-06-11)** — the staged plan, the five gates, the host-side-router-v0 decision, the 12B/E2B gate split, the prefix-sum episode law, and the named deferrals (G-P3-WIN / CUDA-graph ring exec / device router / Spinor-coded spill) are the agreed law. Build-ready when sequenced (queue #5, behind horizon → Fork-3 → InfoNCE). Contract-before-code — code may now ship per-stage against these gates; any need discovered outside this spec amends the contract first.
+**Parent:** RFC-XBAR v1 §3/§3.1 (ring hierarchy + design rules) + §5 (P3 row); CONTRACT-XBAR-C1-lite §3b (the P3 pre-flight audit; gates G-P3-GEOM / G-P3-SHARED / G-P3-WIN named there) + its run-record (geom substrate landed, core `64b698c`, T_ARM_GEOM 26/26); CONTRACT-C2 §C2.1 (the gate vocabulary: parity-when-off, NIAH G1, PPL-deflection G2). **Status:** **RATIFIED (operator, 2026-06-11)** — the staged plan, the five gates, the host-side-router-v0 decision, the 12B/E2B gate split, the prefix-sum episode law, and the named deferrals (G-P3-WIN / CUDA-graph ring exec / device router / Spinor-coded spill) are the agreed law. Build-ready when sequenced (queue #5, behind horizon → Fork-3 → InfoNCE). Contract-before-code — code may now ship per-stage against these gates; any need discovered outside this spec amends the contract first. **UPDATE (2026-06-20): the learned recall ADDRESSER — the recall-*policy* layer this contract repeatedly defers to "KAIROS / the P2.b §3q two-stage retrieve-verify" above the now-complete read/write/replay substrate — is CLOSED on the Exec (gemma-4-12B) chat as B3-WC.** A learned `W_c` content head (HD=512→r=32, logsumexp-mean, InfoNCE over [episodes + NULL/s0]) does live instance-level episodic recall with clean foreign-reject: **G-CHAT-B3-WC-DIV2** 360/361 recall + 50/50 reject (int16-exact, s0=+0.102, `87044d8`); **G-CHAT-B3-WC-DEPLOY** LIVE (`routes.rs SP_B3_WC`, (E+1)-NULL-argmax → replay winner @M=42 or clean prompt, `edc8079`). The §3q learned-two-stage escalation lever is thus realized end-to-end (the hand-designed signals are measured negatives; corpus diversity was the binding constraint). Record: `CONTRACT-CHAT-FULLSTACK.md` + `SESSION-HANDOFF.md §0d`.
 **One line:** port the proven qwen3-CPU two-ring (Ring 1 sink+window, Ring 2 spill/recall through the registered-backend ABI, the ±1 Rademacher recall router, the `SP_REPLAY` episode seam) onto the **Exec** — `gemma4_decode_cuda` — per-layer-class geometry-aware (G-P3-GEOM) and shared-KV owner-indirect (G-P3-SHARED), null-first, bit-exact-when-off.
 
 ---
@@ -15,6 +27,8 @@
 - **E2B** (NL=35, period 5, **kvfs=15** → 15 owners / 20 sharers; SESSION-CLOSED-stage-eta-phase1 finding 3-4): the only artifact in hand with real sharer layers. The E2B exercises **G-P3-SHARED** (owner-indirection, owner-map manifest) cheaply.
 
 Every run banner echoes its geometry from the loaded config (`kvfs`/`period`/per-class dims), never from prose — the banner-echoes-getenv rule extends to geometry.
+
+> **One-substrate note (2026-06-18).** The byte-exact gemma-4-12B forward (closed GREEN this day, `CONTRACT-BYTEEXACT-forward.md` §7/§8) computes its exact-integer **attention** (Q·K / p·V) on the **same dual-prime CRT-NTT** (q1=1073738753, q2=1073732609, M=q1·q2≈2⁶⁰) that this XBAR memory ring uses for the Ring-3 bind / Ring-2 store — `core/ntt_crt` + `core/poly_ring`, `sp_pr_mul`. The forward's exact attention and the crossbar's memory are **one substrate**, which is exactly why the byte-exact attention "overlaps the XBAR KV work" (the contract's own framing): moving the KV cache to the integer/CKKS-encoded representation serves both the forward's cross-machine determinism and the ring's exact recall. No P3 gate or law below changes; this is a cross-reference, not a scope edit.
 
 **Non-goals (each owned elsewhere):**
 - NOT the trained Memo / learned curator — that is C2 (the P2.b adapter lane), currently adapter-limited per the k-sweep verdict.
