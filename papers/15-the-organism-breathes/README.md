@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "15 — The organism breathes: real audio to episodic memory *(written, citable — X-ORG)*"
+description: The series has built a way to hear (the EAR/GNA line) and a way to remember (the XBAR
+tags: [paper-bite, organism]
+timestamp: 2026-06-17T10:58:04Z
+resource: ./papers/15-the-organism-breathes/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 15 — The organism breathes: real audio to episodic memory *(written, citable — X-ORG)*
 
 > **STATUS: written — [`paper.md`](paper.md) complete.** Front-door receipts measured

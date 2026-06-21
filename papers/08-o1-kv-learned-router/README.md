@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "08 — O(1) KV: a context-decoupled cache via a learned router *(written — front-door gated, X-R2)*"
+description: "Mainstream inference treats the KV cache as an opaque, ever-growing scratchpad —"
+tags: [paper-bite, kv]
+timestamp: 2026-06-14T04:01:53Z
+resource: ./papers/08-o1-kv-learned-router/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 08 — O(1) KV: a context-decoupled cache via a learned router *(written — front-door gated, X-R2)*
 
 > **STATUS: written, citable via X-R2** — the full paper is

@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "The reducing loader: output-preserving model transcode and zero-copy swivel load"
+description: A. Knack. Draft — staged for staggered release.
+tags: [paper-bite]
+timestamp: 2026-06-03T00:12:58Z
+resource: ./papers/02-reducing-loader/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # The reducing loader: output-preserving model transcode and zero-copy swivel load
 
 ### Paper 02 of the Shannon-Prime series · receipts-first

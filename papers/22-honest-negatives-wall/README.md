@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "22 — The honest-negatives wall: why hand-designed recall fails the open world *(written, citable — X-B3-NEGATIVES)*"
+description: "A hand-designed relevance signal cannot separate \"the episode this query depends on\" from \"an episode"
+tags: [paper-bite]
+timestamp: 2026-06-20T02:27:28Z
+resource: ./papers/22-honest-negatives-wall/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 22 — The honest-negatives wall: why hand-designed recall fails the open world *(written, citable — X-B3-NEGATIVES)*
 
 > **STATUS: written — front-door complete.** The honest-record paper that opens the autonomous-recall

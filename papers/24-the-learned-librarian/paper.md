@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "The learned librarian: diversity, logsumexp-mean, and int16-exact autonomous recall on a 12B"
+description: "Shannon-Prime release series, paper 24."
+tags: [paper-bite, librarian]
+timestamp: 2026-06-20T02:44:00Z
+resource: ./papers/24-the-learned-librarian/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # The learned librarian: diversity, logsumexp-mean, and int16-exact autonomous recall on a 12B
 
 *Shannon-Prime release series, paper 24. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

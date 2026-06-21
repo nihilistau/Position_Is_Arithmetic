@@ -1,3 +1,16 @@
+---
+type: log
+title: "A byte-exact 12B forward pass on exact-integer math (field note, 2026-06-18)"
+description: "What we did, in one sentence: we made the entire Gemma-4-12B forward pass byte-exact — bit-identical logits across reduction order and (the open external step) across machines — by killing the last fo"
+tags: [log, byteexact]
+timestamp: 2026-06-18T05:43:49Z
+resource: ./posts/hf-post-2026-06-18-byteexact.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # A byte-exact 12B forward pass on exact-integer math (field note, 2026-06-18)
 
 **What we did, in one sentence:** we made the *entire* Gemma-4-12B forward pass **byte-exact** — bit-identical logits across reduction order and (the open external step) across machines — by killing the last four floating-point operations in the pipeline and replacing them with deterministic exact-integer math on our own dual-prime substrate. All on a single RTX 2060, 12GB.

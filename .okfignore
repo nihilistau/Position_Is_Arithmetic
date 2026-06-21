@@ -1,0 +1,31 @@
+# SP-OKF (G-OKF-CONFORM) ignore list for the public Position_Is_Arithmetic repo.
+# One glob per line, matched against the bundle-relative path OR the basename. '#' = comment.
+# Spec: shannon-prime-lattice/papers/SP-OKF-PROFILE.md §4.
+#
+# The live, public-facing knowledge bundles ARE validated:
+#   papers/           (paper-bite + gate-receipt)
+#   research papers/  (research-paper + paper-provenance)   <- the Phase-0 pilot
+#   posts/            (log: field notes / updates)
+#
+# Ignored below = NOT live knowledge concepts:
+
+# Top-level repo-meta / navigation docs (plain markdown by convention, like a README).
+# NOTE: the validator matches each glob against BOTH the bundle-relative path and the basename,
+# so a bare `README.md` here would also (wrongly) ignore the per-paper companion `papers/*/README.md`
+# bites, which ARE knowledge concepts and carry frontmatter. We therefore path-anchor the root
+# README with a leading-segment glob that cannot match a nested basename. AGENTS/HISTORY/LEDGER/
+# SERIES/etc. have basenames unique to the repo root, so listing them bare is safe.
+/README.md
+AGENTS.md
+HISTORY.md
+LEDGER.md
+SERIES.md
+METHODOLOGY.md
+CONTRIBUTING.md
+COMPANION-THEORY.md
+GEMMA4-QUANT-FIX.md
+
+# Archived/ = superseded historical docs (an archive, not the live bundle). Some carry legacy
+# frontmatter, most are pre-SP-OKF; not in scope for conformance.
+Archived/*
+Archived/**

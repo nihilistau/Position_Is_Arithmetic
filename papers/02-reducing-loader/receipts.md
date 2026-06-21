@@ -1,3 +1,16 @@
+---
+type: gate-receipt
+title: "Paper 02 — receipts (ledger slice) *(staged — re-gate before release)*"
+description: "Extract of the [master ledger](../../LEDGER.md) rows tagged 02."
+tags: [gate-receipt]
+timestamp: 2026-06-03T00:15:02Z
+resource: ./papers/02-reducing-loader/receipts.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # Paper 02 — receipts (ledger slice) *(staged — re-gate before release)*
 
 Extract of the [master ledger](../../LEDGER.md) rows tagged `02`. From prior measured work; re-gated with a published repro before release per [`../../SERIES.md`](../../SERIES.md) rule 4.

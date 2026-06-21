@@ -1,3 +1,16 @@
+---
+type: gate-receipt
+title: Paper 02 — expected output (captured green)
+description: "Captured 2026-06-03 on the reference host (Qwen3-0.6B-f16, MinGW gcc 15.2 build)."
+tags: [gate-receipt]
+timestamp: 2026-06-03T04:48:35Z
+resource: ./papers/02-reducing-loader/repro/EXPECTED.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # Paper 02 — expected output (captured green)
 
 Captured 2026-06-03 on the reference host (Qwen3-0.6B-f16, MinGW gcc 15.2 build).

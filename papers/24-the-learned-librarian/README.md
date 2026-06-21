@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "24 — The learned librarian: diversity, logsumexp-mean, and int16-exact autonomous recall on a 12B *(written, citable — X-B3-WC)*"
+description: "A learned W_c head (HD=512 → r=32; relevance = logsumexp over positions, then mean over heads;"
+tags: [paper-bite, librarian]
+timestamp: 2026-06-20T02:27:28Z
+resource: ./papers/24-the-learned-librarian/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 24 — The learned librarian: diversity, logsumexp-mean, and int16-exact autonomous recall on a 12B *(written, citable — X-B3-WC)*
 
 > **STATUS: written — front-door complete, DEPLOYED LIVE.** The win of the autonomous-recall set (ledger

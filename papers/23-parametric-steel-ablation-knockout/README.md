@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "23 — Parametric steel and the teacher-forced ablation knockout: making episodic dependency measurable *(written, citable — X-B3-ABLATION)*"
+description: "You cannot detect episodic dependency on knowledge the model already has (\"parametric steel\")."
+tags: [paper-bite, ablation]
+timestamp: 2026-06-20T02:27:28Z
+resource: ./papers/23-parametric-steel-ablation-knockout/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 23 — Parametric steel and the teacher-forced ablation knockout: making episodic dependency measurable *(written, citable — X-B3-ABLATION)*
 
 > **STATUS: written — front-door complete.** The keystone of the autonomous-recall set (ledger

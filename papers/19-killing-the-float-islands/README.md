@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "19 — Killing the float islands: an exact-integer forward pass on a 12B *(written, citable — X-BX-ISLANDS)*"
+description: The transformer forward pass can be computed in exact integers end to end — not only the
+tags: [paper-bite]
+timestamp: 2026-06-18T05:38:13Z
+resource: ./papers/19-killing-the-float-islands/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 19 — Killing the float islands: an exact-integer forward pass on a 12B *(written, citable — X-BX-ISLANDS)*
 
 > **STATUS: written — [`paper.md`](paper.md) complete.** Front-door receipts measured

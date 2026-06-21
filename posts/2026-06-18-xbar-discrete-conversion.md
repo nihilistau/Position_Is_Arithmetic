@@ -1,3 +1,16 @@
+---
+type: log
+title: "Re-building a model's memory on exact-integer algebra (field note, 2026-06-18)"
+description: "What we did, in one sentence: we took XBAR — our auditable latent-memory crossbar — and the KAIROS \"organism\" (an always-listening audio front-end feeding a frozen Gemma-3-12B's KV cache), both of whi"
+tags: [log, xbar]
+timestamp: 2026-06-17T21:43:50Z
+resource: ./posts/2026-06-18-xbar-discrete-conversion.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # Re-building a model's memory on exact-integer algebra (field note, 2026-06-18)
 
 **What we did, in one sentence:** we took XBAR — our auditable latent-memory crossbar — and the KAIROS "organism" (an always-listening audio front-end feeding a frozen Gemma-3-12B's KV cache), both of which had been running on ordinary floating-point carriers, and re-built the entire memory tier on our own exact-integer algebra: the ring of integers of Q(√-163) (Heegner number 163, class number 1), carried by a dual-prime negacyclic Number-Theoretic Transform. All on a single RTX 2060, 12GB.

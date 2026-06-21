@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "Speculate and Undo: O(1) bit-exact rewind of latent memory"
+description: "Shannon-Prime release series, paper 13."
+tags: [paper-bite]
+timestamp: 2026-06-17T10:58:04Z
+resource: ./papers/13-speculate-and-undo/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # Speculate and Undo: O(1) bit-exact rewind of latent memory
 
 *Shannon-Prime release series, paper 13. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

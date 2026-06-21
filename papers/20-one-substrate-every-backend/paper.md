@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "One substrate, every backend: the universal crate, the CRT-NTT attention, and an O(1) 12B decode through the daemon"
+description: "Shannon-Prime release series, paper 20."
+tags: [paper-bite]
+timestamp: 2026-06-18T05:39:22Z
+resource: ./papers/20-one-substrate-every-backend/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # One substrate, every backend: the universal crate, the CRT-NTT attention, and an O(1) 12B decode through the daemon
 
 *Shannon-Prime release series, paper 20. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

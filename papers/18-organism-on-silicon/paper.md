@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "The organism breathes: a cross-modal continuous→discrete→continuous loop on silicon"
+description: "Shannon-Prime release series, paper 18."
+tags: [paper-bite, organism]
+timestamp: 2026-06-17T21:43:50Z
+resource: ./papers/18-organism-on-silicon/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # The organism breathes: a cross-modal continuous→discrete→continuous loop on silicon
 
 *Shannon-Prime release series, paper 18. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

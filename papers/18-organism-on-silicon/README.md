@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "18 — The organism breathes: a cross-modal continuous→discrete→continuous loop on silicon *(written, citable — X-OK-ORG)*"
+description: The whole organism breathes on the discrete container it was designed for.
+tags: [paper-bite, organism]
+timestamp: 2026-06-17T21:43:50Z
+resource: ./papers/18-organism-on-silicon/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 18 — The organism breathes: a cross-modal continuous→discrete→continuous loop on silicon *(written, citable — X-OK-ORG)*
 
 > **STATUS: written — [`paper.md`](paper.md) complete.** Front-door receipts measured

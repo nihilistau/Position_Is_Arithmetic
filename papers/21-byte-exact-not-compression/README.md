@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "21 — Byte-exact, not compression: the boundary thesis, the honest negatives, and a re-derivation kept on the record *(written, citable — X-BX-BOUNDARY)*"
+description: "The de-conflation is the contribution: byte-exact (papers 19–20) is an auditability result,"
+tags: [paper-bite, byte-exact, compression]
+timestamp: 2026-06-18T05:41:21Z
+resource: ./papers/21-byte-exact-not-compression/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 21 — Byte-exact, not compression: the boundary thesis, the honest negatives, and a re-derivation kept on the record *(written, citable — X-BX-BOUNDARY)*
 
 > **STATUS: written — [`paper.md`](paper.md) complete.** The reflective / honest-record paper

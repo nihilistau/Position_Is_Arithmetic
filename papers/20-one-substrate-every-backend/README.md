@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "20 — One substrate, every backend: the universal crate, the CRT-NTT attention, and an O(1) 12B decode through the daemon *(written, citable — X-BX-WIRE)*"
+description: Exactness is only worth something if it is the same exactness on every backend — so the
+tags: [paper-bite]
+timestamp: 2026-06-18T05:39:44Z
+resource: ./papers/20-one-substrate-every-backend/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 20 — One substrate, every backend: the universal crate, the CRT-NTT attention, and an O(1) 12B decode through the daemon *(written, citable — X-BX-WIRE)*
 
 > **STATUS: written — [`paper.md`](paper.md) complete.** Front-door receipts measured

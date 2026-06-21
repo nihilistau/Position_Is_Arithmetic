@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "Computing on the Zip File: the dp4a bandwidth ladder"
+description: "Shannon-Prime release series, paper 06."
+tags: [paper-bite, dp4a]
+timestamp: 2026-06-07T04:45:55Z
+resource: ./papers/06-dp4a-bandwidth-ladder/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # Computing on the Zip File: the dp4a bandwidth ladder
 
 *Shannon-Prime release series, paper 06. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

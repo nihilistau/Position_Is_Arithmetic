@@ -1,3 +1,16 @@
+---
+type: gate-receipt
+title: "EXPECTED — what success looks like (paper 08, ledger X-R2)"
+description: pre-registered < 2.0% bar = GREEN.
+tags: [gate-receipt, kv]
+timestamp: 2026-06-14T04:01:35Z
+resource: ./papers/08-o1-kv-learned-router/repro/EXPECTED.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # EXPECTED — what success looks like (paper 08, ledger X-R2)
 
 > **Status (series rule 4):** the front-door receipt is **measured + gated**

@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "O(1) KV: a context-decoupled cache with a learned sparse router"
+description: "Shannon-Prime release series, paper 08."
+tags: [paper-bite, kv]
+timestamp: 2026-06-14T04:01:01Z
+resource: ./papers/08-o1-kv-learned-router/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # O(1) KV: a context-decoupled cache with a learned sparse router
 
 *Shannon-Prime release series, paper 08. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

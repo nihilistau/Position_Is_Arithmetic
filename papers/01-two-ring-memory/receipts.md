@@ -1,3 +1,16 @@
+---
+type: gate-receipt
+title: Paper 01 — receipts (ledger slice)
+description: "Extract of the [master ledger](../../LEDGER.md) rows tagged 01."
+tags: [gate-receipt, memo, two-ring, memory]
+timestamp: 2026-06-06T11:57:11Z
+resource: ./papers/01-two-ring-memory/receipts.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # Paper 01 — receipts (ledger slice)
 
 Extract of the [master ledger](../../LEDGER.md) rows tagged `01`. Every row is reproducible per [`../../METHODOLOGY.md`](../../METHODOLOGY.md).

@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "07 — The Auditable Latent Crossbar: steering a frozen 12B through its KV cache *(complete — gated, citable)*"
+description: "Multi-agent systems today communicate by detokenizing model A's state into text"
+tags: [paper-bite]
+timestamp: 2026-06-14T04:02:05Z
+resource: ./papers/07-auditable-latent-crossbar/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 07 — The Auditable Latent Crossbar: steering a frozen 12B through its KV cache *(complete — gated, citable)*
 
 > **STATUS: written, complete — citable via ledger X-R1.** The full paper is

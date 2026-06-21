@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: The Auditable Latent Crossbar
+description: "A. Knack. Draft. All quantitative results are proof-of-mechanism on one model (Gemma-4-12B, the B1 4-bit artifact of paper 06) and one dev host (RTX 2060 12 GB); see §1 and §8 for scope."
+tags: [paper-bite]
+timestamp: 2026-06-14T04:01:48Z
+resource: ./papers/07-auditable-latent-crossbar/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # The Auditable Latent Crossbar
 
 ### Steering a frozen 12B through its KV cache — model-to-model communication in latent state, not text

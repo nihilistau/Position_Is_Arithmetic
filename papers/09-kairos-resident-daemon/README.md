@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "09 — KAIROS: a resident 12B daemon that stays silent and rewinds at the metal *(staged draft — release gated on the in-flight soak)*"
+description: "A useful resident agent must do nothing, correctly, almost all the time —"
+tags: [paper-bite, kairos, daemon]
+timestamp: 2026-06-14T04:25:06Z
+resource: ./papers/09-kairos-resident-daemon/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 09 — KAIROS: a resident 12B daemon that stays silent and rewinds at the metal *(staged draft — release gated on the in-flight soak)*
 
 > **STATUS: written (mechanism) — `paper.md` complete.** Front-door receipts

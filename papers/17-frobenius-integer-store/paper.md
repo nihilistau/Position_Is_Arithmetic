@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "The Frobenius integer episode store, and the boundary of the algebra"
+description: "Shannon-Prime release series, paper 17."
+tags: [paper-bite, frobenius, frob]
+timestamp: 2026-06-17T21:43:50Z
+resource: ./papers/17-frobenius-integer-store/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # The Frobenius integer episode store, and the boundary of the algebra
 
 *Shannon-Prime release series, paper 17. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

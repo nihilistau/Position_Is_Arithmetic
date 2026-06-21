@@ -1,3 +1,16 @@
+---
+type: gate-receipt
+title: "Paper 02 — reproduction *(green — see [EXPECTED.md](EXPECTED.md))*"
+description: "[run_reducing_transcode.ps1](run_reducing_transcode.ps1) is the one-command repro."
+tags: [gate-receipt]
+timestamp: 2026-06-03T04:49:02Z
+resource: ./papers/02-reducing-loader/repro/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # Paper 02 — reproduction *(green — see [EXPECTED.md](EXPECTED.md))*
 
 [`run_reducing_transcode.ps1`](run_reducing_transcode.ps1) is the one-command repro. It uses the engine's real transcode CLI (`sp_transcode <in.gguf> <out.sp-model> <out.sp-tokenizer> --verify`) and the engine's existing bit-faithful closure gate:

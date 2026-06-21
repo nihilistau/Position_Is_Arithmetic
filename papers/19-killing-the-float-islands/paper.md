@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "Killing the float islands: an exact-integer forward pass on a 12B"
+description: "Shannon-Prime release series, paper 19."
+tags: [paper-bite]
+timestamp: 2026-06-18T05:37:52Z
+resource: ./papers/19-killing-the-float-islands/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # Killing the float islands: an exact-integer forward pass on a 12B
 
 *Shannon-Prime release series, paper 19. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

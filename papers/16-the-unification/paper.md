@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "The Unification: re-carrying the latent crossbar onto the exact-integer O_K substrate"
+description: "Shannon-Prime release series, paper 16."
+tags: [paper-bite]
+timestamp: 2026-06-17T21:43:50Z
+resource: ./papers/16-the-unification/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # The Unification: re-carrying the latent crossbar onto the exact-integer O_K substrate
 
 *Shannon-Prime release series, paper 16. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

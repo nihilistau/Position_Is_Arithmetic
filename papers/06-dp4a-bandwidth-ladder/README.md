@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "06 — Computing on the Zip File: the dp4a bandwidth ladder *(complete — gated, citable)*"
+description: "When inference is memory-bound, the weights' byte count is the speed of"
+tags: [paper-bite, dp4a]
+timestamp: 2026-06-07T04:44:58Z
+resource: ./papers/06-dp4a-bandwidth-ladder/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 06 — Computing on the Zip File: the dp4a bandwidth ladder *(complete — gated, citable)*
 
 > **Front-door receipt (measured + gated 2026-06-08, ledger 06-R10):**

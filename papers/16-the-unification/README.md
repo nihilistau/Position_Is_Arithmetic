@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "16 — The Unification: re-carrying the latent crossbar onto the exact-integer O_K substrate *(written, citable — X-OK-BIND)*"
+description: "The crossbar's most auditability-critical operation — superposing memories into one"
+tags: [paper-bite]
+timestamp: 2026-06-17T21:43:50Z
+resource: ./papers/16-the-unification/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 16 — The Unification: re-carrying the latent crossbar onto the exact-integer O_K substrate *(written, citable — X-OK-BIND)*
 
 > **STATUS: written — [`paper.md`](paper.md) complete.** Front-door receipts measured

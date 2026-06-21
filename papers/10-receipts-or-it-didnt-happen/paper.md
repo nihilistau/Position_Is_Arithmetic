@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "Receipts or it didn't happen: bit-exact-or-bounded as a research methodology"
+description: "Shannon-Prime release series, paper 10 — the methodology capstone."
+tags: [paper-bite]
+timestamp: 2026-06-14T04:05:24Z
+resource: ./papers/10-receipts-or-it-didnt-happen/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # Receipts or it didn't happen: bit-exact-or-bounded as a research methodology
 
 *Shannon-Prime release series, paper 10 — the methodology capstone. Discipline:

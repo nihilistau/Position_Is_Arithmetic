@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "14 — A parameter-free neocortex: VSA/HRR Ring-3 consolidation *(written, citable — X-R3VSA)*"
+description: "Ring-3 is the crossbar's first lossy tier, so the first with an irreversible gate."
+tags: [paper-bite]
+timestamp: 2026-06-17T10:58:04Z
+resource: ./papers/14-parameter-free-neocortex/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 14 — A parameter-free neocortex: VSA/HRR Ring-3 consolidation *(written, citable — X-R3VSA)*
 
 > **STATUS: written — [`paper.md`](paper.md) complete.** Front-door receipts measured

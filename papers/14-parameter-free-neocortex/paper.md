@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "A parameter-free neocortex: VSA/HRR Ring-3 consolidation"
+description: "Shannon-Prime release series, paper 14."
+tags: [paper-bite]
+timestamp: 2026-06-17T10:58:04Z
+resource: ./papers/14-parameter-free-neocortex/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # A parameter-free neocortex: VSA/HRR Ring-3 consolidation
 
 *Shannon-Prime release series, paper 14. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "Byte-exact, not compression: the boundary thesis, the honest negatives, and a re-derivation kept on the record"
+description: "Shannon-Prime release series, paper 21."
+tags: [paper-bite, byte-exact, compression]
+timestamp: 2026-06-18T05:40:57Z
+resource: ./papers/21-byte-exact-not-compression/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # Byte-exact, not compression: the boundary thesis, the honest negatives, and a re-derivation kept on the record
 
 *Shannon-Prime release series, paper 21. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

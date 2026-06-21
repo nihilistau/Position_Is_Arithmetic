@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "Paper 02 — The reducing loader *(staged)*"
+description: A model transcoded into a smaller artifact that loads zero-copy and runs bit-faithfully — same top-1 output as the original.
+tags: [paper-bite]
+timestamp: 2026-06-03T00:14:50Z
+resource: ./papers/02-reducing-loader/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # Paper 02 — The reducing loader *(staged)*
 
 **A model transcoded into a *smaller* artifact that loads zero-copy and runs bit-faithfully — same top-1 output as the original. On a 35B mixture-of-experts model: 16.3 GB vs the source's 19.7 GB, top-1 identical.**

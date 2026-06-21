@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "04 — The Oracle & the Teacher *(staged — mapped, not yet written)*"
+description: Porting a complex architecture to new silicon does not have to end in a
+tags: [paper-bite, oracle]
+timestamp: 2026-06-06T10:29:49Z
+resource: ./papers/04-oracle-teacher/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 04 — The Oracle & the Teacher *(staged — mapped, not yet written)*
 
 > **Front-door receipt (already gated in the engine repo):** a 35-layer

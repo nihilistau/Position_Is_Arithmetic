@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: The Oracle and the Teacher
+description: A. Knack. Draft. All quantitative results are proof-of-mechanism on the named models and one dev host; see §2 for scope and §8 for the ledger rows.
+tags: [paper-bite, oracle]
+timestamp: 2026-06-07T04:54:22Z
+resource: ./papers/04-oracle-teacher/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # The Oracle and the Teacher
 
 ### Bit-faithful porting by checklist — and the day the reference frame itself was broken

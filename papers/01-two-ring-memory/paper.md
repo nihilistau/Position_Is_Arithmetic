@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: A Two-Ring Memory Architecture for Long-Context Transformers
+description: A. Knack. Draft. All quantitative results are proof-of-mechanism on one reference model (Qwen3-0.6B); see §2 for scope and §6 for reproduction.
+tags: [paper-bite, memo, two-ring, memory]
+timestamp: 2026-06-06T11:57:50Z
+resource: ./papers/01-two-ring-memory/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # A Two-Ring Memory Architecture for Long-Context Transformers
 
 ### Query-directed sparse recall with byte-addressable KV offload

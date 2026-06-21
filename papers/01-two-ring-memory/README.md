@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: Paper 01 — Two-ring memory
+description: "A needle retrieved with the cold KV cache served off an NVMe drive (poison-gated, 7.57 µs/read), a 910× resident KV-cache shrink at 32k context, and 8× KV sparsification at +0.69% perplexity (2× and 4"
+tags: [paper-bite, memo, two-ring, memory]
+timestamp: 2026-06-06T11:56:47Z
+resource: ./papers/01-two-ring-memory/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # Paper 01 — Two-ring memory
 
 **A needle retrieved with the cold KV cache served off an NVMe drive (poison-gated, 7.57 µs/read), a 910× resident KV-cache shrink at 32k context, and 8× KV sparsification at +0.69% perplexity (2× and 4× go negative).**

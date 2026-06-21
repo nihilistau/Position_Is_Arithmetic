@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "The organism breathes: real audio to episodic memory"
+description: "Shannon-Prime release series, paper 15."
+tags: [paper-bite, organism]
+timestamp: 2026-06-17T10:58:04Z
+resource: ./papers/15-the-organism-breathes/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # The organism breathes: real audio to episodic memory
 
 *Shannon-Prime release series, paper 15. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

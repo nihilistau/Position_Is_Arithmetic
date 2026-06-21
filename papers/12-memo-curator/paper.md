@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "The Memo Curator: autonomous discrete recall above the crossbar"
+description: "Shannon-Prime release series, paper 12."
+tags: [paper-bite, memo, curator]
+timestamp: 2026-06-17T10:58:04Z
+resource: ./papers/12-memo-curator/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # The Memo Curator: autonomous discrete recall above the crossbar
 
 *Shannon-Prime release series, paper 12. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

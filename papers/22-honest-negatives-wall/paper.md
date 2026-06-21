@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "The honest-negatives wall: nine hand-designed recall signals, all refuted open-world"
+description: "Shannon-Prime release series, paper 22."
+tags: [paper-bite]
+timestamp: 2026-06-20T02:44:00Z
+resource: ./papers/22-honest-negatives-wall/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # The honest-negatives wall: nine hand-designed recall signals, all refuted open-world
 
 *Shannon-Prime release series, paper 22. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

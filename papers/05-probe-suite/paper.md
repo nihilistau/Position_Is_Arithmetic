@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: The Probe Suite
+description: A. Knack. Draft. All quantitative results are proof-of-mechanism on one host (RTX 2060) and the reference models named per row; see §2 for scope and the Receipts section for provenance.
+tags: [paper-bite]
+timestamp: 2026-06-07T04:43:12Z
+resource: ./papers/05-probe-suite/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # The Probe Suite
 
 ### How correct numbers about computing systems are manufactured

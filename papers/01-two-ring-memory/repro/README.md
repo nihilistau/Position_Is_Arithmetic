@@ -1,3 +1,16 @@
+---
+type: gate-receipt
+title: "Reproduce R9 — a needle from 32k context, served off a drive, in ~1.8 GB RAM"
+description: "This is the campaign's centerpiece: one command, and a stranger watches the system retrieve an out-of-distribution secret from 32,000 tokens of context with the cold KV cache living on a byte-addressa"
+tags: [gate-receipt, memo, two-ring, memory]
+timestamp: 2026-06-03T07:00:12Z
+resource: ./papers/01-two-ring-memory/repro/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # Reproduce R9 — a needle from 32k context, served off a drive, in ~1.8 GB RAM
 
 This is the campaign's centerpiece: one command, and a stranger watches the system retrieve an out-of-distribution secret from 32,000 tokens of context with the cold KV cache living **on a byte-addressable drive instead of in RAM**.

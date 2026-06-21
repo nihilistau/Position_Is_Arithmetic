@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "05 — The Probe Suite *(staged — mapped, not yet written)*"
+description: Correct numbers about computing systems are not read off; they are
+tags: [paper-bite]
+timestamp: 2026-06-06T10:30:18Z
+resource: ./papers/05-probe-suite/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 05 — The Probe Suite *(staged — mapped, not yet written)*
 
 > **Front-door receipt (already gated in the engine repo):** one measurement

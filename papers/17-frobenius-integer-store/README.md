@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "17 — The Frobenius integer episode store, and the boundary of the algebra *(written, citable — X-OK-FROB)*"
+description: "The integer container makes a good episode codec — sub-ULP, smaller than f32, auditable —"
+tags: [paper-bite, frobenius, frob]
+timestamp: 2026-06-17T21:43:50Z
+resource: ./papers/17-frobenius-integer-store/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 17 — The Frobenius integer episode store, and the boundary of the algebra *(written, citable — X-OK-FROB)*
 
 > **STATUS: written — [`paper.md`](paper.md) complete.** Front-door receipts measured

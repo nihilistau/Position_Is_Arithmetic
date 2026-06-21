@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "Parametric steel and the teacher-forced ablation knockout: making episodic dependency measurable"
+description: "Shannon-Prime release series, paper 23."
+tags: [paper-bite, ablation]
+timestamp: 2026-06-20T02:44:00Z
+resource: ./papers/23-parametric-steel-ablation-knockout/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # Parametric steel and the teacher-forced ablation knockout: making episodic dependency measurable
 
 *Shannon-Prime release series, paper 23. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

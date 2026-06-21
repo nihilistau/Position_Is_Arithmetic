@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "KAIROS: a resident 12B daemon that holds NO_OP discipline and cold-evicts at the metal"
+description: "Shannon-Prime release series, paper 09."
+tags: [paper-bite, kairos, daemon]
+timestamp: 2026-06-14T04:24:50Z
+resource: ./papers/09-kairos-resident-daemon/paper.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # KAIROS: a resident 12B daemon that holds NO_OP discipline and cold-evicts at the metal
 
 *Shannon-Prime release series, paper 09. Discipline: [METHODOLOGY.md](../../METHODOLOGY.md).

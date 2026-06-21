@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "13 — Speculate and Undo: O(1) bit-exact rewind of latent memory *(written, citable — X-222)*"
+description: "A memory system that can't speculate can't recall — and speculation is only safe if the"
+tags: [paper-bite]
+timestamp: 2026-06-17T10:58:04Z
+resource: ./papers/13-speculate-and-undo/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 13 — Speculate and Undo: O(1) bit-exact rewind of latent memory *(written, citable — X-222)*
 
 > **STATUS: written — [`paper.md`](paper.md) complete.** Front-door receipts measured

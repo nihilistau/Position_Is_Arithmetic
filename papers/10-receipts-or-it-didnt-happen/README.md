@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "10 — Receipts or it didn't happen: bit-exact-or-bounded as the contribution *(written / complete)*"
+description: The numbers in papers 01–09 are only as good as the discipline that produced
+tags: [paper-bite]
+timestamp: 2026-06-14T04:01:11Z
+resource: ./papers/10-receipts-or-it-didnt-happen/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 10 — Receipts or it didn't happen: bit-exact-or-bounded as the contribution *(written / complete)*
 
 > **STATUS: written / complete** — full paper at [`paper.md`](paper.md). This

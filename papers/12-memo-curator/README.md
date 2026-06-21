@@ -1,3 +1,16 @@
+---
+type: paper-bite
+title: "12 — The Memo Curator: autonomous discrete recall above the crossbar *(written, citable — X-C2)*"
+description: The XBAR substrate is inert until a policy fires it.
+tags: [paper-bite, memo, curator]
+timestamp: 2026-06-17T10:58:04Z
+resource: ./papers/12-memo-curator/README.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
+
 # 12 — The Memo Curator: autonomous discrete recall above the crossbar *(written, citable — X-C2)*
 
 > **STATUS: written — [`paper.md`](paper.md) complete.** Front-door receipts measured
