@@ -10,17 +10,20 @@
 
 ## What this is
 
-Position Is Arithmetic is the public research home of the **Shannon-Prime** project: a ground-up re-derivation of the transformer forward pass in discrete integer arithmetic, plus a memory architecture (**PPT-ARM**) that attaches to a frozen, pretrained transformer and gives it long, auditable memory on commodity hardware.
+Position Is Arithmetic is the public research home of the **Shannon-Prime** project: a byte-exact, **exact-integer** substrate — `O_K = Z[(1+√-163)/2]` over `Q(√-163)`, a dual-prime negacyclic CRT-NTT — running a **frozen Gemma-4-12B** (the 4-bit `OK_Q4B` artifact) on **one RTX 2060 12 GB**, with a token-free, receipted conversational-memory **organism** (XBAR) bolted on top. It is a ground-up re-derivation of the transformer forward pass in discrete integer arithmetic, plus a memory architecture (**PPT-ARM**) that attaches to a frozen, pretrained transformer and gives it long, auditable memory on commodity hardware.
 
-The thesis in one line: a transformer's positions, indices, and routing are arithmetic objects — primes, residues, lattices — so they can be **computed exactly** instead of approximated in floating point. That turns operations that are normally lossy (KV-cache compression, quantization, weight offload, and now inter-model memory) into operations that are *bit-exact when disabled*, *gated when enabled*, and *receipted always*.
+The thesis in one line: a transformer's positions, indices, and routing are arithmetic objects — primes, residues, lattices — so they can be **computed exactly** instead of approximated in floating point. That turns operations that are normally lossy (KV-cache compression, quantization, weight offload, and now inter-model memory) into operations that are *bit-exact when disabled*, *gated when enabled*, and *receipted always*. Exact arithmetic buys **auditability and cross-machine determinism** — explicitly not, by itself, speed or compression; where the project wins on speed or size, it says so with a separate gate.
 
 This repository holds the **receipts-first paper series** and the project's document history. Active code lives in the [linked repositories](#related-repositories); the headline implementation is [Shannon-Prime-Lattice](https://github.com/nihilistau/shannon-prime-lattice).
+
+**Navigation:** [`AGENTS.md`](AGENTS.md) is the entry guide (read order + the honest-status convention) · [`LEDGER.md`](LEDGER.md) is the master claims index (every number → a command + a commit) · [`METHODOLOGY.md`](METHODOLOGY.md) is the discipline · [`SERIES.md`](SERIES.md) is the manifest · [`HISTORY.md`](HISTORY.md) is the hashed, tiered commit log.
 
 **Status labels used throughout** (and in [`LEDGER.md`](LEDGER.md)):
 
 - **[PROVEN]** — measured and gated; the number has a ledger row and a command. Citable.
-- **[WIRED]** — implemented and gated in-engine/in-core; running today, not yet a public citable row.
+- **[WIRED]** — implemented and gated in-engine/in-core, running behind a flag — *not* a public citable row, *not* "on by default."
 - **[DESIGN]** — specified, with its falsification gates pre-stated; not built.
+- **honest negative** — measured and *refuted*, kept on the record on purpose (the 32k NIAH MISS, the nine refuted recall signals, the inert content-side number-theory levers).
 
 ## Measured results (citable)
 
@@ -93,6 +96,23 @@ See [`SERIES.md`](SERIES.md) for the manifest and release cadence, [`LEDGER.md`]
 ## The system: a four-tier memory hierarchy plus a latent crossbar
 
 The original "two-ring" framing has grown into a four-tier hierarchy with an inter-model lane on top. Architecture ground truth lives in the lattice repo (`papers/RFC-XBAR-auditable-latent-crossbar.md`); this is the public map, each component tagged with its status.
+
+The live recall path on the served 12B chat — *every write receipted, gated, and rewindable* — at a glance:
+
+```mermaid
+flowchart LR
+    Q[chat turn] --> WC{"W_c head<br/>(E+1)-NULL argmax<br/>[PROVEN, live]"}
+    WC -->|matched episode| REPLAY["replay @ bounded M=42<br/>into resident KV<br/>[PROVEN]"]
+    WC -->|whole pop negative| NULL["NULL -> clean prompt<br/>(foreign-reject)<br/>[PROVEN]"]
+    REPLAY --> EXEC["frozen Gemma-4-12B<br/>OK_Q4B, RTX 2060<br/>26.1 tok/s @ PPL 5.12"]
+    NULL --> EXEC
+    EXEC --> OUT[coherent, byte-exact,<br/>O&#40;1&#41;-context reply]
+    R2[("Ring 2: verbatim<br/>O_K episode store<br/>[WIRED]")] -.episodes.-> WC
+    CUR["NIGHTSHIFT curator<br/>ablation-admit (TAU=-8)<br/>[WIRED, synthetic gate]"] -.admit.-> R2
+    EXEC -.rewind O&#40;1&#41; byte-exact.-> REPLAY
+```
+
+The static VRAM tier layout (the four rings + the modality lanes):
 
 ```
         ┌────────────────────────── VRAM (owned arena) ───────────────────────────┐
@@ -186,6 +206,34 @@ Honest constraint carried forward: the NIAH budget ladder broke at 16×–32× s
 - **Falsification pre-stated; honest negatives published.** The 32k NIAH MISS (01-R9) stays on the front page; the 34.2 tok/s headline was retired by the series' own quality rule; a falsified recall signature is reported, not hidden. A result with its caveats attached is one a reader can trust without re-deriving the authors' incentives.
 
 **A note on the latent layer and security.** Deployed AI safety today lives almost entirely at the lexical layer — refusal training, input filters, output classifiers all scan *text* — while the decision is made in the residual stream. The field's trajectory (multimodal projectors, agentic/retrieved context, shared KV-cache serving) steadily adds pathways that reach latent space without passing the layer where safety is enforced. Calibration matters: direct latent writes require runtime ownership — a deployment-isolation threat, not a remote skeleton key — and the structural worry is a *widening gap* on a multi-year horizon, not an imminent break. The connection to this project is the constructive half: latent state has been an un-inspectable continuous blob, and XBAR's premise is the counter — a discrete substrate where a block of internal state is provably well-formed, every memory write carries a receipt, and nothing commits without passing a coherence gate. A verifiable, gated latent substrate is a defense direction the field currently lacks; we record that as motivation, not as a project pivot.
+
+## What is PROVEN vs WIRED vs DESIGN (the one-screen honesty pass)
+
+The whole project runs on the distinction below. Read the tag before you trust the number; when in doubt, we under-claim.
+
+**[PROVEN] — measured, gated, citable (a ledger row + a command):**
+
+- **12B speed/quality pair:** Gemma-4-12B at **26.1 tok/s and wikitext PPL 5.12 on one RTX 2060 12 GB** (06-R10).
+- **The gemma-4 ecosystem finding:** true full-precision PPL **4.68** (hand-written reference forward) vs the GGUFs' **192–506** — the safetensors-direct path is the only mathematically intact 4-bit gemma-4-12B (06-R8/R9).
+- **Two-ring memory envelope:** **910× resident-KV shrink @ 32k** and **8× sparsification at +0.69% PPL** — *512-proven*, with the **32k NIAH MISS** kept visible (01-R5/R1/R9).
+- **The latent crossbar (XBAR P1):** a 12B steered by direct KV-cache transplant, **no tokens** (15/15 incorporation + 15/15 selectivity; X-R1); the cache decoupled **O(1)** from context with the needle retained (X-R2); the crossbar **writes** bit-exactly and load-bearingly (X-R3 / X-222).
+- **The byte-exact forward** (gated, default-off): exact-integer RMSNorm/softmax/GELU/RoPE + attention — **OFF = PPL 4.6665 byte-identical to bf16 gold; ON = 4.6569 parity, run-to-run bit-identical** (X-BX-ISLANDS / X-BX-WIRE). Buys **auditability, not compression** — the one remaining step is **external** (a 2-physical-GPU check).
+- **The autonomous librarian (live):** a learned **W_c** head does instance-level episodic recall on the served 12B chat — **360/361 recall + 50/50 foreign-reject, int16 == f32** (X-B3-WC / -DEPLOY); the labeler behind it is a teacher-forced ablation knockout (novel −33.56 vs parametric −0.15; X-B3-ABLATION).
+
+**[WIRED] — built, gated, behind a flag (not a headline; default-off is the byte-identical null floor):**
+
+- **The Memo curator** drives the crossbar autonomously (X-C2); the Ring-2′ shadow-ring promote/rewind loop; the exact-integer **O_K** memory substrate (the bind, the Frobenius episode store, the organism loop — papers 16–18).
+- The **NIGHTSHIFT offline curator** is gated-GREEN on a **synthetic** gate (criteria 1–4); its **live in-distribution criterion is PENDING** — it is *not* running on real chat turns yet, and we do not call it "live."
+
+**[DESIGN] — spec'd with falsification gates pre-stated, not built:**
+
+- **Ring 3** (the consolidated neocortex tier) under the irreversible-aware G-R3-LOSS gate; **NIGHTSHIFT** between-turn consolidation as a default-on capability (B4); the learned-adapter refinement of the raw KV-splice crossbar.
+
+**Not claimed here (kept out of the front door):** the diffusion judge is **unproven** and held in the drawer — any 95.6% figure in upstream notes is the *external llama.cpp oracle's* number, not ours, and our native single-forward variant was falsified; the grand algebraic framework (the transformer *as* a CM-elliptic-curve endomorphism sequence) is a research program with no explicit curve and no model trained that way, and is companion-only.
+
+## The knowledge system: auditability for the docs, not just the code
+
+The receipts-first discipline extends to how the project records what it knows. Every knowledge document is an **SP-OKF** concept — Shannon-Prime's profile of Google's **Open Knowledge Format v0.1** — carrying a `type` plus receipts-first frontmatter (`title / description / tags / timestamp / resource` and `sp_status / sp_gate / sp_commit / sp_repro`), cross-linked and validated by a conformance check (`okf_validate.py`). On top of that sits **MEM-OKF**, a content-addressed, tiered (LUT → summary → full) *anti-rebuild* store — one format for agent facts and for the project's own latent episodes, addressed by hash, with a binding *look-it-up-before-you-build* pre-flight (this project has rebuilt the same subsystems more than twenty times; the store exists to stop that). The commit history of each repo is itself a tiered, content-addressed log — [`HISTORY.md`](HISTORY.md), where the git short-hash *is* the address. The point is one idea applied twice: a claim you cannot trace to a command does not ship, and a document you cannot trace to a gate does not either. The tooling and the full specifications live in the lattice repo (`papers/SP-OKF-PROFILE.md`, `papers/MEMORY-OKF-PROFILE.md`).
 
 ## Older material
 
