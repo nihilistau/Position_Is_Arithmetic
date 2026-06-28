@@ -1,3 +1,15 @@
+---
+type: design
+title: "RFC-001: PPT-ARM — the Shannon-Prime inference architecture (and the Lattice that fell out of it)"
+description: "Status: DRAFT for review/critique/iteration."
+tags: [design]
+timestamp: 2026-06-18T05:55:03Z
+resource: shannon-prime-lattice/papers/PPT-LAT-RFC-001-Universal-Discrete-Architecture.md
+sp_status: ACTIVE
+sp_gate: none
+sp_commit: TBD
+sp_repro: none
+---
 # RFC-001: PPT-ARM — the Shannon-Prime inference architecture (and the Lattice that fell out of it)
 
 **Status:** DRAFT for review/critique/iteration. v2 — hierarchy corrected (PPT-ARM is primary; the Lattice is its natural extension). **Amended 2026-06-03:** the C2.1 memory envelope is now measured (recall router solved, two-ring wired live — §9/§11); public front door live at [Position Is Arithmetic](https://github.com/nihilistau/Position_Is_Arithmetic) (site https://nihilistau.github.io/Position_Is_Arithmetic/); all repos relicensed to MIT.
@@ -38,7 +50,9 @@ Standard transformers run ~13 sequential steps per layer (embed, RMSNorm, Q/K/V 
 
 **Bolting on a model = the arch cells.** gemma4, qwen35moe (Qwen3.6-35B-A3B), gemma3, qwen3, qwen2.5 each got a PPT forward proven **argmax bit-exact to llama.cpp** (M_GEMMA4, M_QWEN36, …). **[PROVEN].** This is the *foundation*, not the deliverable: it proves PPT reproduces the model exactly, which is the licence to then compress its KV, extend its context, shard it across devices, and run it on integer pipes. Bit-exact is the floor we build the envelope on.
 
-**OPEN QUESTIONS §1:** which steps are *still* fp plumbing in the current shells (router top-k must stay f32; what else legitimately must)? Is the per-arch forward the unit of "bolting on," or do we factor a generic PPT forward + per-arch deltas so a new model is "a classifier + a delta table"?
+> **Status upgrade (2026-06-18) — the FORWARD PATH is now BYTE-EXACT on a real gemma-4-12B; the auditable discrete substrate is realized end-to-end (table rows unchanged in intent, status moved).** The float surfaces that were still `[DESIGN]` in the engine as built — the matmul row's **"[DESIGN] full int-end-to-end"**, the **RoPE** row's `[DESIGN]`, and the attention dot/softmax — now run **exact-integer** behind a default-off `SP_BYTEEXACT` flag, on the same dual-prime CRT-NTT as the memory ring. So the *Universal Discrete Architecture's forward path is byte-exact on a 12B*: **G-BYTEEXACT-FORWARD-12B GREEN** — OFF = PPL 4.6665 byte-identical null floor / ON = 4.6569 parity / run-to-run bit-identical (logits bit-identical across reduction-order and machine). "Byte-exact" here = **EXACT ARITHMETIC / cross-machine determinism = AUDITABILITY**, which is the one property §0's bar called table stakes and the whole RFC-001 thesis rests on — now realized for the *complete* forward, not just the linear cells. NOT a compression result (that axis is separate, and convicted). The new piece was the four nonlinear islands (`sp_islands_q_ref.rs` + math-core `core/exact_islands/`); the byte-exact linear algebra was already in the universal crate `tools/sp_dsp_smoke`. Record: `CONTRACT-BYTEEXACT-forward.md`; L1-ABI §6b (the new persistent-KV decode verb the daemon drives the 12B through). Only the external 2-physical-GPU bit-identical check remains.
+
+**OPEN QUESTIONS §1:** which steps are *still* fp plumbing in the current shells (router top-k must stay f32; what else legitimately must)? *Largely ANSWERED by the byte-exact forward (2026-06-18): RMSNorm / softmax / GELU / RoPE / attention all converted to exact-integer behind `SP_BYTEEXACT`; the residual fp surfaces are the logit dequant (by design — the only fp point) and the MoE router top-k (f32 by the top-k cliff). A from-scratch successor would choose Mersenne hidden dims to close RMSNorm/RoPE division by exact bit-shift — out of scope for the retrofit, see `CONTRACT-BYTEEXACT-forward.md` §6.* Is the per-arch forward the unit of "bolting on," or do we factor a generic PPT forward + per-arch deltas so a new model is "a classifier + a delta table"?
 
 ---
 
@@ -192,3 +206,24 @@ The C2 measurement phase is **done** and it re-ranked the work: the per-vector K
 - **(new) SPEED gate — WIRE the integer pipes → tok/s vs llama.cpp.** **[P1 — the north-star; spawn as its own contract/sprint.]**
 
 **Prime directive:** PPT-ARM is primary; the Lattice is its extension. The win is the **envelope** (compression · unlimited context · bandwidth bypass · multi-device · speed), with **bit-exact as the invariant floor, not the headline**. Keep the [PROVEN]/[TARGET]/[DESIGN]/[SPECULATIVE] tags honest — the project's failure mode is a [TARGET] drifting into the "done" column without a measured gate.
+
+---
+
+## KEYSTONE addendum (2026-06-25)
+
+> This addendum is additive — the body above stands as the original architecture record. It registers what the KEYSTONE milestone (keystone-1) changed about the *shape* of the architecture, and points at the current-state source of truth. **The current state of the system is [PPT-LAT-KEYSTONE.md](PPT-LAT-KEYSTONE.md), not this RFC's body.** Read it first; use this RFC for the design rationale behind the substrate.
+
+**The architecture is now FIVE repositories — `shannon-prime-harness` is the 5th.** The original crate-boundary map (§8) named the math core, the engine, and the L3 daemon. KEYSTONE adds **`shannon-prime-harness`** (Python) as a first-class repo of the architecture: the agent harness (CosySim's runtime re-hosted on sp-daemon, lmstudio stripped) that carries ephemeral tool calling, the tiered conversation memory, and the agency loop. The full repo set is now: **shannon-prime-lattice** (umbrella/papers), **shannon-prime-system** (math core), **shannon-prime-system-engine** (engine + daemon + memory agency), **shannon-prime-harness** (agent harness), **Position_Is_Arithmetic** (public face). See [PPT-LAT-KEYSTONE.md §2](PPT-LAT-KEYSTONE.md).
+
+**Pillars that were PROPOSED in this RFC are now REALIZED [PROVEN-LIVE].** The following moved from `[DESIGN]`/`[SPECULATIVE]` to built-and-gated parts of the architecture (the realization is host-side in the daemon + harness; no frozen-ABI or `.sp-model` change):
+
+- **Memory agency — forget / decide / merge.** §6 (MeMo) framed memory + continual learning as a Ring-2 tenant; KEYSTONE realizes the *agency* over that memory: the model forgets on intent (FORGET), supersedes a changed fact (DECIDE), and consolidates two complementary facts into one synthesized truth (MERGE). Gates G-FORGET, G-DECIDE, G-MERGE; default-off = null floor.
+- **Ephemeral tool calling.** Not in the original RFC; KEYSTONE adds a text-protocol ReAct loop (`<tool name="X">{json}</tool>` parsed/executed/fed-back) over the daemon `/v1/chat` seam — no native tool channel needed. Gates G-HARNESS-DAEMON-E2E, G-HARNESS-TOOLCALL-E2E.
+- **The tiered MEM-OKF conversation memory.** §6's "portable memory profiles" + the model-vs-agent two-tier question is answered concretely: a content-addressed three-tier store (LUT→summary→full, sha256/C2-sig addressed) serves SHORT (live convo) → MID (extracted facts) → LONG (full+summary), one scheme linking them. Spec: [MEMORY-OKF-PROFILE.md](MEMORY-OKF-PROFILE.md); gates G-HARNESS-CONVMEM-E2E, G-MEM-OKF-CONFORM.
+- **The autonomous agency loop (KAIROS realized).** The KAIROS resident-kernel axis (closed earlier) now drives a *model-driven* between-turn loop: on a heartbeat tick the organism consolidates the written conversation and runs a memory-maintenance round — the "auto rounds where the organism does things between turns." Gates G-HARNESS-AGENCY-E2E, G-HARNESS-KAIROS-TICK-E2E, G-HARNESS-HOOK-E2E.
+
+**The byte-exact-forward status upgrade** (the 2026-06-18 box in §1) stands and is the floor KEYSTONE builds on: the §0 "table stakes" property — exact arithmetic / cross-machine determinism / auditability — is realized for the complete forward (G-BYTEEXACT-FORWARD-12B GREEN). The one remaining external item is the 2-physical-GPU bit-identical check.
+
+**The boundary thesis holds, sharpened.** O_K wins on the *container* (exact arithmetic); every structure-on-content compression lever is a measured-inert honest negative. The KEYSTONE additions are all about the *organism around* the container (memory, agency, tools, tiers), not new compression claims.
+
+**Open edges (the forward work):** see [PPT-LAT-KEYSTONE.md §12](PPT-LAT-KEYSTONE.md) — (1) persistent O(1) conversation KV; (2) the 2-physical-GPU byte-exact check; (3) deeper faithfulness via reliable tiered recall; (4) native-C XBAR port + T4 Frobenius of the model weights.
