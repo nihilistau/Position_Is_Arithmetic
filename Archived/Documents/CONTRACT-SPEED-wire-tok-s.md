@@ -724,3 +724,24 @@ prints, score-only-positions, optional bit-safe row-parallel OMP in
 sp_matmul). The C forward itself is NOT in doubt — it is E2B-gate-proven
 bit-faithful and was never tonight's variable. The in-engine 12B regate
 lands together with the OK_Q4B gates after the harness fixes.
+
+## WIRE-CPU — STANDING & ANALYSIS REFRESH (2026-07-02, grounded from code + commits)
+
+A re-grounding of the CPU speed frontier against the *actual* engine + git log (not the older narrative above). Three things the sections above under-record:
+
+**1. The dot-ALU lever is CLOSED — a triple documented negative. Stop building dot kernels.**
+Every attempt to close the ~1.95× via a faster inner dot has come back ~null:
+- **VNNI** naive per-vector int8×int8 (`a2ad1dc`): +9% and *broke top-1* (per-vector act-quant too lossy).
+- **block-Q8** int8×int8 w/ per-32-block act quant, per-block hsum (`8a7117d`): parity-exact but ~null (26.33 vs 26.25 AVX2 @5t) — the `dpbusd` win eaten by the per-block hsum/float-combine.
+- **deferred-reduction** int8×int8 (no per-block hsum, llama-style: 8 float lanes, fmadd scaled partials, one hsum/row) + `SP_HUGEPAGE` (`ed76e2a`): both parity-exact, both **~null** vs AVX2.
+
+The deferred-reduction kernel (`src/backends/cpu/avx512/avx512_vnni.c::sp_avx512_q8blk_matvec`) is the exact fix the 2026-06-04 note called for — it is **already built, wired (`SP_Q8BLK`), and measured null.** The matmul ALU is not the bottleneck; this is settled.
+
+**2. The real 0.6B gap is memory-bandwidth EFFICIENCY + thread-scaling, not the kernel.**
+`ed76e2a` measured SP's dense-0.6B decode at **~15.6 GB/s sustained ≈ HALF of llama's ~32 GB/s**; hugepage (TLB/page-size) was also null. And SP saturates at **5 threads** while llama scales to **8** (§2026-06-04). So the ~1.95× is: SP extracts about half the memory bandwidth llama does, and stops scaling 3 threads earlier. *(Reconciles the apparent contradiction with the earlier "not bandwidth-bound" Q4<Q8 probe: SP is bandwidth-LIMITED at a low achieved rate — an efficiency wall — while Q4's extra slowness is a separate per-element nibble-unpack overhead. Both true; the binding term for the Q8 production path is the ~half-bandwidth extraction.)* The open investigation is therefore **memory access pattern / prefetch / thread work-distribution / the two-stream (codes + separate scale array) layout**, not ALU/layout-format/TLB (all now ruled out).
+
+**3. Receipt gap (honest).** These CPU speed figures live **only in commit messages** (`a2ad1dc`/`8a7117d`/`ed76e2a`) — there is **no `tests/fixtures` receipt**, and the `sp_toks` harness binary + a qwen3-0.6B `.sp-model` are **not currently on the box** (verified 2026-07-02). So the very first WIRE-CPU step is a **Stage-0 re-baseline that emits a durable receipt** (build `sp_toks` + prep a 0.6B `.sp-model` + re-run SP vs llama.cpp-Q8), *then* the bandwidth-efficiency profile. No new kernel until that profile points somewhere (per the "measure before believing" rule).
+
+**4. Strategic call (reinforced, not new).** The dense-0.6B is a **match-a-tuned-ceiling** exercise — llama.cpp is excellent there and the levers are Amdahl-bound. SP's *structural* speed differentiator is **`SPEED_NORTHSTAR` — the 35B-A3B MoE envelope** (reducing weights + expert residency/streaming + Spinor-KV window), a composed lever llama.cpp does not have. And the **GPU 12B path is already competitive AND quality-winning** (26.1 tok/s @ PPL 5.12, +18% engine efficiency, the only mathematically-intact 4-bit gemma4-12B). So the honest priority order for speed is: **(a)** if pursuing CPU, do the bandwidth-efficiency profile (small, match-ceiling); **(b)** the higher-value bet is `SPEED_NORTHSTAR` on the MoE, where the edge is structural.
+
+**The forward fork (both need the harness/model prereq in §3):** (A) CPU bandwidth-efficiency Stage-0 profile → thread work-distribution + access-pattern fixes (match llama's 8-thread scaling + 32 GB/s), a bounded "match-the-ceiling" win; or (B) redirect speed effort to `SPEED_NORTHSTAR` (MoE expert residency + reducing-weight reads), the structural differentiator. Recommendation: **(B)** for leverage, with **(A)** as a cheap side-quest only if the CPU dense path becomes load-bearing.

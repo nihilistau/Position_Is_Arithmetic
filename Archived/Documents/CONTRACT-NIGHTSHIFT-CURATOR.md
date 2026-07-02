@@ -6,8 +6,8 @@ tags: [nightshift, curator, mem-okf, pouw, ablation-oracle, kairos, b4, contract
 timestamp: 2026-06-21T00:00:00Z
 resource: shannon-prime-system-engine/tools/sp_daemon/src/kairos_runner.rs
 sp_status: GREEN
-sp_gate: "G-NIGHTSHIFT-CURATOR (criteria 1-4 GREEN on synthetic; criterion 5 live pending)"
-sp_commit: "engine 6107f3e (9ad7ede step0 + 9ee4668 step1 + 6107f3e extractor)"
+sp_gate: "G-NIGHTSHIFT-CURATOR (criteria 1-4 GREEN on synthetic; criterion 5 — the B4 distributional/provenance fix — CLOSED live per G-CHAT-B4-NIGHTSHIFT-provenance.log)"
+sp_commit: "engine 6107f3e (9ad7ede step0 + 9ee4668 step1 + 6107f3e extractor) + 3ccba61 (criterion-5 BOS+newline provenance align + write-once guard)"
 sp_repro: "_curator_gate.bat (SP_NIGHTSHIFT_OFFLINE=1, _nightshift_test); receipt tests/fixtures/chat_fullstack/G-NIGHTSHIFT-CURATOR.log"
 ---
 
@@ -82,4 +82,10 @@ Built across engine `9ad7ede` (step 0: B4 hook persists `ep.txt`/`ep.tok`) → `
 
 **The §5 lever resolved by the model-call extractor.** The first run used a last-sentence heuristic → whole-sentence secret → ablating *all* of Paris's 9 positions destroyed the context (collapse −22.01, false-accept). The 12B generative extractor pulls the *surgical* invariant (`8-FALCON-7729`, `Paris`), so the ablation measures fact-dependency, not context-destruction: the needle snapped to **−33.59** (matching the v12 oracle's −33.56 to two decimals) and parametric Paris to a flat **0.00**. Token-rarity was rejected as fragile (a common-vocabulary novel fact would evade it); the offline budget is what NIGHTSHIFT was realigned to spend.
 
-**Criteria status:** (1) iterate ✓ (2) admission discriminates ✓ (3) conformant emit + addr-join ✓ (`okf_mem` rc=0, episode record `c2sig_80c4…`, `verify` GREEN) (4) null-floor ✓ (gated `SP_NIGHTSHIFT_OFFLINE`). **(5) live B4 in-distribution — PENDING:** validated only on synthetic captures; the live path (re-capture turns under the step-0 B4 hook, then curate) is the remaining work. **NEXT:** criterion-5 live run + the fleet doc promotion (prompt/CLAUDE/STATE) + Track 2 (OOD diffusion kill-test).
+**Criteria status:** (1) iterate ✓ (2) admission discriminates ✓ (3) conformant emit + addr-join ✓ (`okf_mem` rc=0, episode record `c2sig_80c4…`, `verify` GREEN) (4) null-floor ✓ (gated `SP_NIGHTSHIFT_OFFLINE`).
+
+**(5) live B4 in-distribution — CLOSED (the provenance/distributional fix), 2026-06-20; engine `6fea228` / committed `3ccba61`; receipt `tests/fixtures/chat_fullstack/G-CHAT-B4-NIGHTSHIFT-provenance.log`.** The documented live-vs-curated collapse (live **0.084** vs curated **9.858** on identical text) is GONE. Root cause was a 2-token tokenization mismatch: the curated `ep.tok` keeps the forced BOS (id 2) and a trailing-newline token (id 107, npos=22), while the live path trimmed the text (no `\n`) and stripped the BOS (npos=20) → a different `ep.k`. **Fix 1** (routes.rs B4 step-a): encode `format!("{text}\n")` and keep the BOS. **Fix 2** (cuda_forward.cu ~L3714): the `SP_XBAR_RECALL_WRITE` writer's process-static write-once guard silently skipped every live capture after `ep_live_000` in the long-lived daemon — replaced with an unconditional per-call write. Results:
+- **(A) Identical text:** `ep_live_000 = 9.858` **== curated `ep_n_div_000 = 9.858`** (byte-perfect provenance; the 0.084 collapse solved). VERDICT (A) PASS.
+- **(B) Novel fact:** the live episode is fully IN-BAND (matched 6.295; foreign correctly rejected at **−15.498**, NULL wins → clean "Paris."). End-to-end machinery correct: capture → byte-exact provenance → in-band scoring → foreign-reject.
+
+**Residual (honest, pre-scoped as separate — NOT a criterion-5 miss):** under the *closed-set W_c instance head*, a genuinely novel live fact does not out-rank the 90 curated needles on its own query (novel 6.295 vs winning curated 7.830, rank 18/92) — a general-relevance-head matter. This is now **superseded on the hot path**: the shipped recall selector graduated to **L5-cosine** (`SP_RECALL_L5`, 86.89% paraphrase, `G-L5-RECALL-LIVE`), which is a general (not closed-set) selector. The one clean follow-on: gate L5-cosine recall on a *nightshift-captured* live episode specifically (L5 is gated on the paraphrase corpus, not yet on a B4-captured episode). **NEXT:** that L5-on-live-episode gate + Track 2 (OOD diffusion kill-test, already largely settled — judge PARKED).

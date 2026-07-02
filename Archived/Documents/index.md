@@ -27,12 +27,17 @@ Validate with gate **G-OKF-CONFORM**: `python tools/okf_validate.py papers` (run
 4. [PPT-LAT-KEYSTONE.md](PPT-LAT-KEYSTONE.md) — the detailed current-state map of the organism.
 5. [PPT-LAT-Roadmap.md](PPT-LAT-Roadmap.md) — the forward plan (the 4 axes).
 6. [DESIGN-FLEET-OVERHAUL-BRIEF.md](DESIGN-FLEET-OVERHAUL-BRIEF.md) — the honest-tier vocabulary + anti-overclaim rules every doc obeys.
+7. [PPT-LAT-ADR-002-DECIDE-EXECUTE-SPINE.md](PPT-LAT-ADR-002-DECIDE-EXECUTE-SPINE.md) — **the governing architecture law** (decide in latent, execute in clean text, never fuse; deciders don't execute).
+8. [PPT-LAT-FINDINGS-LEDGER.md](PPT-LAT-FINDINGS-LEDGER.md) — **the measured constants/layers/levers/boundaries + per-test ledger** (which layer / what tau / what K / where the lever is).
+9. [PPT-LAT-DESIGN-SWARM-MEMORY-MESH.md](PPT-LAT-DESIGN-SWARM-MEMORY-MESH.md) — **SP-SWARM / DHT (PRIMARY forward axis)** — the private, content-addressed, signed memory mesh over MEM-OKF (the *why* + rejected mechanics).
+10. [PPT-LAT-MESH-API.md](PPT-LAT-MESH-API.md) — **SP-SWARM Mesh API (the *how-do-I-call-it*)** — the `sp_swarm` Rust crate surface, the QUIC + Ed25519 wire protocol, every `SP_SWARM_*` flag, the daemon `swarm` feature + `sp-swarm-node` bin, and the gate index. **L0–L4 complete + integrated, GREEN, default-off.**
 
 ## 1. Living docs (read these first)
 
 **Project state & plan**
 - [PPT-LAT-STATE.md](PPT-LAT-STATE.md) — the proven living record (`project-state`).
-- [PPT-LAT-Roadmap.md](PPT-LAT-Roadmap.md) — the forward plan (live NEXT = Strike 1 NIGHTSHIFT criterion-5 → Strike 2 OOD diffusion kill-test) (`roadmap`).
+- [AUDIT-2026-07-02.md](AUDIT-2026-07-02.md) — the 2026-07-02 five-repo audit: launcher-vs-verified-edge gap, untracked-artifact reproducibility hole, doc-drift fixes, prioritized plan (`project-state`).
+- [PPT-LAT-Roadmap.md](PPT-LAT-Roadmap.md) — the forward plan (NIGHTSHIFT criterion-5 CLOSED + judge PARKED; live NEXT = the open edges: SP-SWARM multi-host / Persistent-KV P3 / L5-on-live-episode gate) (`roadmap`).
 - [STATUS-MAP-2026-06-21.md](STATUS-MAP-2026-06-21.md) — *(SUPERSEDED by [VERIFIED-SCOREBOARD.md](VERIFIED-SCOREBOARD.md); dated snapshot kept for diffusion-judge-era provenance)* (`project-state`).
 - [DESIGN-FLEET-OVERHAUL-BRIEF.md](DESIGN-FLEET-OVERHAUL-BRIEF.md) — canonical grounding + honest-tier vocabulary + anti-overclaim checklist (`design`).
 - [DESIGN-COLA-DLM-MAPPING.md](DESIGN-COLA-DLM-MAPPING.md) -- Cola DLM (block-causal continuous-latent diffusion) mapped onto PPT/ARM/LAT/XBAR/NIGHTSHIFT: the GOLD = block-causal attention EXPLAINS the prefix-KV refutation; the honest correction = it is a TRAIN-TIME property, not an inference mask flip; falsifiable E1-E4; north-star not a tonight-edit (`design`, 2026-06-24).
@@ -45,7 +50,7 @@ Validate with gate **G-OKF-CONFORM**: `python tools/okf_validate.py papers` (run
 
 **Contracts** (`contract`) — the build/gate contracts:
 - [CONTRACT-CHAT-FULLSTACK.md](CONTRACT-CHAT-FULLSTACK.md) — the served 12B chat on the full substrate (GREEN: coherent + byte-exact + O(1) + single-entry + **B3-WC autonomous learned-head recall LIVE**).
-- [CONTRACT-NIGHTSHIFT-CURATOR.md](CONTRACT-NIGHTSHIFT-CURATOR.md) — the offline curator (PoUW ledger → ablation oracle → MEM-OKF); gated-GREEN-on-synthetic, criterion-5 live PENDING = **Strike 1**.
+- [CONTRACT-NIGHTSHIFT-CURATOR.md](CONTRACT-NIGHTSHIFT-CURATOR.md) — the offline curator (PoUW ledger → ablation oracle → MEM-OKF); criteria 1-4 GREEN-on-synthetic + **criterion-5 (B4 distributional/provenance fix) CLOSED live** (live==curated 9.858; novel in-band + foreign-reject; commit `3ccba61`). Residual = general-relevance novel recall, now on the L5-cosine hot path.
 - [CONTRACT-BYTEEXACT-forward.md](CONTRACT-BYTEEXACT-forward.md) — the exact-integer byte-exact forward (`SP_BYTEEXACT`, gated-GREEN; external 2-GPU check carried forward).
 - [CONTRACT-PPT-LAT-PHASE-5.md](CONTRACT-PPT-LAT-PHASE-5.md) — Phase 5 (the diffusion-judge lane) — settled by **Strike 2**'s OOD kill-test.
 - [CONTRACT-PPT-ARM-LAT-INTEGRATION.md](CONTRACT-PPT-ARM-LAT-INTEGRATION.md) — the organism-assembly integration matrix (Built/Theory/Refuted).
@@ -56,6 +61,7 @@ Validate with gate **G-OKF-CONFORM**: `python tools/okf_validate.py papers` (run
 **Reference** (`reference`)
 - [PPT-LAT-FRAMEWORK-API.md](PPT-LAT-FRAMEWORK-API.md) — the whole-framework call surface (**canonical**; supersedes [PPT-LAT-KEYSTONE-API.md](PPT-LAT-KEYSTONE-API.md)).
 - [PPT-LAT-FRAMEWORK-INDEX.md](PPT-LAT-FRAMEWORK-INDEX.md) — grep index: keyword→location, flags, gates §G, SHAs, aliases.
+- [PPT-LAT-MESH-API.md](PPT-LAT-MESH-API.md) — **SP-SWARM Mesh API** — the `sp_swarm` crate call surface + QUIC/Ed25519 wire protocol + `SP_SWARM_*` flags + daemon `swarm` feature/`sp-swarm-node` bin + the 9 swarm gates (pairs with the SWARM design doc).
 
 **Interface** (`abi`)
 - [PPT-LAT-L1-ABI-v0.md](PPT-LAT-L1-ABI-v0.md) — the frozen L1 ABI (incl. §6b `sp_session_register_kvdecode_backend`).
@@ -66,9 +72,10 @@ Validate with gate **G-OKF-CONFORM**: `python tools/okf_validate.py papers` (run
 - Theory/systems: [PPT-LAT-Theory.md](PPT-LAT-Theory.md) (READ FIRST before math work), [PPT-LAT-Systems-v1.md](PPT-LAT-Systems-v1.md) (current synthesis), [PPT-LAT-Systems.md](Archived/superseded/PPT-LAT-Systems.md) (v0, archived).
 - Diffusion-judge lane (UNPROVEN / in the drawer — gated on **Strike 2**): [DESIGN-diffusion-lane.md](DESIGN-diffusion-lane.md), [DESIGN-diffgemma-native-port.md](DESIGN-diffgemma-native-port.md), [DESIGN-diffgemma-sampler.md](DESIGN-diffgemma-sampler.md), [DESIGN-diffgemma-n5b-reservoir.md](DESIGN-diffgemma-n5b-reservoir.md).
 - Other design notes: [DESIGN-tiered-crossbar-latent-terminal.md](DESIGN-tiered-crossbar-latent-terminal.md), [DESIGN-VSA-ring3-holographic.md](DESIGN-VSA-ring3-holographic.md), [MODE_D_DESIGN_DRAFT.md](Archived/superseded/MODE_D_DESIGN_DRAFT.md) (archived).
-- Plans/specs/investigations: [PLAN-SPEED-WIRE-CPU-V3-memory-layout.md](PLAN-SPEED-WIRE-CPU-V3-memory-layout.md), [PHASE-4-MEMO-M0-CHOICE.md](PHASE-4-MEMO-M0-CHOICE.md), [GGUF-INVEST-qwen36-35B-A3B.md](Archived/superseded/GGUF-INVEST-qwen36-35B-A3B.md) (archived; GGUF lane dead — safetensors-direct only).
+- Plans/specs/investigations: [PPT-LAT-T4-WEIGHTS-SCOPE.md](PPT-LAT-T4-WEIGHTS-SCOPE.md) (**HONEST-NEGATIVE** — the pre-registered `G-T4-WEIGHTS` kill-test: T4 Frobenius π^k of the weights is redundant vs OK_Q4B), [PLAN-SPEED-WIRE-CPU-V3-memory-layout.md](PLAN-SPEED-WIRE-CPU-V3-memory-layout.md), [PHASE-4-MEMO-M0-CHOICE.md](PHASE-4-MEMO-M0-CHOICE.md), [GGUF-INVEST-qwen36-35B-A3B.md](Archived/superseded/GGUF-INVEST-qwen36-35B-A3B.md) (archived; GGUF lane dead — safetensors-direct only).
 
 **Operations** (`runbook`)
+- [RUNBOOK-ONE-CONFIG.md](RUNBOOK-ONE-CONFIG.md) — **the ONE canonical end-to-end run config** (what loads, flag tiers, launcher map, OFF list; DRAFT pending `G-ONECONFIG-LIVE`).
 - [RUNBOOK-cloud-compute.md](RUNBOOK-cloud-compute.md) — RunPod/Colab/HF cloud-run procedure.
 
 **Release** (`session-handoff`)

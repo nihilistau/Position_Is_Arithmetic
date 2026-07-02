@@ -1,0 +1,259 @@
+---
+type: design
+title: "ADR-003 v2 — GEODESIC: Flow Matching as the transport physics of the DECIDE tier"
+description: "Rectified Flow / Flow Matching is the deterministic, exact-transport-friendly physics that parametrizes the latent DECIDE tier of ADR-002. The affine interpolant x_t=(1-t)x0+t·x1 and label v*=x1-x0 carry on the O_K substrate with a quantized time grid; a learned velocity field v_θ IS a spine Decider/LatentHead. v2 rewrite: corrects v1's judge history (the recall judge was parked for SIGNAL redundancy, not speed; the native diffusion judge WON its OOD H2H 94.4%), corrects the baselines (86.89% REGRESSED; the honest bar is systemecho 88.52% obey / 0 leak with the selector as ceiling), and corrects the spec-decode use (the T8 verify is byte-exact argmax equality and is NEVER replaced — FM upgrades the DRAFTER, baseline mean_accept 1.78/8). Adds the concrete F3 capture spec (G-F3-CAPTURE), the pre-registered straightness gate with decision tiers (G-FLOW-STRAIGHTNESS), and curvature-as-signal. No head is trained before the pre-flight chain is GREEN."
+tags: [design, adr, geodesic, flow-matching, rectified-flow, latent-transport, faithfulness, spec-decode, recall, spine, decide-execute, capture_feat, straightness]
+timestamp: 2026-07-03T00:00:00Z
+resource: shannon-prime-lattice/papers/PPT-LAT-ADR-003-FLOW-TRANSPORT.md
+sp_status: GREEN
+sp_gate: "chain: G-F3-CAPTURE GREEN (6c03996) → G-FLOW-STRAIGHTNESS GREEN = TIER A (1b3c234) → G-FM-STEER-OBEY rung-1 HONEST NEGATIVE (dd9dbbb): pre-head steering with v̄ dose-dependently HARMS obey (final norm = expression not cause). NEXT = rung 2: per-layer tap + straightness + injection at the TELE-2 seam (~16–22)"
+sp_commit: "engine 6c03996 (capture rail) + 1b3c234 (straightness) + dd9dbbb (steer rail + honest negative); doc v2 supersedes 9fbf0f2"
+sp_repro: "engine: run_f3_capture_A.bat + python _faithful_corpus/f3_capture_run.py A (then B); loader python _faithful_corpus/f3_loader_check.py; receipt tests/fixtures/chat_fullstack/G-F3-CAPTURE.log; data _faithful_corpus/f3/{A,B}"
+---
+
+# ADR-003 v2 — GEODESIC (Flow transport for the DECIDE tier)
+
+**Codename: GEODESIC** — the campaign that gives every DECIDE-tier head one shared
+training physics: straight-line transport in latent space, `v* = x1 − x0`. Straight
+paths are the geodesics of the rectified-flow coupling; the name is the thesis.
+
+## 0. v2 supersedes v1 — the corrections (Gemini-verify discipline, receipts checked 2026-07-03)
+
+v1 (`9fbf0f2`) had the right thesis and the right pre-flight instinct. It also carried
+four factual errors against the proven record. They are corrected here and the corrected
+forms are load-bearing for the design:
+
+| # | v1 claim | the record | consequence for GEODESIC |
+|---|---|---|---|
+| 1 | "the diffusion judge died on iterative denoise, ~50% plateau, I/O-blocked" | The **recall-path generative judge** was parked for **signal redundancy** — 0 benefit over L5-direct+τ, PASS 15/18 (`G-HARDFOREIGN-JUDGE`, RUNBOOK §5). The **native diffusion judge** WON its OOD kill-test **94.4% vs W_c 28.3%** (`G-DIFFJUDGE-OOD-H2H`) and was sealed at ~15x (`G-DG-N5c-VAL`); its ~50%/95% full-config plateau IS real (`G-DG-PREFIXKV-FULL` 48.9%/98.0%) but depth + self-cond were both REFUTED as the cause — the gap is *methodology* (blind constrained classifier vs reasoning oracle), not iterative-denoise cost. | Cheapness was NOT the failure mode. Any FM head must bring **signal** the incumbent lacks, and must beat it **head-to-head** before earning a build (memory `2637657d`). |
+| 2 | "gated vs the 88.52%… avoid the 71s re-prefill" (cited loosely) | 86.89% (`G-L5-RECALL-LIVE`) **REGRESSED** — not reproducible (RUNBOOK §9). The honest baseline is **`systemecho` 88.52% obey / 0 leak** (`G-DELIVERY-SWEEP` + `G-ONECONFIG-LIVE` v2 GREEN, engine `8ae343b`); the obey ceiling is the **selector** (54/61 top-1; campaign CLOSED at diminishing returns, RUNBOOK §13). The 71s delivery re-prefill brick is real and **stands** — batch-prefill correctness GREEN, performance HONEST-NEGATIVE (`CONTRACT-BATCH-PREFILL`, engine `11df1f1`). | Steering-head win condition sharpened in §4.2. Selector-head target sharpened in §4.3. |
+| 3 | "FM velocity head verifies EAGLE drafts: if x_t+v_θ lands near the accepted-token latent, ACCEPT" | The C4 verify is **byte-exact token-id equality** (Theorem T8, `bit_identical_to_greedy=1`, `CONTRACT-C4-SPECDECODE-DSPARK`). A geometric accept rule would destroy the loop's exactness guarantee. The binding constraint is **draft acceptance**: `mean_accept = 1.78/8` (prompt-lookup NG=2, K=8). | FM never touches the acceptance rule. It upgrades the **drafter** (§4.1) — better argmax prediction raises `mean_accept`; T8 keeps correctness free. |
+| 4 | "exact-integer operations… NO float drop" (unscoped) | The **transport** (interpolant, label, quantized-t ODE step) is exact-affine and substrate-native; **`v_θ` itself is a learned float head**, like every deployed head (W_c, L5, attr-gate). | Exactness claims name their envelope (the `G-BX-OBEY-AB` law). What GEODESIC buys: deterministic, reproducible, auditable *decision paths* — not an all-integer network. |
+
+## 1. The claim, stated precisely
+
+Flow Matching (rectified flow) is **the transport physics the ADR-002 DECIDE tier has
+been missing a principled parametrization for.** Two properties make it canon-fit:
+
+* **Substrate-native transport.** Forward process `x_t = (1−t)·x0 + t·x1`; regression
+  label `v* = x1 − x0`. On a quantized time grid `t ∈ {0, 1/N, …, 1}` these are exact
+  affine operations — they carry on the O_K dual-prime substrate with no `sqrt(α)`
+  schedule and no Langevin noise. DDPM is structurally hostile to the exact substrate;
+  FM strips the stochasticity out of the transport layer entirely. The sampler is a
+  deterministic ODE ⇒ decision paths are reproducible and cross-machine auditable by
+  construction — the same axis `SP_BYTEEXACT` already serves.
+
+* **A velocity field IS a Decider.** `v_θ(x_t, t)` reads a latent, returns a
+  decision-relevant vector. In `spine.rs` that is literally the existing vocabulary:
+  a `LatentHead` (spine.rs:260) composed by `HeadSelector`, emitting through a
+  `Decider` (spine.rs:162) into `LatentDecision`. GEODESIC adds no tier and no new
+  seam — it is the uniform way to *train* the heads the spine already composes.
+
+**The bridge question, answered honestly:** yes — **for the DECIDE tier only.** FM
+makes the latent decision layer deterministic and transport-exact. It does NOT make
+tokens continuous: the latent→token projection stays the discrete sampling of the
+manifold, i.e. the clean-text EXECUTE tier. FM decides (steer / draft / select);
+tokens execute. That is ADR-002 verbatim, not a departure.
+
+## 2. The math that matters (and only that)
+
+* **Conditional vs marginal field.** Per-pair, the conditional path is straight *by
+  construction*. What `v_θ` learns is the **marginal** field `E[v* | x_t]` — and that
+  is only useful in few steps if different pairs' straight lines do not cross with
+  conflicting velocities near the same `x_t`. Random couplings cross (the "X" in the
+  reference visualizations ⇒ curved marginal flow ⇒ multi-step). **Our couplings are
+  not random** — they are conditional maps (e.g. parametric-residual → faithful-residual
+  given the same turn), which CAN be near-deterministic. Whether they are is the
+  entire empirical question, and it is measurable before any training (§6).
+* **Reflow** (retrain on your own couplings) straightens a curved field offline —
+  a natural NIGHTSHIFT job if Tier C of §6 fires.
+* **Degenerate case = free win.** If `v*` is nearly *constant* across pairs, the field
+  collapses to a single steering vector — no FM head needed, the proven TELE-2
+  single-vector mechanism (1.000 steer-acc) suffices. §6 pre-registers this as its own
+  outcome tier so we cannot over-build past the data.
+
+## 3. Substrate map (grounded in the live code, 2026-07-03)
+
+| GEODESIC head | substrate (per the UNIFICATION rule) | verb | commits cache? |
+|---|---|---|---|
+| Faithfulness steering | 12B hidden feat, 3840-d | `gemma4_kv_capture_feat` (cuda_forward.cu:4848 family; FFI eagle_accept.rs:34) | **YES — async-armed commit** (routes.rs:787); non-committing capture_feat is the planned v1.1 upgrade. Offline batch capture is unaffected; serve-time steering needs the v1.1 tap or a post-commit injection point. |
+| Spec-decode drafter | EAGLE draft body, 1024-d | `gemma4_draft_body` | draft-side, no resident-cache commit |
+| Recall-as-flow selector | global K/Q, 512×n_global | `read_global_q` / `read_global_k` | NO — non-committing, rolls back (routes.rs:880) |
+
+The UNIFICATION substrate rule is binding: *decisions* ride `capture_feat`,
+*retrieval/selection* rides global K/Q. Recall-as-flow therefore lives on global K/Q —
+NOT on the classifier tap, no matter how convenient the F3 residuals are.
+
+## 4. The GEODESIC head bank — each use with its baseline and its gate
+
+Ordered by falsifiability × data-readiness. Every head: default-off env flag,
+byte-identical null floor when off, receipts with full env dump (the re-baseline law).
+
+### 4.1 FM drafter head (spec-decode) — `G-FM-DRAFT-ACCEPT`
+Train `v_θ` on the draft-body substrate to transport the draft latent toward the
+target model's argmax latent; the T8 byte-exact verify stays untouched, so correctness
+is free and the ONLY metric is acceptance. **Baseline: `mean_accept = 1.78/8`**
+(C4, prompt-lookup NG=2). Gate: FM-drafted K=8 beats 1.78 mean-accept on the same
+prompt set with `bit_identical_to_greedy=1` preserved. This is the purest test of the
+whole thesis — one number, an existing harness, no new seams.
+
+### 4.2 Faithfulness steering head — `G-FM-STEER-OBEY`
+
+> **RUNG 1 CLOSED — HONEST NEGATIVE, mechanism isolated (2026-07-03, engine
+> `dd9dbbb`).** Pre-head steering with the Tier-A v̄ (persistent axpy on the
+> post-output_norm hidden, `gemma4_kv_steer`, default-off null floor): positive α
+> **monotonically degrades** obedience (slice-16 same-day baseline 9/16·6L →
+> α0.5 6/16·9L → α1.0 4/16·10L); α−0.5 sits exactly at baseline. The vector
+> couples to the obey/leak axis but the final-norm surface is where the decision
+> is *expressed*, not *made* — the choice happens upstream in attention over the
+> fact text (joins frame-1 non-constancy + TELE-2's late-mid seam finding).
+> **Final-norm steering is CLOSED with receipts. Escalation ladder (pre-registered):
+> rung 2 = capture + straightness + injection at the TELE-2 seam (~layers 16–22;
+> needs a per-layer tap — the `SP_STEER` rail is layer-agnostic and stays); rung 3
+> = per-layer sweep (the L5 sweep-then-pin methodology on the steering axis).**
+> Receipt: engine `tests/fixtures/chat_fullstack/G-FM-STEER-OBEY.log`.
+`x0` = answer-turn residual WITHOUT the faithfulness system prompt; `x1` = WITH
+(the F3 pairs, §5). 1–2 Euler steps of `v_θ` injected into the residual (TELE-2
+mechanism) replace the `systemecho` token scaffolding. **Baseline: 88.52% obey /
+0 leak** (`G-ONECONFIG-LIVE` v2). Win condition — and this is why the head earns its
+place even at obey-parity: it deletes the delivery **re-prefill** (the 71s-class brick;
+batch-prefill perf is honest-negative, so tokens avoided = the only remaining lever)
+AND frees the sequence length + attention bandwidth `systemecho` spends. Gate: obey
+≥ 88.52% AND leak = 0 AND coherence held (C-phase of the oneconfig harness) AND
+turn-latency strictly below the text path on recall turns. Miss any leg ⇒ the text
+path stays; the head goes in the drawer with its numbers attached.
+
+### 4.3 Recall-as-flow selector — `G-FM-SELECT-H2H`
+The conditional field `v_t(·|x1)` with episode global-K rows as attractors — L5-cosine
+is its crude 1-step approximation, so this is a strict generalization. **Baseline:
+54/61 top-1 (88.5%), selector campaign CLOSED** at diminishing returns; margin gate
+CONVICTED, rerank/canon PARKED (RUNBOOK §13). **Corpus law (binding):** the 61-para
+corpus cannot train this head (training on the test set — the exact trap §13 named for
+multi-phrasing keys). An FM selector trains on F3 selection labels + fresh paraphrase
+generations and gates on a NEW held-out periphrasis corpus, with the old 61 kept as an
+unseen sanity slice. Must also hold SNE 3/3 zero-inference declines and foreign 2/2.
+Lowest priority: the incumbent is closed-GREEN and the corpus cost is real.
+
+### 4.4 Curvature-as-signal (new in v2) — zero-prior detection for free
+The straightness instrumentation of §6 is itself a detector: a query latent whose flow
+toward every stored attractor is high-conflict / high-curvature is OOD relative to the
+memory — a *continuous* companion to the attribute-grounding gate on the SNE crucible
+(confab 80→0, leak 5→0). No separate build: §6's kNN-conflict statistic, evaluated at
+query time, feeds the existing decline path. If §6 goes GREEN, this is a follow-on
+mini-gate (`G-FM-CURV-SNE`): curvature score separates SNE-mismatch queries from valid
+paraphrases at least as well as the lexical attr-gate's τ=0.5.
+
+### 4.5 The universal training physics (the meta-use)
+The UNIFICATION ADR's whole program — every symbolic jig graduates to a latent head —
+gets ONE uniform objective: define source residual, target residual, regress
+`v* = x1 − x0`. Recall head, route head, gist head, safety head: different conditioning,
+same physics, same harness, same gate pattern. The spine COMPOSES heads; GEODESIC
+TRAINS them. That is the unification inside the unification.
+
+### 4.6 Reflow as NIGHTSHIFT + the 26B reframe (deferred)
+Reflow is offline self-distillation — a natural `run_kairos_curator`-class job if Tier C
+fires. The 26B diffusion-gemma reframed as rectified flow (1–4 step decode) folds into
+SPEED_NORTHSTAR backlog #4 ("redo the 26B GPU path with the 36B learnings") — do it
+there, with the view-DevTensor/pinned-staging learnings, not as a separate campaign.
+
+## 5. F3 capture — the first executable step — `G-F3-CAPTURE`
+
+> **GREEN 2026-07-03 (engine `6c03996`), same day as this spec.** All 4 criteria:
+> 61 fct + 20 SNE pairs in BOTH runs; determinism 4/4 + 4/4 rerun byte-identical
+> (smoke `--twice`); meta rows + per-run env dumps complete; loader round-trip PASS.
+> First physics: Δ-norm(A−B) last-prompt-token mean **173.6** (min 118.4, max 253.9),
+> first-answer-token mean **193.5** — the treatment signal is large and never
+> degenerate. Implementation deltas vs the spec below: the tap arms `capture_feat`
+> on the two decode steps the turn runs anyway (zero extra forwards, dangling-write
+> guard on step-error paths); `SP_ARM_DUMP`/`SP_B3_QDUMP` were NOT needed for v1
+> (selection metadata rides `f3_meta.jsonl` from the L5 stage instead). Pre-registered
+> caveat for the straightness gate: B-side no-system-prompt turns sometimes ECHO the
+> question — if §6 tiers look degenerate, capture a B2 neutral-prompt variant first.
+> Receipt: engine `tests/fixtures/chat_fullstack/G-F3-CAPTURE.log`.
+
+**Verified 2026-07-03 (pre-build): the F3 pairs did NOT exist on disk** (depth-3 sweep
+of all five repos: no `*capture*` dirs, no `capture_feat` artifacts). UNIFICATION
+§"Near-term execution" already scoped the capture; this section made it buildable.
+
+* **Rails (reuse, do not rebuild):** `SP_ARM_DUMP` (QRKP global-K/Q dump) +
+  `SP_B3_QDUMP` (query dump) for items 1–2; NEW `SP_F3_CAPTURE=1` (default-off) adds
+  the paired answer-turn `capture_feat` residual dump. `capture_feat` COMMITS the cache
+  (routes.rs:787) — irrelevant for this offline batch capture, disqualifying for
+  serve-time use until the non-committing v1.1 tap exists.
+* **Protocol:** for each item in `_faithful_corpus` (61 fct paraphrases + 20 SNE +
+  foreign set), TWO served runs under `run_console_faithful.bat` config: (A) with the
+  `systemecho` faithfulness delivery, (B) same turn with recall delivery suppressed
+  (no fact, no faithfulness prompt). Per item log: query global-Q (last prompt token),
+  selected episode + L5 score + label, `capture_feat` residual at the answer turn's
+  last prompt token AND first answer token, obey/leak outcome, full SP_* env dump.
+  Byte-exact serve makes both runs well-defined and re-runnable.
+* **Format:** `_faithful_corpus/f3/{item_id}.pair` (f32 3840-d ×2 ×2 positions) +
+  one `f3_meta.jsonl` row per item. **Track the small files in git** — the §14
+  artifact-hole law; the `.gitignore` receipt-eating incident does not get a sequel.
+* **Gate `G-F3-CAPTURE` GREEN =** ≥61 fct pairs + ≥20 SNE pairs on disk; re-run of 3
+  sampled items byte-identical; meta rows complete (label + outcome + env dump);
+  loader round-trips in the straightness harness.
+
+## 6. `G-FLOW-STRAIGHTNESS` — the decision gate (pre-registered BEFORE the data exists)
+
+> **GREEN → TIER A, 2026-07-03 (engine `1b3c234`), measured hours after the pins
+> below were registered.** ALL-pairs frame-0 (last-prompt-token DECIDE state):
+> **S1 topPC(unc) = 0.731, cos-to-mean = 0.839** (pins 0.70/0.70 → Tier A);
+> centered topPC 0.218 ⇒ the residual around the mean is diffuse — **the structure
+> IS the mean vector.** Both Tier-B legs would also pass (S2(t=0.5)=0.796,
+> S3=0.204) ⇒ the FM head stays viable in reserve. Robust: fct-only (0.753/0.851),
+> sne-only (0.806/0.893), no-echo slice (0.747/0.851) — each Tier A alone; the
+> B-echo caveat is RETIRED. Frame-1 is NOT constant (0.293/0.478): steer at the
+> DECIDE state, not after content diverges. **Honest negative:** the §4.4
+> curvature preview does NOT separate fct/sne (cos-to-global-mean 0.846 vs 0.816)
+> — the zero-prior detector does not fall out of directional coherence; the
+> attr-gate remains the shield. **Route taken (§7 tier A): ONE steering vector =
+> mean v\* (frame 0); next gate `G-FM-STEER-OBEY` vs systemecho 88.52%/0-leak +
+> coherence + latency.** Harness `_faithful_corpus/f3_straightness.py`; receipt
+> `tests/fixtures/chat_fullstack/G-FLOW-STRAIGHTNESS.log`.
+
+Measured on the F3 pairs, one afternoon, engine untouched. All thresholds below are
+pre-registered *provisional* pins (telemetry-then-pin; revision surfaces upstream, never
+silently). Three statistics:
+
+1. **S1 — field constancy:** PCA of `{v*}`; top-1 explained variance + mean cosine of
+   each `v*` to the mean velocity.
+2. **S2 — coupling conflict:** on a t-grid {0.25, 0.5, 0.75}, for each `x_t` its k=8
+   nearest neighbors across pairs; mean pairwise cosine of their `v*`. High cosine =
+   near-deterministic marginal field.
+3. **S3 — 1-step transport error:** hold out 20% of pairs, fit ridge `v̂(x_t,t)`
+   (closed-form, NOT the real head), report relative endpoint error
+   `‖x_t + (1−t)·v̂ − x1‖ / ‖x1 − x0‖` on held-out pairs.
+
+**Decision tiers (the gate's output is a ROUTE, not a pass/fail):**
+
+| tier | signature (provisional pins) | verdict |
+|---|---|---|
+| **A — constant field** | S1 top-PC ≥ 0.70 var AND mean-cos-to-mean ≥ 0.70 | FM is overkill: ship a single TELE-2 steering vector, gate it vs 88.52% directly. Cheapest possible win; GEODESIC's training physics held in reserve. |
+| **B — straight enough** | S2 mean-cos ≥ 0.50 at t=0.5 AND S3 ≤ 0.35 | 1–2 step FM head viable: build §4.2 (steering) then §4.1 (drafter). |
+| **C — curved/conflicted** | below B | No head yet: either condition the field harder (per-episode / per-query conditioning) or schedule reflow as the NIGHTSHIFT job; re-run this gate on the reflowed couplings. Re-scope honestly. |
+
+Any tier is a GREEN gate — the RED outcome is only an unrun measurement. Attach the
+numbers to this doc and the FINDINGS-LEDGER either way; Tier C's negatives are kept
+(honest-negative discipline).
+
+## 7. Build order (forced, no open forks)
+
+1. **`G-F3-CAPTURE`** — the only step with zero unknowns; also feeds UNIFICATION's
+   selector/steering graduations regardless of GEODESIC's fate.
+2. **`G-FLOW-STRAIGHTNESS`** — routes everything downstream; costs an afternoon.
+3. Tier-routed: **A** ⇒ single-vector steer gate; **B** ⇒ §4.2 steering head, then
+   §4.1 drafter (own data rail, crispest metric), then §4.4 curvature mini-gate;
+   **C** ⇒ reflow-on-NIGHTSHIFT or conditioning, then re-gate.
+4. §4.3 selector and §4.6 (26B reframe) stay parked behind their stated preconditions.
+
+## 8. Canon fit
+
+**ADR-002:** held verbatim — FM decides in latent, tokens execute in clean text, the
+T8 verify stays byte-exact, deciders don't execute. **UNIFICATION:** GEODESIC is its
+training physics; the substrate rule is enforced in §3. **Spine:** velocity heads are
+`LatentHead`s behind `Decider`s in the existing `build_pipeline` — no new seam.
+**O_K substrate:** exact affine transport on a quantized t-grid; the exactness envelope
+is named (§0.4). **Receipts law:** every gate default-off, byte-identical null floor,
+env-dump receipts, honest negatives attached. Nothing here contradicts a proven result;
+v2's corrections make the proposal *harder* to satisfy, which is the point.

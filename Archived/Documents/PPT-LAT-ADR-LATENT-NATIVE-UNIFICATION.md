@@ -38,7 +38,9 @@ The long-term system is a **Sovereign Latent Brain**: one Interceptor head *fami
 
 **Rule:** *decisions* (classify) ride `capture_feat`; *retrieval/selection* (match query↔episode) rides **global K/Q** — the model's native relevance space. Do not move retrieval onto the classifier tap.
 
-## The three graduations (oracle → latent head, on the right substrate)
+## The graduations (oracle → latent head, on the right substrate)
+
+Three near-term (selection / faithfulness / delivery) + one deferred-by-evidence (consolidation, §4).
 
 ### 1. Selection — Jaccard → Natural Recall Head  *(graduate on global K/Q; do NOT fold into the draft-body suite)*
 - **Oracle:** `recall::token_overlap` (Jaccard) — `G-FAITHFUL-RECALL-JACCARD` 15/15, the right natural-language episode every time.
@@ -54,6 +56,13 @@ The long-term system is a **Sovereign Latent Brain**: one Interceptor head *fami
 - **Oracle:** text-in-context synthesis (clean tokens to prefill) = 100%.
 - **Latent move:** NOT uniform `kv::replay` (structurally flat, position-blind — 0%). Follow **TELE-5 readable-prefix**: map the retrieved fact to an *ordered, positionally-encoded multi-vector* injected at early layers, matching how the model natively reads token embeddings (TELE-5 already showed ordered latent bandwidth, +1.45 nats corr−shuf).
 - **Gate:** latent-prefix delivery obedience == text-in-context 100% on a held-out set. **Honest tag: unproven; the 100% text run is the oracle to train + grade against.**
+
+### 4. Consolidation — Ring-3 gist → Consolidation/Gist Head  *(deferred-by-evidence; graduate on global K/Q — NOT an adapter model)*
+- **Oracle:** Ring-3 **Path A** — the parameter-free VSA/HRR loop (superpose → content-address → shortlist → Ring-2 exact verify), CLOSED GREEN (`G-R3-BIND/LOSS/DUALROUTE/NIGHTSHIFT`, engine `a64a916`). The shortlist it produces is the gist head's training target.
+- **Why a head, not a model (ADR-002):** consolidation — select spans, compress n→k, emit a content-address key — is a **DECIDE** operation; under the Decide→Execute spine deciders are cheap heads on the resident body, never standalone models. So the old framing "**Path B** = a P2.b learned *adapter model* (n→k gist)" collapses to a **gist head in the W_c / Memory-Head family** on the **global-K/L5 retrieval substrate** (the fact signal lives there — L5-cosine 86.89%; the draft-body→global-K bridge is the fallback entry). This obeys the substrate rule above: retrieval/gist rides global K/Q, not the classifier tap.
+- **Recognition, not reconstruction (forced by the record + the spine):** P2.b convicted span→k *generation* (dead, 6 forks) but found *recognition* usable (top-5 0.77 shortlister); ADR-002 forbids fusing the gist latent into generation. Both force one shape — the head emits a **shortlist key**, and Ring-2's exact bytes carry fidelity via retrieve-and-verify. A reconstructive gist *model* would violate both the measurement and the spine.
+- **Deferred-by-evidence:** Path A already delivers the shortlist→verify loop parameter-free, so the gist head only earns its distillation budget if Path A's shortlist is *measured* insufficient (the open budget-ladder risk: the 16×–32× selection MISS). When it comes due it is a **head + a distillation gate on the existing spine**, not a model or a training campaign.
+- **Gate:** the gist head's shortlist recall@k matches Path A's (and clears the Ring-2 verify) on the corpus where Path A was shown insufficient.
 
 (Telepathy carries the same way: decide-route in latent [proven]; the precise task currently executes clean-text [oracle] → graduate the transmit toward latent as fidelity allows, same jig→head pattern.)
 
