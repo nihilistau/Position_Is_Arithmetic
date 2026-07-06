@@ -1,0 +1,34 @@
+G-HARNESS-MEMTOOLS-E2E -- the served model manages its own memory via tools (2026-06-25)
+==========================================================================================
+list_memories / remember / forget (harness/skills/memory.py) exposed as ephemeral tools over
+the daemon's persistent registry (SP_RECALL_REGISTRY) -- the same store the autonomous recall
+path reads. The model gets a first-person lever on its own long-term memory, unifying memory
+with tool calling. Repro: python tests/g_memory_tools_e2e.py (daemon up on :3000).
+
+DIRECT (introspect -> store -> curate), isolated test registry:
+  [list]    1. The user's name is Knack.   2. Shannon-Prime runs on an RTX 2060 graphics card.
+  [remember "favorite color is teal"] -> stored
+  [list]    1. Knack   2. RTX 2060   3. favorite color is teal
+  [forget "graphics card"] -> forgot "Shannon-Prime runs on an RTX 2060 graphics card."
+  [list]    1. Knack   2. favorite color is teal                          PASS
+
+MODEL (the served 12B calls a memory tool):
+  user: "What facts are in your memory? Use the list_memories tool, then list them back."
+  model -> <tool name="list_memories">{}</tool>
+  harness -> "1. The user's name is Knack.\n2. The user's favorite color is teal."
+  model FINAL -> "Here are the facts currently stored in my memory: - The user's name is Knack.
+                  - The user's favorite color is teal."                    PASS
+  G-HARNESS-MEMTOOLS-E2E: PASS (memory tool calls: 1)
+
+FINDING (faithfulness, fixed this session): the FIRST model run CONFABULATED -- the tool
+returned (Knack, teal) but the model answered generic "User / blue / pizza" (its strong prior
+for example facts overrode the tool result). FIX = a preamble rule: "after a tool result is
+returned, base your answer ONLY on it; quote its EXACT values; never invent, substitute, or
+fall back on generic/example facts." After: faithful recitation (Knack, teal). The recurring
+grounding-faithfulness problem, here tamed for tool results by the verbatim rule.
+
+NOTE: remember() mints a recall-able episode via POST /v1/capture (ep.k/v/mf) when the daemon
+is reachable; degrades to registry-line-only (introspect/curate, recall-on-restart) otherwise.
+
+NEXT: H4 = the agency loop -- compose H2 (tool calling) + H3 (memory tools) into autonomous
+maintenance rounds (the model reviews + curates its memory between turns).

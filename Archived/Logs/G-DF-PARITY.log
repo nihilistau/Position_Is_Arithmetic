@@ -1,0 +1,33 @@
+G-DF-PARITY — the formal replacement-quality receipt: the deployed 0.5B does NOT merely match the
+12B model_classify it replaces — it BEATS it (0.83 vs 0.33 vs ground truth). (2026-07-03)
+=========================================================================================
+The A/B the deployment decision hinges on. Surprise finding: the 12B model_classify (the engine's
+prompt-based classifier that LM-B3 refine used) is the WEAK one.
+
+ENGINE HOOK (this-commit, routes.rs refine_okf_store): SP_MEM_REFINE_LOGALL=1 logs the 12B
+model_classify verdict for EVERY concept ("MEM-CLASSIFY-12B: '<addr>' -> <class>"), not just
+changes — so the harness can capture the 12B's answers.
+
+GATE G-DF-PARITY (30 DISTINCT eval statements, hand-written, NOT augmentation-shared):
+  1. served the 30 as concepts; the 12B refine (run_parity.bat, SP_MEM_CLASSIFY_REFINE +
+     SP_MEM_REFINE_LOGALL) classified all 30 -> captured from the log.
+  2. classified the SAME 30 with the deployed 0.5B curator (CPU).
+  RESULTS (vs ground truth, n=30):
+     12B model_classify accuracy  : 10/30 = 0.333   (barely above chance; over-fires private-secret)
+     0.5B adapter accuracy        : 25/30 = 0.833
+     agreement 0.5B vs 12B        :  8/30 = 0.267   (LOW — because the 12B is wrong, not the 0.5B)
+  RESULT df-parity: PASS — 0.5B BEATS the 12B it replaces (0.83 vs 0.33 vs truth).
+
+THE FINDING: the 12B `model_classify` is a poor classifier for mem_class (33% on distinct held-out),
+systematically mis-labelling persona / preference / counterfact / episodic-event as private-secret.
+The finetuned 0.5B is 2.5x more accurate AND ~24x smaller AND runs on CPU off the hot path. So
+DF-B6's deployment is a STRICT IMPROVEMENT, not just a cost optimization — and this retroactively
+justifies the entire data-gen phase: the flywheel didn't only make classification cheaper, it made
+it correct. (It also explains why LM-B3's 12B-refine needed the pipeline: the 12B was never a good
+classifier; ground truth, not the 12B, is the gold standard.)
+
+NOTE: the honest gate criterion is 0.5B_accuracy >= 12B_accuracy (ground truth = gold), NOT
+agreement — an agreement gate would have wrongly demanded the 0.5B reproduce the 12B's errors.
+
+REPRO: harness tests/h_datagen_parity.py setup ; engine run_parity.bat (wait 30 MEM-CLASSIFY-12B) ;
+harness tests/h_datagen_parity.py run. ENV: engine this-commit; harness Python 3.11.9 CPU; 2060.

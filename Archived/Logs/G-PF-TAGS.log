@@ -1,0 +1,38 @@
+G-PF-TAGS (PF-B3) — self-modify personality via tags: the model changes its own mood/voice/traits
+mid-conversation and the change survives to the next turn. (2026-07-03)
+=========================================================================================
+Third brick of CONTRACT-PERSONALITY. StreamProcessor already EXTRACTED [MOOD]/[VOICE] tags but never
+PERSISTED them. PF-B3 persists them (+ a new [TRAIT] tag) into the PF-B2 persona state, so the model
+is genuinely self-modifiable. ADR-002: the tag IS the clean symbolic DECISION; write_state EXECUTEs it.
+
+BUILD (harness, this-commit):
+  * harness/personality/interceptor.py apply_personality_tags(reply, persona_path): extracts
+    [MOOD:x] -> mood, [VOICE:x] -> voice, [TRAIT:+x] add / [TRAIT:-x] remove / [TRAIT:x] add; loads
+    the current persona state (parse_persona), applies the deltas, write_state's it back; returns the
+    tag-STRIPPED reply. Best-effort (any error leaves the reply stripped, state untouched).
+  * harness/interceptors/personality_state.py PersonalityStateInterceptor (post-call, priority 72,
+    before ResponseShaper@80): runs apply_personality_tags on ctx.reply. Registered in the pipeline
+    ONLY when SP_PERSONALITY=1 (it writes persona.md -> opt-in).
+  * harness/inference/stream_processor.py: added the [TRAIT] pattern + strip (chat-delta path
+    consistency, so trait tags never leak on /v1/chat either).
+
+GATE G-PF-TAGS (no daemon):
+  reply "Sure thing. [MOOD:playful] Let me [VOICE:whisper] help — [TRAIT:+mischievous] [TRAIT:-formal]
+  here you go." on a persona with state {voice: dry, mood: neutral, traits: curious, formal}:
+    persisted state -> {voice: whisper, mood: playful, traits: curious, mischievous}
+      (mood set · voice set · +mischievous added · -formal removed · curious PRESERVED)
+    clean reply -> tags stripped ("Sure thing.  Let me  help …  here you go.")
+    interceptor (priority 72, name personality_state): mock ctx -> reply stripped + state persisted.
+    StreamProcessor now strips [TRAIT] too.
+  registration: SP_PERSONALITY=1 -> pipeline includes personality_state; SP_PERSONALITY unset -> absent.
+  RESULT pf-tags: PASS (tags persisted to state + stripped from reply + interceptor + StreamProcessor strips TRAIT)
+
+VERDICT: GREEN. PF-B3 done — the model self-modifies its own personality by emitting a tag; the
+interceptor persists it via PF-B2 write_state so it carries to the next turn, and strips it so the
+user never sees the tag. Default-off (SP_PERSONALITY), graceful throughout.
+
+NEXT (CONTRACT-PERSONALITY): PF-B4 — @personality decorators (mirror @skill + run_with_tools) so the
+model can also DURABLY self-modify by CALLING set_trait/adjust_mood/remember_self (not just tags) ->
+PF-B5 NIGHTSHIFT curation of the personality (memory-okf-personality tier).
+
+REPRO: python tests/h_personality_tags.py. ENV: harness Python 3.11.9 (stdlib only).

@@ -1,0 +1,37 @@
+G-PF-PERSONA (PF-B2) — structured, live-editable persona.md: pure-VOICE prose + a machine-parseable
+## Personality state block (voice/mood/traits), injected with the PF-B1 self-model. (2026-07-03)
+=========================================================================================
+Second brick of CONTRACT-PERSONALITY. persona.md stays the VOICE lever ("edit it, the voice changes
+next turn") but now MAY carry a structured state block the harness parses + injects, and that
+PF-B3/PF-B4 will let the model self-modify.
+
+BUILD (harness, this-commit):
+  * harness/personality/persona_file.py: parse_persona(text) -> (prose, state) (NEVER raises — a
+    malformed block yields an empty state so the prose always loads); render_state(state) -> compact
+    "Current personality state — voice: …; mood: …; traits: …" line; write_state(path, state)
+    rewrites the block in place (the seam the model uses to self-modify — PF-B3/B4).
+  * harness/agent.py load_agent_system() EXTENDED: split prose from the ## Personality state block,
+    inject render_state(state) + the PF-B1 render_self_model() (root = SP_SELF_MODEL_ROOT), keep
+    _TOOL_DISCIPLINE. All best-effort — a malformed block or absent modules fall back to the raw
+    prose, so the persona lever never breaks.
+  * persona.md: added a live ## Personality state block (voice: dry, warm, candid / mood: neutral /
+    traits: curious, opinionated, playful, direct) matching the prose — the framework is now ACTIVE.
+
+GATE G-PF-PERSONA (temp persona + temp self-model, no daemon):
+  prose_ok=True · state_ok=True (voice/mood/traits injected) · header_stripped=True (raw
+  "## Personality state" does NOT leak into the prompt) · self_model_ok=True (PF-B1 self-model folded in)
+  live edit: write_state(mood=playful) -> next load reflects "mood: playful", prose preserved.
+  malformed block ("@@@ not key value @@@") -> graceful: the prose still loads.
+  RESULT pf-persona: PASS (state parsed+injected + self-model + live-edit + graceful fallback)
+
+VERDICT: GREEN. PF-B2 done — persona.md carries a structured, human- AND machine-editable state
+block; the system prefix now composes VOICE prose + current state (voice/mood/traits) + the self-
+model, live on the next turn, with a graceful fallback that keeps the persona lever unbreakable.
+`write_state` is the seam PF-B3 (tag-persistence) and PF-B4 (@personality decorators) use for the
+model to change its own mood/voice/traits.
+
+NEXT (CONTRACT-PERSONALITY): PF-B3 — a PersonalityStateInterceptor (post-call, priority ~72) that
+persists the [MOOD]/[VOICE]/[TRAIT] tags StreamProcessor already extracts, via write_state, so the
+model self-modifies its voice mid-conversation.
+
+REPRO: python tests/h_personality_persona.py. ENV: harness Python 3.11.9 (stdlib only).

@@ -1,0 +1,13 @@
+[tools] no-progress loop broken (operation=run_with_tools, round=2)
+  [PASS] malformed fence recovered (re-prompted, not leaked)
+  [PASS] no-progress loop broken before max_rounds
+  [PASS] clean single call still works
+  [PASS] edit_file anchored replace
+  [PASS] edit_file ambiguity guard
+  [PASS] edit_file missing-anchor guard
+  [PASS] post_task persists a pending task
+  [PASS] task state round-trips (resumable)
+  [PASS] list_tasks filters by status
+  [PASS] verify-gate rejects false DONE, accepts real one
+
+G-PK2-TOOLROBUST (offline): PASS (10/10)

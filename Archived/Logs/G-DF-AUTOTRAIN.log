@@ -1,0 +1,35 @@
+G-DF-AUTOTRAIN (DF-B5) — the auto-train trigger: accrued telemetry crosses a threshold and FIRES
+the retrain pipeline. The self-improvement loop is now AUTONOMOUS. (2026-07-03)
+=========================================================================================
+The last data-gen brick. Lifts CosySim training/auto_train.py (anti-rebuild): the state-file +
+threshold + check_and_train structure, with the candidate SOURCE swapped from CosySim's MetricsDB
+to OUR content-addressed telemetry corpus, and the training STEP made a pluggable callback (so a
+gate/CI never spends cloud CU; the live run passes the real Colab trigger).
+
+BUILD (harness datagen/, this-commit):
+  * datagen/auto_train.py: count_usable(corpus) = NON-redacted telemetry records (redacted =
+    private-secret carry no text -> excluded; the DF-B1 privacy choke point, upheld here too).
+    check_and_train(threshold, on_ready, dry_run): if NEW usable since last run >= threshold ->
+    DF-B1 convert (telemetry -> mem_class_live.jsonl) + DF-B2 merge (-> mem_class_combined.jsonl) +
+    call on_ready() (the DF-B3 train -> DF-B4 eval/promote kickoff). State file tracks the processed
+    count (idempotent — the same telemetry never re-fires). --status / --dry-run / --live CLI.
+  * run_agency.py _start_autotrain(): idle background thread, gated SP_AUTOTRAIN=1 (default off);
+    DRY by default (logs "WOULD FIRE") so it never spends CU without SP_AUTOTRAIN_LIVE=1.
+
+GATE G-DF-AUTOTRAIN (synthetic telemetry corpus, threshold=50):
+  [below] 40 clear + 10 redacted -> usable=40 (redacted EXCLUDED) -> action=below_threshold, no fire.
+  [fire]  60 clear -> usable=60 >= 50 -> action=FIRED: DF-B1 convert produced 60 examples, merged to
+          combined=840 (60 live + 780 seed), trigger callback called once.
+  [again] no new records -> action=below_threshold, fired count stays 1 (IDEMPOTENT — no re-fire).
+  RESULT df-autotrain: PASS (below=no-op · redacted-excluded · at-threshold fires convert+trigger · idempotent)
+
+VERDICT: GREEN. DF-B5 done — the retrain pipeline fires itself when enough new (privacy-safe)
+telemetry has accrued, and never re-fires the same data. With this, the whole loop is AUTONOMOUS:
+telemetry (LM-B2) -> [threshold] -> convert (DF-B1) + seed (DF-B2) -> train (DF-B3) -> eval/promote
+(DF-B4) -> deploy the curator (DF-B6) -> the deployed classifier feeds the next telemetry -> repeat.
+
+NOTE: the live trigger (Colab/RunPod kickoff) is OPT-IN (SP_AUTOTRAIN_LIVE=1) so autonomy never
+spends cloud CU by surprise; dry mode logs the exact command.
+
+REPRO: python tests/h_datagen_autotrain.py ; python -m datagen.auto_train --status.
+ENV: harness Python 3.11.9 (stdlib only).

@@ -1,0 +1,30 @@
+G-HARNESS-AGENT-MEMORY -- the model CALLS its memory tools in conversation (2026-06-25)
+========================================================================================
+THE GAP (operator caught it): the served console chat (console -> daemon /v1/chat) has NO
+tool calling (grep routes.rs for tool_code = 0). The daemon "memory agency" (SP_FORGET /
+SP_DECIDE) is a token-overlap intent HEURISTIC + a forced CHANGED= side-prompt -- NOT a Gemma
+tool call, and the model never CHOOSES it. And the harness gateway (server/app.py) was a pure
+passthrough to the daemon -- it never called run_with_tools either. So run_with_tools (the
+Gemma tool calling) ran ONLY in tests + the agency scheduler; no LIVE chat let the model call
+tools. "The agent is not calling them" was exactly right.
+
+THE FIX (unification): harness/agent.py -> agent_chat routes a conversation through
+run_with_tools with the full tool set (memory + conversation recall + system/code/web), with an
+identity system_prefix (run_with_tools now merges system_prefix + the tool preamble into one
+system turn). The model manages its OWN memory by emitting Gemma ```tool_code calls
+(remember/forget/list/count) -- its choice, in the chat. Supersede/merge fall out: the model
+calls forget(old) then remember(new). The daemon's heuristic SP_FORGET/SP_DECIDE are superseded.
+The gateway (server/app.py) now routes /v1/chat/completions through agent_chat (tool calling);
+set tools:false to passthrough.
+
+PROVEN (g_agent_memory_e2e.py, live 12B, empty test registry):
+  USER "remember my favorite color is teal" -> model CALLS remember("teal") -> stored;
+       also CALLS list_memories() -> "1. teal"
+  USER "how many facts do you have?"        -> model CALLS count_memories() -> "1"
+  The model calls the memory operations itself, via ```tool_code. PASS.
+
+REMAINING (the last integration wiring): point the served console at the harness GATEWAY
+(run server/app.py; console DAEMON url -> the gateway port) so the SERVED chat uses this path;
+token-by-token streaming (currently the gateway chunks the final answer after the agent loop);
+and richer remember() fact granularity (the model stored "teal", not "favorite color is teal").
+Repro: python tests/g_agent_memory_e2e.py (daemon on :3000).

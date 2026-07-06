@@ -1,0 +1,28 @@
+G-HARNESS-KAIROS-TICK-E2E -- the agency round fires on a heartbeat tick (2026-06-25)
+=====================================================================================
+run_agency_scheduler (harness/control/agency.py) fires agency_round on a cadence,
+idle-gated (skips a tick while the daemon is generating -- mirrors engine kairos.rs
+inference_active backoff) so memory upkeep never starves /v1/chat. The model-driven
+KAIROS auto-round, realized where the tools + model live. Repro: python tests/g_kairos_tick_e2e.py.
+
+SEED (isolated registry, redundant pair) -- NO user turn; the heartbeat acts on its own:
+  1. The user has a dog.
+  2. The user has a dog named Rex.
+  3. The user's name is Knack.
+
+KAIROS TICK (interval 2s, 1 round, idle-gate off for determinism):
+  >> forget({'fact': 'The user has a dog.'}) -> forgot       (redundant vague fact)
+  >> remember({'fact': 'The user has a dog named Rex.'}) -> already in memory (dedup)
+
+AFTER (registry on disk):
+  1. The user has a dog named Rex.
+  2. The user's name is Knack.
+  PROVEN: the tick fired the agency round + the model curated 3 -> 2 with no user input.
+
+NOTE: the closing-narration round of run_with_tools is slow under python contention; the
+CURATION (the registry write) is the proof and is complete on disk. idle_gate defaults ON
+in production (run_agency_scheduler(interval=..., idle_gate=True)).
+
+CAMPAIGN H1-H5 COMPLETE: H1 daemon E2E, H2 tool calling + python, H3 memory tools, H4 agency
+round, H5 the KAIROS agency tick. The served 12B autonomously maintains its own memory on a
+heartbeat. Remaining (optional): have the Rust kairos.rs heartbeat spawn this scheduler in-process.

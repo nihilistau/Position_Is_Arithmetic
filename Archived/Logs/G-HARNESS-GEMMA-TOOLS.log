@@ -1,0 +1,32 @@
+G-HARNESS-GEMMA-TOOLS -- Gemma-native tool calling + new tools (2026-06-25)
+============================================================================
+Aligned the harness tool protocol to Gemma's NATIVE format: the model wraps calls in a
+```tool_code fenced Python-call block; results return as ```tool_output. (Per Google's
+Gemma function-calling docs.) This is what Gemma is trained to emit -- it explains why the
+model kept writing markdown code fences instead of the old <tool …> syntax in H2.
+
+harness/mcp/tools.py:
+  - _tool_preamble: advertises tools as Python signatures (def name(p: type): # desc) + asks
+    for a ```tool_code block; the example is built from the FIRST tool's REAL signature (fix:
+    the model copied the placeholder "arg" from a generic example on its first attempt).
+  - _parse_tool_calls: ast-parses ```tool_code blocks (positional + kwargs via literal_eval);
+    legacy <tool …>{json} kept as a fallback.
+  - ToolSpec.call(*args, **kwargs); .signature() for the preamble.
+  - run_with_tools feeds observations back as ```tool_output.
+
+NEW TOOLS:
+  - harness/skills/memory.py: count_memories() (added to MEMORY_TOOLS).
+  - harness/skills/system_tools.py: list_dir/read_file/write_file (filesystem), run_shell,
+    run_powershell, run_python (REPL: auto-prints a final bare expression), web_search (DDG).
+
+VERIFIED LIVE (served 12B, ```tool_code) + direct:
+  calculate(expression="47 * 89") -> 4183 (clean first attempt after the example fix)
+  count_memories() -> 2 ; list_dir() -> dir listing ; list_memories() -> the real facts
+  run_python('sum(range(1,101))') -> 5050 ; run_python('x=5\ny=7\nx*y') -> 35 (REPL)
+  run_powershell('6*7') -> 42 ; run_shell('echo hi') -> hi
+  The model uses tool_output faithfully ("I have 2 facts...").
+
+HONEST: web_search uses the DuckDuckGo instant-answer API (best for entity/factual queries;
+degrades gracefully). Multi-line INDENTED code as a tool_code string arg is still the weak
+spot (one-liners + REPL expressions are clean). All flags default-off = null floor unchanged.
+Repro: python tests/g_gemma_tools_e2e.py (daemon on :3000).

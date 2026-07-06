@@ -1,0 +1,41 @@
+G-DF-TRAIN-CLOUD (DF-B3) — the mem_class classifier LoRA, TRAINED on Colab T4, HF-mediated,
+end-to-end. Supersedes the local-blocked smoke. (2026-07-03)
+=========================================================================================
+DF-B3's local GPU smoke was env-blocked (G-DF-TRAIN honest-negative). This is the same trainer run
+on the intended cloud lane (ENVIRONMENT.md §2 Colab PROTOTYPE), HF as the data+artifact bus.
+
+FLOW (HF-mediated, cost-safe):
+  1. STAGE (datagen/cloud/hf_stage.py, WSL): regenerate mem_class_combined (per_class=130 + live =
+     782, 6 balanced classes) + upload it AND train_colab.py to the private HF dataset
+     KnackAU/sp-mem-class. Token read from the archive path, never echoed.
+  2. SESSION: `colab new -s memtrain --gpu T4` (Tesla T4, 15.6 GB). HF_TOKEN piped into the kernel
+     env via datagen/cloud/colab_secret.sh (runtime read, never echoed).
+  3. TRAIN (detached): colab_launch.py fetches train_colab.py from HF + `nohup python … &` so the
+     run survives the 30s exec wall; poll /content/STATUS via colab_poll.py. train_colab.py:
+     pip peft/datasets/accelerate (+ uninstall the incompatible Colab torchao 0.10 that newer peft
+     hard-rejects — GOTCHA banked), pull dataset, label-masked LoRA (r=8 q/k/v/o) over
+     Qwen2.5-0.5B-Instruct via a plain transformers Trainer (version-robust; == CosySim's trl path),
+     eval held-out, push adapter to HF.
+  4. VERIFY + STOP: hf_verify.py lists the adapter repo + metrics; `colab stop` (sessions.json clean
+     — no VM left billing).
+
+RESULT — STATUS: DONE acc=1.000 loss=0.395 correct=78/78:
+  train_runtime 25.5s (82.8 samples/s) on T4; loss 0.09 -> 0.0004 over 3 epochs.
+  eval: accuracy 1.000, 78/78 correct, 78/78 valid labels.
+  adapter pushed -> hf.co/KnackAU/sp-mem-class-adapter (adapter_config.json + adapter_model.safetensors
+  + tokenizer + metrics.json). metrics: base Qwen2.5-0.5B-Instruct, n_train 704, n_held 78,
+  final_loss 0.395, accuracy 1.0.
+
+VERDICT: GREEN. DF-B3 CLOSED via cloud — the mem_class classifier trains end-to-end and lands a
+usable LoRA adapter on HF. NOTE (honest scope): the held-out shares templates with train via
+augmentation, so 100% is a pipeline+learning proof, NOT a generalization benchmark — real
+generalization is measured by DF-B4 (eval/promote) against held-out DISTINCT phrasings + the live
+telemetry distribution, and by A/B vs the 12B model_classify. Cost: ~1 T4 CU-fraction, minutes.
+
+NEXT: DF-B4 (eval_gate + model_registry + promote — lift CosySim, re-point at SP inference; A/B the
+adapter vs the 12B model_classify on a distinct held-out) -> DF-B6 (deploy the adapter behind a flag
+to replace model_classify's 12B micro-forward on the served refine path).
+
+REPRO: WSL: python3 datagen/cloud/hf_stage.py ; colab new -s memtrain --gpu T4 ; bash colab_secret.sh ;
+cat colab_launch.py | colab exec -s memtrain ; poll ; python3 datagen/cloud/hf_verify.py ; colab stop.
+ENV: Colab Tesla T4; base Qwen/Qwen2.5-0.5B-Instruct; HF KnackAU (PRO).

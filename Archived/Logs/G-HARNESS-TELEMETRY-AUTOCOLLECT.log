@@ -1,0 +1,25 @@
+G-HARNESS-TELEMETRY-AUTOCOLLECT — the telemetry sink now runs AUTOMATICALLY beside the agency
+loop, so the durable corpus fills whenever the harness runs. (2026-07-03)
+=========================================================================================
+Follow-on to G-HARNESS-TELEMETRY-SSE. The sink existed but had to be launched by hand; this wires
+it into run_agency.py as an idle-safe background daemon thread.
+
+BUILD (harness, this-commit):
+  * run_agency.py _start_telemetry_sink(): spawns TelemetrySink.run(get_client(), None) on a daemon
+    thread before run_agency_scheduler. Gated SP_TELEMETRY_SINK (default "1" = on; "0" = disable);
+    root SP_TELEMETRY_SINK_ROOT (default memory-okf-telemetry). Import/connect failures are caught
+    and skipped — collection can NEVER break the agency loop. If the daemon isn't broadcasting
+    telemetry the subscription just yields nothing (harmless).
+
+GATE G-HARNESS-TELEMETRY-AUTOCOLLECT — live sp-daemon (SP_TELEMETRY=1), driving _start_telemetry_sink:
+  * DISABLED (SP_TELEMETRY_SINK=0): no thread, no corpus dir created -> no-op = PASS.
+  * ENABLED (default): thread starts ("auto-collect ON -> memory-okf-telemetry"); 2 queries ->
+    4 records auto-collected into memory-okf-telemetry/records/; redaction leak = 0.
+  RESULT auto-collect: PASS (disabled no-op + enabled collects + redacted).
+
+VERDICT: GREEN. The flywheel is now SELF-FILLING: run the harness and the engine's decision+turn
+telemetry is durably, content-addressedly, redacted-ly collected without any manual step. This is
+the standing egress that accumulates the corpus for the data-gen / finetuning phase.
+
+REPRO: engine run_refine.bat off (SP_TELEMETRY=1); harness import run_agency; _start_telemetry_sink();
+fire queries; check memory-okf-telemetry/records/. ENV: harness Python 3.11.9 + httpx 0.28.1.

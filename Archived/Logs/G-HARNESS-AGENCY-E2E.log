@@ -1,0 +1,33 @@
+G-HARNESS-AGENCY-E2E -- the model autonomously maintains its own memory (2026-06-25)
+=====================================================================================
+The agency loop (harness/control/agency.py) composes ephemeral tool calling (H2) + the
+memory tools (H3): the model is shown its current memory + the curation tools and decides
+FOR ITSELF whether to forget redundant/stale facts or consolidate them. The harness-side
+realization of the KAIROS agency tick -- the "auto round" where the organism does things
+with its memory instead of only stopping. Repro: python tests/g_agency_loop_e2e.py (:3000).
+
+SEED (isolated registry, a redundant pair):
+  1. The user has a dog.
+  2. The user has a dog named Rex.
+  3. The user's name is Knack.
+
+AGENCY ROUND (the model reviews + curates, unprompted as to WHICH to change):
+  >> forget({'fact': 'The user has a dog.'}) -> forgot   (vague fact subsumed by the specific one)
+  >> remember({'fact': 'The user has a dog named Rex.'}) -> already in memory  (dedup no-op)
+  MODEL closing: "memory is healthy"
+
+AFTER:
+  1. The user has a dog named Rex.
+  2. The user's name is Knack.
+  facts 3 -> 2 ; redundant_gone=True ; knack_kept=True
+  G-HARNESS-AGENCY-E2E: PASS (tool calls: 2)
+
+FINDING (fixed this session): the model's first attempt re-remembered an already-stored fact,
+creating a DUPLICATE. FIX = remember() is now idempotent (skips an exact-text match already in
+memory). After: clean curation, no duplicate.
+
+CAMPAIGN COMPLETE (H1-H4 all GREEN): H1 harness drives the live daemon; H2 live ephemeral tool
+calling + sandboxed python; H3 memory as tools (the model manages its memory); H4 the agency
+loop (the model autonomously curates its memory). The remaining wiring = call agency_round on
+the Rust KAIROS heartbeat tick (engine kairos.rs) to make it fully autonomous on a schedule;
+the agency substance is proven here.

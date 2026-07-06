@@ -1,0 +1,2 @@
+TOOLS_OK 6 ['read_file', 'write_file', 'edit_file', 'search', 'run_tests', 'run_command']
+IMPORT_OK True True True

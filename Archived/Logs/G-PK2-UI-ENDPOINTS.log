@@ -1,0 +1,10 @@
+2026-07-07 08:00:48,350 INFO    harness.control.task_loop | [task] posted 5cb184ed2986: make the tests pass
+  [PASS] /v1/memory returns facts + provenance
+  [PASS] /v1/tasks returns the queued task
+  [PASS] /v1/persona GET returns the written persona
+  [PASS] persona edit recorded as operator-provenance memory
+  [PASS] persona v2 state block parses
+  [PASS] /v1/persona/state returns parsed state
+  [PASS] agency hygiene: verify flags + compact cleans
+
+G-PK2-UI-ENDPOINTS (offline): PASS (7/7)

@@ -1,0 +1,35 @@
+G-DF-SEED (DF-B2) — synthetic seed generator for the mem_class classifier. (2026-07-03)
+=========================================================================================
+Second brick of CONTRACT-DATAGEN-FINETUNE. Bootstraps the classifier corpus before live volume
+exists, and supplies the ONE class the DF-B1 privacy choke point excludes from live telemetry
+(private-secret — every example here is an OBVIOUSLY-SYNTHETIC fake credential, never a real one).
+
+BUILD (harness datagen/, this-commit):
+  * datagen/seed_mem_class.py: lifts CosySim training/datasets/generate_router_v3.py (anti-rebuild)
+    — same balanced-generation + augmentation scaffold, GAME 16-class taxonomy swapped for our 6
+    mem_class labels (private-secret, persona, preference, counterfact, fact, episodic-event).
+    Emits Alpaca {"instruction": statement, "output": class} to datasets/mem_class_train.jsonl
+    (the SYNTHETIC tier that merge_datasets combines with the DF-B1 live tier).
+  * WHAT IT CLASSIFIES: a memory STATEMENT (the body you'd store) — matching LM-B3 model_classify's
+    input (the DF-B6 deployment target), NOT DF-B1's query-intent view.
+  * Fixed a generation dedup bug found by the gate: the seen-set mixed raw strings + tuples, so it
+    emitted duplicate lines that merge_datasets then deduped away (combined 148 < seed 180). Now
+    dedups by statement-within-class (statements are class-disjoint ⇒ every (instruction,output) is
+    unique ⇒ merge never shrinks the seed); augment expanded to 12 variants so per_class=130 is
+    reachable uniquely (ceiling ≈ templates × variants).
+
+GATE G-DF-SEED — generate(per_class=30):
+  classes = [counterfact, episodic-event, fact, persona, preference, private-secret]  (all 6)
+  per-class counts: 30 each (balanced)   total seed=180   Alpaca fmt ok   private-secret present
+  deterministic (same seed ⇒ identical)   live=2   combined=182 (= 180 seed + 2 DF-B1 live, no overlap)
+  default per_class=130 also verified reachable: 780 total, 130/class balanced.
+  RESULT df-seed: PASS (6 balanced classes + synthetic private-secret + Alpaca + deterministic + merges with live)
+
+VERDICT: GREEN. DF-B2 done: a balanced, deterministic, privacy-safe synthetic seed that combines
+with live telemetry into mem_class_combined.jsonl — the trainer-ready input for DF-B3.
+
+NEXT: DF-B3 — lift CosySim finetune_local.py, train a tiny mem_class QLoRA on mem_class_combined
+(Windows HF+PEFT fallback smoke; Colab Unsloth / RunPod BAKE via _xbar/p2b for the real run).
+
+REPRO: python -m datagen.seed_mem_class --per-class 130 ; python tests/h_datagen_seed.py.
+ENV: harness Python 3.11.9 (stdlib only).

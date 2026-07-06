@@ -1,0 +1,42 @@
+G-HARNESS-TELEMETRY-SSE — the harness half of the LM-B2 SSE sink: the harness subscribes to the
+engine's /v1/events bus and durably sinks the telemetry corpus, content-addressed + redacted.
+The flywheel is now END-TO-END. (2026-07-03)
+=========================================================================================
+Engine half was G-LM-SSE (engine c142d09): telemetry broadcasts on /v1/events as event:telemetry.
+This is the harness follow-on: subscribe, filter, sink into a durable store so the corpus
+accumulates across sessions — the pipe that feeds the learned classifier / finetuning framework.
+
+BUILD (harness, this-commit):
+  * harness/inference/client.py: SPDaemonClient.subscribe_events(want=["telemetry"]) — a LONG-LIVED
+    GET /v1/events SSE consumer (unbounded timeout, distinct from the per-request chat_stream),
+    yielding StreamEvent(event_name, data). No rebuild — extends the lifted CosySim client.
+  * harness/telemetry/sink.py: TelemetrySink — content-addressed, idempotent durable store:
+      <root>/records/<sha16>.json   one file per UNIQUE record (addr = sha256[:16])
+      <root>/log.jsonl              append-only index (addr, kind, class, redacted, ts)
+    Dedup by content hash (reconnects/re-runs sink once). Writes the record VERBATIM as received
+    (already engine-redacted); never un-redacts, never inspects a secret. Stdlib only.
+      .run(client, stop) = the long-lived loop (reconnect backoff) — a daemon thread beside agency.
+    Distinct from the Nexus KB (retrieval) and memory-okf/ (episodes): the raw telemetry tier.
+  * tests/h_telemetry_sse.py: the gate. python -m harness.telemetry.sink = standalone runner.
+
+GATE G-HARNESS-TELEMETRY-SSE — live sp-daemon on :3000 (run_refine.bat off, SP_TELEMETRY=1, secret
+concept servable). Started TelemetrySink.run in a thread, fired 2 recall queries, drained, stopped:
+  sink stats: {records: 4, redacted: 4, kind_decision: 2, kind_turn: 2}
+  records=4  kinds_ok=True (decision + turn)  redaction_leak=0  dedup_ok=True
+  REDACTION: secret "orchid" in sinked records = 0 -> PASS
+  RESULT harness-telemetry-sse: PASS (durable sink + kinds + redacted + dedup)
+The 4 content-addressed records landed in tests/_telemetry_gate/records/ with a log.jsonl index;
+re-sinking an existing record returned is_new=False (idempotent). Every record carried
+redacted:true (both scratch concepts were private-secret) and the secret value never appears.
+
+VERDICT: GREEN. The LM-B2 flywheel is END-TO-END: engine decision+turn telemetry -> /v1/events ->
+harness subscribe -> durable content-addressed corpus. It accumulates across sessions, deduped,
+privacy preserved on the wire AND at rest. This is the egress that fills the pipe for the data-gen
++ finetuning framework.
+
+FOLLOW-ON: wire TelemetrySink.run as a background thread in run_agency.py / harness/control/agency.py
+(idle-safe) so collection is automatic whenever the harness runs; add a memory-okf LUT row; then
+the data-gen/finetuning phase (RECON cosysim/nexus router-finetune-on-telemetry FIRST — anti-rebuild).
+
+REPRO: engine repo run_refine.bat off (SP_TELEMETRY=1); harness `python tests/h_telemetry_sse.py`.
+ENV: harness Python 3.11.9 + httpx 0.28.1; engine served on the 2060.

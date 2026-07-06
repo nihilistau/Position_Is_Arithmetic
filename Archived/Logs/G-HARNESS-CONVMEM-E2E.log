@@ -1,0 +1,35 @@
+G-HARNESS-CONVMEM-E2E -- tiered conversation memory + capabilities on MEM-OKF (2026-06-25)
+============================================================================================
+harness/skills/conversation_memory.py builds the operator's tiered design ON the existing
+content-addressed MEM-OKF store (tools/okf_mem.py): sha256 address, LUT (index) -> sum/ (gist)
+-> full/ (complete), same signature linking everything. Repro: python tests/g_conversation_memory_e2e.py.
+
+THE TIERS (operator's design, realized):
+  SHORT  the live conversation (carried in `messages`, passed in each turn).
+  MID    durable FACTS extracted from the conversation -> the recall registry (remember()).
+  LONG   the whole conversation stored COMPLETE (full/) AND SUMMARIZED (sum/), one sha addr.
+  + a CAPABILITIES corpus ("how do I use myself") + an init primer that points it at itself.
+
+RESULT:
+  CAPABILITIES: seeded 8 objects (identity, remember, recall, forget, run python, calculate,
+    recall past conversations, agency). recall_capability('python') -> "Run code". init_primer ok.
+  CONSOLIDATE (short -> mid + long) on a sample chat (octopus / jazz):
+    extracted facts (mid-term registry):
+      - "The user's favorite animal is the octopus."
+      - "The user also really likes jazz music."
+    conversation stored at addr cf04ec64e0a776ae (full + summary).
+  RECALL the gist: recall_conversations('octopus') ->
+      "[cf04ec64e0a776ae] The user's favorite animal is the octopus, and they also enjoy jazz music."
+  DIG deeper: read_conversation(addr) -> the full transcript.
+  MEM-OKF integrity (okf_mem verify): VERDICT GREEN.
+  G-HARNESS-CONVMEM-E2E: PASS.
+
+FINDING (fixed this session): extract_facts first ECHOED the prompt (returned the instruction text
+as a "fact"). FIX = put the conversation FIRST, ask plainly "write the facts the user stated", and
+an echo guard that drops any line containing meta words (conversation/extract/do-not/durable/...).
+After: clean atomic facts. The summarizer worked first try.
+
+LIVE WIRING (next, not yet on the served chat): (1) seed the capabilities corpus into the served
+daemon's registry so the model recalls 'how do I use myself'; (2) call consolidate_conversation at
+conversation end (or on the KAIROS tick) on the live chat so facts promote short->mid->long and the
+transcript is stored; (3) load init_primer on init. The store + extraction substance is proven here.

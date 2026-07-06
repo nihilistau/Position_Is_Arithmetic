@@ -1,0 +1,31 @@
+G-HARNESS-AGENT-LIVE -- unified agent chat wired to the console + the long-chat slowdown fix (2026-06-26)
+=========================================================================================================
+THE THREE WIRING ITEMS (make the model-driven tool-calling chat the live default):
+ 1. CONSOLE -> GATEWAY: index.html chat now POSTs to CHAT_URL (the harness agent gateway :8800,
+    override via localStorage 'sp_chat_endpoint'); metrics/mesh stay on the daemon. Launcher
+    run_gateway.bat (engine). The gateway (server/app.py) gained a native streaming /v1/chat
+    ({messages} -> SSE {delta}) + CORS, routing through the streaming agent.
+ 2. STREAMING: agent.py agent_chat_stream -- token-by-token streaming of the FINAL answer; the
+    model's ```tool_code rounds run SILENTLY (buffered, executed, fed back) and never reach the
+    user; a generation is a tool call iff it starts with a ```tool fence.
+ 3. REMEMBER GRANULARITY: remember() docstring + AGENT_SYSTEM now tell the model to store the
+    COMPLETE fact as a full sentence ("The user's favorite color is teal", not "teal").
+ + TOOL SET CURATED: default_tools() = memory(4) + run_python + web_search (6); 14 tools overwhelmed
+   the 12B (it explored + stalled). all_tools() keeps the full set for agents that want it.
+
+VERIFIED: the agent CALLS its memory tools live (g_agent_memory_e2e: remember/list_memories/
+count_memories); the gateway starts + routes through the agent (logged daemon POSTs). HONEST: the
+full console->gateway browser round-trip + per-turn latency tuning is left for the operator to run
+(daemon + run_gateway.bat + hard-refresh); Invoke-WebRequest buffers SSE so it is hard to time here.
+
+★ THE LONG-CHAT SLOWDOWN (operator: "snappy at first, 3000 rounds in = 5 min; 30+ tok/s -> 1 or less;
+since before this session"). ROOT CAUSE: the daemon REWINDS to 0 and RE-PREFILLS the whole conversation
+every turn (O(n) prefill), AND decode attends over the ever-growing KV (tok/s decays as context grows).
+Both compound with conversation length -- a pre-existing daemon trait, not new. INTERIM FIX (this commit,
+console-side, instant, no rebuild): cap the prefilled context to the system prompt + the last W=24 turns
+(index.html); older facts are held by the memory system (recall/agency), not the raw transcript. This
+bounds BOTH prefill and decode cost -> tok/s and latency stay flat regardless of chat length.
+PROPER FIX (next, scoped): persistent O(1) conversation KV in the daemon -- keep the session KV across
+turns and prefill only the NEW suffix (prefix-cache the common prefix); the L1 stateful kvdecode verb
+(sp_session_register_kvdecode_backend) is the hook. That keeps FULL context at O(1)/turn. A substantial
+Rust build in the live decode path -- deferred to a focused session, not rushed.

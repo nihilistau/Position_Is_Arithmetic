@@ -1,0 +1,38 @@
+G-DF-CONVERT (DF-B1) — the telemetry -> labelled JSONL converter, and its privacy choke point.
+First brick of CONTRACT-DATAGEN-FINETUNE. (2026-07-03)
+=========================================================================================
+Turns the LM-B2 telemetry corpus into a training set for the mem_class classifier (LM-B3's first
+finetune target). Lifts CosySim training/prepare_from_live.py (anti-rebuild) with the SAME output
+contract, swapping only the data source (MetricsDB -> our content-addressed telemetry corpus).
+
+BUILD (harness datagen/, this-commit):
+  * datagen/prepare_from_telemetry.py: reads memory-okf-telemetry/records/<sha16>.json, joins
+    decision+turn by query, emits Alpaca {"instruction": query, "output": mem_class} to
+    datasets/mem_class_live.jsonl. _format_for_gemma is BYTE-IDENTICAL to CosySim's (so the DF-B3
+    trainer, finetune_local.py, consumes it unchanged). merge_datasets + get_dataset_stats lifted.
+    Dedup by (query, class). min_quality keeps only obeyed==True turns.
+  * PRIVACY CHOKE POINT (the load-bearing property): a redacted:true record (private-secret) is
+    SKIPPED — hashed query, no usable text. Consequence-by-design: the classifier learns
+    private-secret ONLY from the DF-B2 synthetic seed, NEVER from a real user secret.
+
+GATE G-DF-CONVERT — synthetic corpus: clear counterfact (decision+turn, same query) + clear
+persona (decision+turn) + a normal redacted private-secret + an ADVERSARIAL redacted record that
+(wrongly) carries the secret text "orchid tango falcon delta" in its query AND output. Converted:
+  examples=2 (expect 2)   labels_ok=True   fmt_ok=True   rerun=2 (idempotent)
+    {"instruction": "What is the chemical symbol for gold now?", "output": "counterfact"}
+    {"instruction": "What is my name?", "output": "persona"}
+  REDACTION: secret "orchid tango falcon delta" in mem_class_live.jsonl = 0 -> PASS
+  RESULT df-convert: PASS (clear examples + labels + redacted-skipped + no-secret + dedup)
+The decision+turn pair for each query deduped to 1 example; both redacted records (incl. the
+adversarial one) were skipped on the `redacted` flag, so the secret never reached the JSONL — the
+guard is on the flag, not on content inspection (robust even if a record wrongly carried text).
+
+VERDICT: GREEN. DF-B1 done: the corpus -> trainer-ready JSONL, privacy-safe by construction, in
+the exact format CosySim's finetune_local.py expects. Unblocks DF-B3 (train).
+
+NEXT: DF-B3 (lift finetune_local.py, train a tiny mem_class QLoRA on this JSONL — Windows HF+PEFT
+fallback locally, Unsloth on Colab, or a RunPod BAKE run via the existing _xbar/p2b HF-mediated
+lane [ENVIRONMENT.md §2]) -> DF-B4 (eval/promote) -> DF-B6 (deploy behind a flag). DF-B2 (synthetic
+seed, incl. the private-secret class) fills the class the privacy choke point excludes from live.
+
+REPRO: python tests/h_datagen_convert.py. ENV: harness Python 3.11.9 (stdlib only).

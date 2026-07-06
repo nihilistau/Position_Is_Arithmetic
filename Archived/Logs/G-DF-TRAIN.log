@@ -1,0 +1,45 @@
+G-DF-TRAIN (DF-B3) — mem_class LoRA trainer: CODE + DATA PATH GREEN; GPU training execution
+deferred to the Colab/RunPod lane (local ML-env blocked). Honest partial. (2026-07-03)
+=========================================================================================
+Third data-gen brick. Lifts CosySim training/finetune_local.py `_finetune_hf` (anti-rebuild): the
+LoRA-over-a-small-base classifier trainer + exact-match eval, dataset-agnostic on OUR mem_class
+corpus. Target: replace LM-B3's 12B model_classify with a small QLoRA classifier (DF-B6).
+
+BUILD (harness datagen/, this-commit):
+  * datagen/finetune_mem_class.py:
+      - _load_dataset (combined > train > live), _text (prompt+statement+label+eos), _parse_label.
+      - finetune(): AutoModelForCausalLM + LoraConfig(r=8, q/k/v/o) + get_peft_model + trl SFTTrainer
+        (SFTConfig dataset_text_field, fp16 on cuda, dataloader_num_workers=0) -> save adapter.
+        Stage markers (flushed) at each step for observability. base/steps/epochs CLI-overridable so
+        the Colab/RunPod run reuses this unchanged (4-bit QLoRA via Unsloth = the cloud config).
+      - evaluate(): PeftModel.from_pretrained + generate + exact-match accuracy over held-out.
+
+GATE STATUS — split honestly:
+  * G-DF-TRAIN-PLUMBING = GREEN (tests/h_datagen_train_plumbing.py, runs in ms, no heavy import):
+      _load_dataset 180 rows · _text format correct (prompt+statement+"Label: <class>"+eos) ·
+      _parse_label 7/7 (clean + noisy generations; private-secret matched before persona/fact).
+    The trainer's DATA PATH is proven correct.
+  * G-DF-TRAIN (the actual LoRA smoke on cached Qwen2.5-0.5B-Instruct) = BLOCKED locally, NOT a
+    code failure:
+      (a) ROOT-CAUSED + FIXED a corrupted pip leftover `~uggingface_hub` (invalid dist) that HUNG
+          every `import trl/transformers` indefinitely — removing the two `~*` dirs from
+          site-packages restored `import trl` to 0.3s. (Banked as a gotcha.)
+      (b) After that fix the run then stalled at `import torch` / CUDA init with a stuck CUDA
+          context (GPU held ~590 MiB at 0% util) — the residue of repeated hard process-kills during
+          debugging leaves the 2060's driver blocking new CUDA init. A clean shell / fresh boot
+          clears this; not reproduced as a code fault.
+    Given (i) the data path is proven, (ii) the trainer faithfully lifts CosySim, and (iii) the
+    REAL training lane is Colab (Unsloth 4-bit) / RunPod BAKE (_xbar/p2b) per ENVIRONMENT.md §2 —
+    the GPU training run is DEFERRED to the cloud lane rather than fake-green'd on a dirty local env.
+
+VERDICT: PARTIAL-GREEN. DF-B3 trainer BUILT + data-path VERIFIED; GPU training EXECUTION deferred
+to Colab/RunPod (local env blocker documented, corrupted-dist fix banked). NO false green.
+
+NEXT: run the real mem_class QLoRA on Colab (colab run --gpu T4, Unsloth 4-bit) or RunPod BAKE
+(wrap as an _xbar/p2b unit) on mem_class_combined; adapter -> DF-B4 (eval/promote) -> DF-B6 (deploy
+behind a flag, replace model_classify). To retry locally: fresh shell (clears the CUDA context),
+`python -u tests/h_datagen_train.py`.
+
+REPRO: python tests/h_datagen_train_plumbing.py (GREEN) ; python -m datagen.finetune_mem_class
+--smoke (cloud/clean-env). ENV: harness Python 3.11.9, torch 2.6.0+cu124, trl 1.7.0, peft 0.19.1,
+transformers 5.5.4; base Qwen/Qwen2.5-0.5B-Instruct (cached).

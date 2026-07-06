@@ -1,0 +1,7 @@
+  [PASS] persona event emitted with state
+  [PASS] tool event emitted with name+result
+  [PASS] delta events carry the answer
+  [PASS] stream terminates with [DONE]
+  [PASS] typed_events=false is pure-delta (backward compatible)
+
+G-PK2-SSE-V2 (offline): PASS (5/5)

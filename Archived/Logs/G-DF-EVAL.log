@@ -1,0 +1,43 @@
+G-DF-EVAL (DF-B4) — the mem_class adapter GENERALIZES and is PROMOTED: A/B vs the base on a
+DISTINCT held-out, then registry gate-and-promote. (2026-07-03)
+=========================================================================================
+Fourth data-gen brick. DF-B3's 100% was on augmentation-shared held-out (memorization proof). This
+measures GENERALIZATION on hand-written phrasings the model NEVER saw, A/Bs adapter-vs-base, and
+runs the promote decision through a policy gate (not a silent max).
+
+BUILD (harness datagen/, this-commit):
+  * eval_set_distinct.py -> datasets/mem_class_eval.jsonl: 30 hand-written phrasings (5/class) that
+    do NOT reuse the DF-B2 seed templates -> a true generalization test.
+  * cloud/eval_colab.py: pulls the adapter + eval set from HF, classifies each with BOTH the
+    finetuned adapter AND the un-finetuned base (Qwen2.5-0.5B zero-shot), reports per-class +
+    accuracies + delta, pushes eval_report.json to the adapter repo. Same PROMPT/parser as training.
+  * model_registry.py: lifts CosySim training/model_registry.py (RegisteredModel + register /
+    update_benchmark / promote / get_active), dropping the Pareto + engine.* hot-reload glue; ADDS
+    an explicit `gate_and_promote` (NO_REGRESSION / MUST_IMPROVE vs a baseline) so promotion is a
+    receipt. Pure stdlib (runs locally). registry -> datagen/model_registry.json.
+  * promote_run.py: pull eval_report -> register -> benchmark -> gate_and_promote.
+
+GATE G-DF-EVAL (Colab T4 eval, HF-mediated, ~min; then local promote):
+  DISTINCT held-out (30, unseen phrasings):
+    base zero-shot (Qwen2.5-0.5B-Instruct)  acc = 0.200  (6/30)   ~= chance (1/6)
+    FINETUNED ADAPTER                        acc = 0.833  (25/30)
+    delta = +0.633
+  PROMOTE (MUST_IMPROVE, margin 0.02): candidate 0.833 >= baseline 0.200 + 0.02 -> decision=PROMOTE.
+    registry active mem_class = c0efdf40 -> KnackAU/sp-mem-class-adapter.
+  eval_report.json pushed to the adapter repo; colab sessions stopped (no VM billing).
+
+VERDICT: GREEN. DF-B4 done: the finetuned mem_class classifier GENERALIZES to unseen phrasings
+(20% -> 83.3%, +63 pts over the base) and is PROMOTED by the registry gate. This is the honest
+generalization number (DF-B3's 100% was memorization on aug-shared held-out).
+
+NOTE (scope): the baseline here is the un-finetuned base, proving the finetune added value. The
+DEPLOYMENT A/B — adapter vs the engine's 12B `model_classify` — is DF-B6's gate (engine-side parity
+on the classify corpus). 83.3% is a first-pass number on a 782-example seed-heavy corpus; it climbs
+as the live telemetry corpus grows (the flywheel) and with more seed diversity.
+
+NEXT: DF-B6 — deploy the promoted adapter behind a flag to replace LM-B3's 12B `model_classify`
+micro-forward on the served refine path (sub-second classify), gated by parity vs the 12B on the
+classify corpus + a latency win.
+
+REPRO: stage eval set (hf_stage.py); colab new -s memeval --gpu T4; colab_secret_eval.sh; launch
+eval_colab.py (SP_SCRIPT); poll; python3 datagen/promote_run.py. ENV: Colab T4; base Qwen2.5-0.5B.

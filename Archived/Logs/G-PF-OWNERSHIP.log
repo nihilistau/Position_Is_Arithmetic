@@ -1,0 +1,34 @@
+G-PF-OWNERSHIP (PF-B1) — fact OWNERSHIP: the self-model (facts about the agent) vs user-facts
+(facts about the operator), the axis the personality framework hangs on. (2026-07-03)
+=========================================================================================
+First brick of CONTRACT-PERSONALITY. `mem_owner` is an axis ORTHOGONAL to `mem_class` (ADR-004):
+who the fact is ABOUT (self = the agent's self-model; user = the operator). Owner is set at CAPTURE
+by the SOURCE (the agent asserting a self-fact vs the user stating a user-fact), so it needs NO
+classifier — clean, ADR-002-conformant metadata.
+
+BUILD (harness harness/personality/, this-commit):
+  * self_model.py SelfModelStore: writes owner-tagged OKF concepts to memory-okf-self/full/<addr>.md
+    (content-addressed; frontmatter carries `mem_class` + `mem_owner` + `mem_delivery`), so the same
+    engine store-merge + DF-B6 curator machinery can serve/curate them. remember_self() /
+    remember_user() / self_facts() / user_facts() / render_self_model().
+  * render_self_model(): the self-model block for the persona system prefix (PF-B2 folds it into
+    load_agent_system) — emits ONLY self-facts, never user-facts.
+
+GATE G-PF-OWNERSHIP:
+  stored 2 self-facts ("I can read and write memories"; "I run a 12B model on an RTX 2060 and
+  classify my own memories") + 2 user-facts ("The user's name is Knack"; "prefers tea", preference).
+  self_facts=2 (owner=self) · user_facts=2 (owner=user) · distinct addrs · OKF frontmatter conformant
+  (type: mem-concept + mem_class + mem_owner). self-model render contains the self-facts and
+  EXCLUDES the user-facts (no "Knack"/"tea").
+  RESULT pf-ownership: PASS (self vs user owner-tagged + distinct + OKF-conformant + self-model excludes user-facts)
+
+VERDICT: GREEN. PF-B1 done — the agent now has a distinct SELF-MODEL (owner=self) separate from
+facts about the user (owner=user), stored in the OKF format the rest of the stack already speaks.
+The self-model renders into the persona prefix without leaking user-facts.
+
+NEXT (CONTRACT-PERSONALITY): PF-B2 structured persona.md (fold render_self_model + traits/voice into
+load_agent_system) -> PF-B3 tag-persistence (PersonalityStateInterceptor persists the [MOOD]/[VOICE]/
+[TRAIT] tags StreamProcessor already extracts) -> PF-B4 @personality decorators -> PF-B5 NIGHTSHIFT
+curation.
+
+REPRO: python tests/h_personality_ownership.py. ENV: harness Python 3.11.9 (stdlib only).

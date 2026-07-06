@@ -1,0 +1,34 @@
+G-PF-DECORATORS (PF-B4) — @personality tools the model CALLS to durably self-modify (mood/voice/
+traits/self-fact), through the existing @skill + run_with_tools loop. (2026-07-03)
+=========================================================================================
+Fourth brick of CONTRACT-PERSONALITY. PF-B3 gave a tag SHORTCUT; PF-B4 gives a first-class, DURABLE
+action: the model INVOKES @personality tools via the same tool_code protocol used for every skill.
+`@personality` is just `@skill(pack="personality")`, so advertise/parse/dispatch is 100% reused.
+
+BUILD (harness harness/personality/tools.py, this-commit):
+  * personality() = skill(pack="personality", category="system") — the decorator.
+  * adjust_mood(mood) / set_voice(voice) / set_trait(trait, action=add|remove) — write the PF-B2
+    persona state (parse_persona -> update -> write_state); return a confirmation string.
+  * remember_self(fact) — record a self-model fact (PF-B1). All resolve SP_PERSONA_FILE /
+    SP_SELF_MODEL_ROOT so they compose.
+  * self_model.py: added _resolve_root (explicit arg > SP_SELF_MODEL_ROOT env > default) so every
+    self-model caller (incl. the remember_self tool) honours the env root (bug found by the gate).
+
+GATE G-PF-DECORATORS (no LLM — the tool-call loop itself is already proven for @skill):
+  registered personality pack = [adjust_mood, remember_self, set_trait, set_voice]; each has a valid
+  OpenAI function schema (run_with_tools would advertise them); set_trait's schema exposes {trait, action}.
+  calling them (as the model would): adjust_mood("focused") · set_voice("terse") · set_trait("bold",add)
+  · set_trait("formal",remove) · remember_self("I can classify my own memories.") ->
+    persona state = {voice: terse, mood: focused, traits: curious, bold}  (formal removed, curious kept)
+    self-model gained the fact.
+  RESULT pf-decorators: PASS (personality pack registered w/ schemas + model-callable + durable self-modify + self-fact)
+
+VERDICT: GREEN. PF-B4 done — the model has a first-class, model-callable API to change its own
+mood/voice/traits and record self-facts, riding the exact @skill + run_with_tools machinery.
+Activation on the live agent = advertise the "personality" pack (gated SP_PERSONALITY, like PF-B3).
+
+NEXT (CONTRACT-PERSONALITY): PF-B5 — NIGHTSHIFT curation: consolidate_conversation/the curator
+extracts personality shifts from transcripts + curates the personality state into a
+memory-okf-personality tier, so personality is SYSTEM-curatable (drift-correct, prune stale traits).
+
+REPRO: python tests/h_personality_decorators.py. ENV: harness Python 3.11.9 (stdlib only).

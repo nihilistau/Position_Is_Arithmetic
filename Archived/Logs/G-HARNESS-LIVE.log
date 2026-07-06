@@ -1,0 +1,32 @@
+G-HARNESS-LIVE -- tiered memory + capabilities wired LIVE on the served chat (2026-06-25)
+==========================================================================================
+The three live-wiring steps for the served Gemma-4-12B chat.
+
+(1) CAPABILITIES seeded into the SERVED registry (recallable self-knowledge / init primer).
+    tools/xbar_lsh/_seed_capabilities.py minted 6 capability facts (store-memory, forget-update,
+    run-tools, conversation-memory, self-maintenance, local-private) via POST /v1/capture
+    (npos 20-28) + appended to _seed_corpus/registry.jsonl. Daemon restarted -> 6 cap_ episodes
+    loaded. PROVEN on the served chat: "How do you store things in your memory?" -> "I store
+    things in my memory by using a combination of short-term and long-term memory..."; "Do you
+    remember past conversations?" -> "Yes, I remember past conversations. I have a real working
+    memory and can call tools." The model is primed about itself, live.
+
+(2) INIT PRIMING: the default system prompt (engine 88d924e, served console index.html) +
+    the recallable capability episodes together prime the model on init -- identity, what it can
+    do, and the faithfulness rule. (Conversational faithfulness fixed: octopus stays octopus.)
+
+(3) CONVERSATION CONSOLIDATION on the auto-round. harness/control/agency.py: run_agency_scheduler
+    gains convo_path; each tick (idle-gated) it consolidate_current(SP_CURRENT_CONVO) THEN runs a
+    maintenance round -- the KAIROS auto-round doing the full memory work. G-HARNESS-CONSOLIDATE
+    PASS: a current-conversation document (octopus/jazz) -> facts ["...octopus.", "...jazz music."]
+    to mid-term + transcript (full + summary, addr ff1186b8f88ce371) to long-term; gist recalled.
+    Launcher: run_agency.bat (engine) -> run_agency.py (harness), run alongside the daemon.
+
+LAST MILE (small, noted): the console/daemon writing the current-conversation document
+(SP_CURRENT_CONVO) automatically each turn -- a daemon dump of the messages, or a console POST --
+so the scheduler consolidates the LIVE chat with no manual step. The consolidation + capabilities
+substance is proven; this is the trigger plumbing.
+
+FULL STACK now live: system-prompt priming + recallable capabilities + faithful short-term convo
++ NIGHTSHIFT mid-term capture + tiered long-term (full+summary) + autonomous agency/consolidation
+on the heartbeat. Repro: python tests/g_consolidate_live.py ; python tests/diag_caps.py.

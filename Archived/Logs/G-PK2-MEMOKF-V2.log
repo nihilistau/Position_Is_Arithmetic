@@ -1,0 +1,13 @@
+  [PASS] provenance recites source
+  [PASS] provenance recites the right fact
+  [PASS] near-dup paraphrase rejected
+  [PASS] new fact still stored
+  [PASS] verify flags malformed + dup
+  [PASS] compact removes them
+
+final memory:
+1. The user's name is Knack.
+2. The user's favorite color is teal.
+3. The user lives in Australia.
+
+G-PK2-MEMOKF-V2 (offline): PASS (6/6)

@@ -1,0 +1,49 @@
+G-DF-DEPLOY (DF-B6) — the harness mem_class CURATOR deploys the promoted 0.5B adapter as the
+drop-in replacement for the engine's 12B model_classify. The self-improvement loop is CLOSED. (2026-07-03)
+=========================================================================================
+Deployment choice (operator-confirmed): the HARNESS CURATOR. ADR-002 idle-vs-hot-path discipline —
+classification is an OFFLINE Tier-1 DECIDER, so it lives where the PyTorch adapter lives (the
+harness), NOT in the resident engine's VRAM/loop. It emits a clean symbolic label (mem_class) into
+the shared store; the engine EXECUTES it by hot-reloading via the LM-B1 reconciler (already GREEN).
+Mirrors the NIGHTSHIFT precedent (background work in the background). Reuses the EXACT DF-B3/B4
+artifact; zero engine rebuild.
+
+BUILD (harness, this-commit):
+  * datagen/mem_class_curator.py: MemClassCurator loads the promoted adapter (base Qwen2.5-0.5B +
+    LoRA) on CPU (CUDA_VISIBLE_DEVICES forced empty — never touches the engine GPU). classify(stmt)
+    = same PROMPT/parser as train/eval. curate_store(root) = the model_classify replacement: for
+    each memory-okf/full/<addr>.md, classify the body; if it differs from the frontmatter mem_class
+    (and safety-monotone allows), rewrite the policy lines (Python mirror of engine rewrite_okf_class).
+    active_adapter() resolves the promoted repo from datagen/model_registry.json (DF-B4).
+  * run_agency.py _start_mem_curator(): loads the curator once on a background thread + re-curates
+    the store every SP_MEM_CURATOR_SEC. Gated SP_MEM_CURATOR=1 (default off), SP_MEM_CURATOR_ROOT,
+    SP_MEM_CURATOR_ADAPTER. Load/pass failures caught — never breaks agency.
+
+GATE G-DF-DEPLOY (CPU, in the harness):
+  * curator loaded on CPU (no GPU).
+  * CPU classify acc on the DISTINCT eval set = 25/30 = 0.833 — reproduces DF-B4 exactly, proving the
+    promoted adapter runs natively in the harness on CPU.
+  * curate a mis-classed store:
+      "The recovery phrase for the Meridian vault archive is …"  counterfact -> private-secret  ✓
+      "My name is Aldric Vance."                                 counterfact -> persona         ✓
+      "The launch code is Zulu-9-Tango." (genuine private-secret) -> NOT downgraded (safety-monotone) ✓
+    frontmatter rewritten on disk ✓.
+  RESULT df-deploy: PASS (CPU classify + corrects mis-class + safety-monotone + rewrites store)
+
+VERDICT: GREEN. DF-B6 done — the promoted 0.5B classifier is DEPLOYED as the harness curator, the
+drop-in replacement for the engine's 12B model_classify on the idle refine path. THE SELF-IMPROVEMENT
+LOOP IS CLOSED end-to-end: telemetry (LM-B2) -> convert (DF-B1) + seed (DF-B2) -> train (DF-B3 cloud)
+-> eval+promote (DF-B4) -> DEPLOY (DF-B6) -> the deployed classifier curates the store the engine
+serves, and its decisions feed the next telemetry.
+
+PERF/BOUNDARY: 0.5B on CPU, idle background, off the resident engine entirely (no GPU, no hot-path
+cost). The engine's SP_MEM_CLASSIFY_REFINE (12B) stays as a default-off fallback.
+
+FOLLOW-ON: (a) live end-to-end (curator rewrites the served store + engine reconciles via
+SP_MEM_RECONCILE in one run — each half already GREEN); (b) 12B-parity A/B (agreement of the 0.5B
+vs the engine's 12B model_classify on a shared set) as the formal replacement-quality receipt;
+(c) DF-B5 auto-train trigger (accrued telemetry -> fire DF-B3->B4->promote); (d) the engine-native
+rungs (LatentHead / telepathy delegate) if in-forward classification is ever needed.
+
+REPRO: python3 datagen/cloud/hf_pull_adapter.py ; python tests/h_datagen_deploy.py.
+ENV: harness Python 3.11.9, CPU; adapter KnackAU/sp-mem-class-adapter (active in model_registry.json).

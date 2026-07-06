@@ -1,0 +1,34 @@
+G-HARNESS-TOOLCALL-E2E -- live ephemeral tool calling on the served Gemma-4-12B (2026-06-25)
+==============================================================================================
+The model emits <tool name="...">{json}</tool> in plain text; the harness parses it,
+executes the matching Python callable, feeds the result back, and re-prompts (ReAct loop,
+run_with_tools). No native tool channel needed -- ephemeral text protocol. Live on the
+resident sp-daemon (:3000) through the gateway proven in G-HARNESS-DAEMON-E2E.
+
+Repro: python tests/g_tool_calling_e2e.py   (daemon up on :3000)
+
+TOOLS (Python callables -> ToolSpec.from_callable, schema derived from signature):
+  - calculate(expression): safe arithmetic eval (no builtins)
+  - run_python(code): execute model-written Python in a sandboxed subprocess (10s timeout),
+    return stdout/stderr
+
+RESULT:
+  Test 1 (calculate):  model -> <tool name="calculate">{"expression": "47 * 89"}</tool>
+                       harness -> 4183 -> model FINAL "4183"            PASS
+  Test 2 (run_python): model -> <tool name="run_python">{"code": "print(sum(range(1, 101)))"}</tool>
+                       harness -> executed in subprocess -> "5050"      PASS
+  G-HARNESS-TOOLCALL-E2E: PASS (tool calls fire + execute + feed back on the live model)
+
+FINDING (preamble strengthened this session): the first run_python attempt NARRATED + wrote a
+markdown code fence instead of calling the tool. Fix = a firmer _tool_preamble (harness/mcp/tools.py):
+"when a tool can do the work, emit the <tool> call INSTEAD of writing code/answer; do NOT use
+markdown fences; pass code as a JSON string." After: run_python fires reliably.
+
+KNOWN REFINEMENT (honest negative): multi-line INDENTED code inside a JSON string is unreliable
+-- a Fibonacci attempt collapsed indentation (IndentationError; the model even saw the stderr
+and retried, proving the feedback loop). One-line programs work cleanly. Follow-ups: a line-list
+code arg, or a non-JSON code delimiter, for robust multi-line code. The MECHANISM is solid; the
+limiter is the model encoding indented code as a JSON string.
+
+NEXT: H3 = memory-agency actions (forget/decide/merge) as tools; H4 = KAIROS auto-rounds as the
+agency loop (the model acts between turns, not just stop/be-silent).

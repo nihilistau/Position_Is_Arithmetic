@@ -1,0 +1,35 @@
+G-PF-CURATE (PF-B5) — NIGHTSHIFT personality curation: the SYSTEM curates the personality the way
+it curates memory (mirrors consolidate_conversation). (2026-07-04)
+=========================================================================================
+Fifth brick of CONTRACT-PERSONALITY. PF-B4 gave the model self-modify VERBS; PF-B5 makes the
+personality SYSTEM-curatable + recoverable — drift-control that runs between turns / on idle, not
+on the hot path (ADR-002: the curated state is a clean symbolic artifact, no latent fusion).
+
+BUILD (harness harness/personality/curator.py, this-commit):
+  consolidate_personality(messages, persona_path, tier_root):
+    1) EXTRACT — reuses PF-B3 apply_personality_tags on the ASSISTANT turns, so any [MOOD]/[VOICE]/
+       [TRAIT+/-] the model expressed mid-conversation is captured into the persona state.
+    2) PRUNE — dedup + cap traits (MAX_TRAITS=8): drift-control, removes duplicate/stale traits.
+    3) SNAPSHOT — writes the personality as a content-addressed OKF concept (mem_class: persona,
+       mem_owner: self, mem_delivery: system) to the memory-okf-personality/full tier: versioned,
+       recoverable, and served/curated by the same MEM-OKF machinery as every other concept.
+  Deterministic (no model call) — the tag extraction + dedup + hash snapshot are all pure.
+  WIRED: harness/control/agency.py consolidate_current() now also calls consolidate_personality on
+  the same transcript when SP_PERSONALITY=1 (best-effort; never breaks memory consolidation).
+
+GATE G-PF-CURATE (no LLM — deterministic curation):
+  seed persona traits = "curious, formal, curious, terse" (DUPLICATE curious + a terse to drop);
+  transcript: assistant turn expresses [MOOD:reflective] [VOICE:gentle] [TRAIT:+patient] [TRAIT:-terse].
+  consolidate_personality(transcript) ->
+    state = {voice: gentle, mood: reflective, traits: "curious, formal, patient"}
+    pruned=1 (duplicate curious removed), terse dropped, patient added
+    snapshot 6e912d43ec125530.md written w/ mem_class: persona + mem_owner: self
+  checks: mood=True voice=True trait_add=True trait_rm=True dedup=True snapshot=True
+  RESULT pf-curate: PASS (extract shifts from transcript + prune duplicate traits + OKF snapshot)
+
+VERDICT: GREEN. PF-B5 done — the personality is now curated by the system the same way memory is:
+the shifts the model expressed get consolidated, stale/duplicate traits get pruned, and the whole
+personality is snapshotted into a content-addressed, recoverable OKF tier. Self-modifiable (PF-B4)
+AND system-curatable (PF-B5). NEXT: PF-B6 (personality head) — DEFERRED (engine-native LatentHead).
+
+REPRO: python tests/h_personality_curate.py. ENV: harness Python 3.11.9 (stdlib only).
