@@ -1,12 +1,12 @@
 # JOURNEY.md — agent map of the zoo
 
-**Date:** 2026-08-29  
+**Date:** 2026-08-29 (companion pointer added 2026-09-02)  
 **Owner:** nihilistau / KnackAU  
 **Audience:** the next agent that lands on any public tree and needs to know *which epoch this is*.
 
 This file is the central map. Tombstones live as `STATUS.md` in each repo. **Read `STATUS.md` in a repo before treating its README as current.**
 
-Companion / durable-memory daemon work (`Kairos`, `shannon-prime-kairos`) is **out of scope for this document**. Those trees are left alone. This map covers the Shannon-Prime arithmetic organism, the historical Shannon-Prime siblings, CosySim, Archives of Anubis, and the related game / media experiments.
+Companion / durable-memory daemon work (`Kairos`, `shannon-prime-kairos`, `kairos-engine`) is **out of scope for this document** — but it is now *named* here, in one place, because leaving it unnamed did not keep the families apart. In September 2026 the companion's CUDA backend was published as `kairos-engine`, and its first README described `shannon-prime-system-engine` as an earlier snapshot of itself. Two repos with "engine" in the name and no row connecting them is an invitation to guess. See [Companion family](#companion-family--named-here-mapped-elsewhere) below. Those trees are otherwise left alone. This map covers the Shannon-Prime arithmetic organism, the historical Shannon-Prime siblings, CosySim, Archives of Anubis, and the related game / media experiments.
 
 ---
 
@@ -65,7 +65,7 @@ Clean rebuild already happened in cluster 1. Do not vendor these into new work (
 | Repo | What it was |
 |---|---|
 | [shannon-prime](https://github.com/nihilistau/shannon-prime) | First public math-core epoch (`O_K`, Friedman sieve, KSTE) |
-| [shannon-prime-engine](https://github.com/nihilistau/shannon-prime-engine) | First reference engine |
+| [shannon-prime-engine](https://github.com/nihilistau/shannon-prime-engine) | First reference engine (PPT-ARM). **Not** the ancestor of `kairos-engine` — different codebase, different family |
 | [shannon-prime-llama](https://github.com/nihilistau/shannon-prime-llama) | llama.cpp patch bridge |
 | [shannon-prime-comfyui](https://github.com/nihilistau/shannon-prime-comfyui) | ComfyUI VHT2 nodes (research dump) |
 | [shannon-prime-bernhard](https://github.com/nihilistau/shannon-prime-bernhard) | Prime-harmonic / residue theory sketch |
@@ -111,6 +111,26 @@ Threads that proved hard-engine + autonomous cast + procedural / baked-TTS pipel
 
 ---
 
+## Companion family — named here, mapped elsewhere
+
+`LIVE`, and deliberately not part of this map's six clusters. Listed only so that an agent
+who arrives at one of these does not mistake it for lattice work, or the reverse.
+
+| Repo | Role |
+|---|---|
+| [Kairos](https://github.com/nihilistau/Kairos) | The companion harness: the room, the memory architecture, the turn epilogue, the gate suite. Talks to any OpenAI-compatible endpoint |
+| [kairos-engine](https://github.com/nihilistau/kairos-engine) | Its **optional** native CUDA backend — the `sp-daemon` source that stack runs, cut as a curated export (2026-09-02). Carries `shannon-prime-system` as a submodule |
+
+**`kairos-engine` supersedes nothing in this document.** It is not a rebuild of
+`shannon-prime-engine` (different codebase: no PPT-ARM algebra, no Friedman sieve, no shared
+kernels) and it is not a replacement for `shannon-prime-system-engine`, which is `STANDING`
+and holds SP-SWARM / DHT, the byte-exact exact-integer forward, the NTT / CRT kernels and the
+frozen L1 C ABI — none of which are companion features. The only thing the two families share
+is the math core, `shannon-prime-system`, which each of them consumes on its own terms.
+
+That is rule 2, stated positively: the families are separate at the top, and they meet at the
+math core. Read each tree's `STATUS.md`.
+
 ## Split that must not be averaged
 
 ```
@@ -121,8 +141,8 @@ Threads that proved hard-engine + autonomous cast + procedural / baked-TTS pipel
           +-------------------+-------------------+
           |                                       |
    STANDING substrate                      companion loop
-   lattice + system + engine               (not this document)
-   DHT / NTT / byte-exact / OKF
+   lattice + system + engine               Kairos + kairos-engine
+   DHT / NTT / byte-exact / OKF            (LIVE; named above, mapped elsewhere)
           |
    HISTORICAL siblings
    shannon-prime, -engine, -llama,
