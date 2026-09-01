@@ -121,15 +121,21 @@ who arrives at one of these does not mistake it for lattice work, or the reverse
 | [Kairos](https://github.com/nihilistau/Kairos) | The companion harness: the room, the memory architecture, the turn epilogue, the gate suite. Talks to any OpenAI-compatible endpoint |
 | [kairos-engine](https://github.com/nihilistau/kairos-engine) | Its **optional** native CUDA backend — the `sp-daemon` source that stack runs, cut as a curated export (2026-09-02). Carries `shannon-prime-system` as a submodule |
 
-**`kairos-engine` supersedes nothing in this document.** It is not a rebuild of
-`shannon-prime-engine` (different codebase: no PPT-ARM algebra, no Friedman sieve, no shared
-kernels) and it is not a replacement for `shannon-prime-system-engine`, which is `STANDING`
-and holds SP-SWARM / DHT, the byte-exact exact-integer forward, the NTT / CRT kernels and the
-frozen L1 C ABI — none of which are companion features. The only thing the two families share
-is the math core, `shannon-prime-system`, which each of them consumes on its own terms.
+**`kairos-engine` supersedes nothing in this document**, and the reason is scope, not
+contents. It is a **downstream cut** — 152 files, just enough to build the daemon the
+companion runs — taken from a tree that is itself built on lattice substrate. So it naturally
+*contains* some: `SP_BYTEEXACT` in the CUDA forward, `ptx_ntt.cuh`, `sieve_ffi.rs`, the `sp_l1`
+bindings, and an optional default-off `sp-swarm` crate. **Using that work is not owning it.**
+SP-SWARM / DHT with its L0-L4 and its gates, the byte-exact forward as a research line, the
+full NTT / CRT / Frobenius / ARM kernel matrix and the contracts every backend gates to are
+*developed* in `shannon-prime-system-engine` — 2095 files, `STANDING`.
 
-That is rule 2, stated positively: the families are separate at the top, and they meet at the
-math core. Read each tree's `STATUS.md`.
+Nor is it a rebuild of `shannon-prime-engine`: different codebase, different architecture, no
+shared history with the PPT-ARM line.
+
+That is rule 2, stated positively: **a downstream cut does not replace the tree it was cut
+from.** The families are separate at the top and meet at the math core. Read each tree's
+`STATUS.md`.
 
 ## Split that must not be averaged
 
